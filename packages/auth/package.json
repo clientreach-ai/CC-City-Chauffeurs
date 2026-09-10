@@ -1,0 +1,24 @@
+{
+  "name": "@CC-City-Chauffeurs/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@CC-City-Chauffeurs/db": "workspace:*",
+    "@CC-City-Chauffeurs/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@CC-City-Chauffeurs/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

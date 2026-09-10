@@ -1,0 +1,3 @@
+{
+  "extends": "@CC-City-Chauffeurs/config/tsconfig.base.json"
+}
