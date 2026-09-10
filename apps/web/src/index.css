@@ -1,1 +1,314 @@
 @import "@CC-City-Chauffeurs/ui/globals.css";
+
+/* The shared package's @source globs resolve relative to its own directory, so
+   declare this app's sources here — otherwise utilities used only in
+   apps/web/src are missed while the dev server is watching. */
+@source "./**/*.{ts,tsx}";
+
+/* ---------------------------------------------------------------------------
+   CC City Chauffeurs — brand design system
+   Black · White · Silver. Editorial geometry, hairline rules, zero radius.
+   Tokens are deliberately theme-independent: the marketing site always renders
+   in the brand palette regardless of the app's light/dark preference.
+   ------------------------------------------------------------------------ */
+
+@theme {
+  /* Surfaces */
+  --color-obsidian: #060607;
+  --color-ink: #0b0b0c;
+  --color-graphite: #131315;
+  --color-carbon: #1c1c1f;
+
+  /* Light canvas */
+  --color-mist: #f3f3f2;
+  --color-alabaster: #fafaf9;
+
+  /* Metallics + text */
+  --color-silver: #c9cbcd;
+  --color-steel: #8f9499;
+  --color-slate: #5c6065;
+
+  /* Hairlines */
+  --color-hairline: rgba(255, 255, 255, 0.14);
+  --color-hairline-strong: rgba(255, 255, 255, 0.28);
+  --color-hairline-ink: rgba(11, 11, 12, 0.14);
+  --color-hairline-ink-strong: rgba(11, 11, 12, 0.32);
+
+  /* Type */
+  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-ui: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+
+  /* Motion — slow, quiet, expensive */
+  --ease-editorial: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@layer components {
+  /* Display typography ---------------------------------------------------- */
+  .display-hero {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(2.5rem, 7.4vw, 6.5rem);
+    line-height: 0.86;
+    letter-spacing: -0.035em;
+    text-transform: uppercase;
+  }
+
+  .display-xl {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(2.5rem, 7vw, 6rem);
+    line-height: 0.9;
+    letter-spacing: -0.032em;
+    text-transform: uppercase;
+  }
+
+  .display-lg {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(2.125rem, 5vw, 4rem);
+    line-height: 0.94;
+    letter-spacing: -0.028em;
+    text-transform: uppercase;
+  }
+
+  .display-md {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+    line-height: 1;
+    letter-spacing: -0.024em;
+    text-transform: uppercase;
+  }
+
+  .display-sm {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(1.375rem, 2.2vw, 1.875rem);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    text-transform: uppercase;
+  }
+
+  /* Serif set in sentence case — used for pull quotes */
+  .quote-lg {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: clamp(1.75rem, 3.6vw, 3rem);
+    line-height: 1.14;
+    letter-spacing: -0.02em;
+  }
+
+  /* UI typography --------------------------------------------------------- */
+  .label-xs {
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .label-sm {
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .copy {
+    font-family: var(--font-ui);
+    font-weight: 400;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    letter-spacing: -0.005em;
+  }
+
+  .copy-lg {
+    font-family: var(--font-ui);
+    font-weight: 400;
+    font-size: clamp(1rem, 1.3vw, 1.125rem);
+    line-height: 1.6;
+    letter-spacing: -0.008em;
+  }
+
+  /* Controls -------------------------------------------------------------- */
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    border-radius: 2px;
+    border-width: 1px;
+    padding: 1.0625rem 1.75rem;
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    transition:
+      background-color 0.45s var(--ease-editorial),
+      color 0.45s var(--ease-editorial),
+      border-color 0.45s var(--ease-editorial);
+  }
+
+  .btn-on-dark {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+  }
+
+  .btn-on-dark:hover {
+    background-color: #fff;
+    border-color: #fff;
+    color: var(--color-ink);
+  }
+
+  .btn-on-light {
+    border-color: var(--color-hairline-ink-strong);
+    color: var(--color-ink);
+  }
+
+  .btn-on-light:hover {
+    background-color: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-mist);
+  }
+
+  /* Underlined text link that draws in from the left on hover */
+  .link-quiet {
+    position: relative;
+    display: inline-block;
+    padding-bottom: 3px;
+  }
+
+  .link-quiet::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 1px;
+    width: 100%;
+    background-color: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s var(--ease-editorial);
+  }
+
+  .link-quiet:hover::after {
+    transform: scaleX(1);
+  }
+}
+
+@layer utilities {
+  /* Entrance for content that is present on first paint (the hero).
+     Pure CSS, so the type is never waiting on hydration to appear. */
+  .enter {
+    animation: cc-enter 1.1s var(--ease-editorial) both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  .enter-image {
+    animation: cc-fade 1.5s var(--ease-editorial) both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  @keyframes cc-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes cc-enter {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Scroll reveal — opacity + a few pixels of lift, nothing more.
+     Only ever hidden when scripting is available to reveal it again. */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 1.1s var(--ease-editorial),
+      transform 1.1s var(--ease-editorial);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .js .reveal[data-visible="true"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Photographs simply fade up — slowly, and without moving. Anything more
+     energetic reads as a web effect rather than as a printed page. */
+  .js .reveal-image {
+    opacity: 0;
+    transition: opacity 1.4s var(--ease-editorial);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .js .reveal-image[data-visible="true"] {
+    opacity: 1;
+  }
+
+  .marquee-track {
+    animation: cc-marquee 46s linear infinite;
+  }
+
+  @keyframes cc-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Anchored sections clear the fixed navigation */
+  section[id],
+  [data-anchor] {
+    scroll-margin-top: 5.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .reveal-image,
+  .js .reveal,
+  .js .reveal-image > *,
+  .js .reveal-image {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    transition: none !important;
+  }
+
+  .enter,
+  .enter-image {
+    animation: none !important;
+  }
+
+  .marquee-track {
+    animation: none !important;
+  }
+}
