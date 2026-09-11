@@ -5,6 +5,7 @@ import { PageHero } from "@/components/site/page-hero";
 import { GhostLink, QuietLink, SectionHead, shell } from "@/components/site/primitives";
 import { Reveal } from "@/components/site/reveal";
 import { media } from "@/content/media";
+import { pageMetadata } from "@/content/seo";
 import {
   contact,
   routes,
@@ -14,12 +15,12 @@ import {
   whatsappUrl,
 } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Contact | CC City Chauffeurs, London",
   description:
-    "Contact CC City Chauffeurs — WhatsApp, telephone or email. London based chauffeur company covering the United Kingdom and Europe. Enquiries handled in confidence.",
-  alternates: { canonical: "/contact" },
-};
+    "Contact CC City Chauffeurs by WhatsApp, telephone or email. A London chauffeur company covering the UK and Europe. Enquiries handled in confidence.",
+  path: "/contact",
+});
 
 const channels = [
   {
@@ -84,7 +85,11 @@ export default function ContactPage() {
                   >
                     <span className="min-w-0">
                       <span className="label-xs block text-white/55">{channel.label}</span>
-                      <span className="display-sm mt-3 block truncate text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5">
+                      <span
+                      className={`display-sm mt-3 block text-white transition-transform duration-700 ease-editorial group-hover:translate-x-1.5 ${
+                        channel.value.includes("@") ? "normal-case [overflow-wrap:anywhere]" : ""
+                      }`}
+                    >
                         {channel.value}
                       </span>
                       <span className="copy mt-3 block text-white/55">{channel.note}</span>
@@ -128,7 +133,7 @@ export default function ContactPage() {
             <div className="lg:col-span-6 lg:col-start-7">
               <SectionHead label="Or set out the details" note="Sends via WhatsApp or email" />
               <Reveal>
-                <EnquiryForm variant="short" submitLabel="Send enquiry" />
+                <EnquiryForm variant="short" />
               </Reveal>
 
               <Reveal delay={120} className="mt-12">

@@ -47,6 +47,8 @@ export type Service = {
   };
   /** Vehicles typically used, by id. */
   vehicles: readonly VehicleId[];
+  /** What we need to quote this service, and one practical note. */
+  booking: { needs: readonly string[]; note: string };
   /** Closing line above the enquiry band. */
   closing: string;
   seo: { title: string; description: string };
@@ -99,11 +101,20 @@ export const services: readonly Service[] = [
       imageAlt: "The rear cabin of a Rolls-Royce Cullinan",
     },
     vehicles: ["cullinan", "ghost", "s-class", "range-rover"],
+    booking: {
+      needs: [
+        "The date and a start time",
+        "Where the day begins, and roughly where it goes",
+        "How many hours, or a full day",
+        "How many are travelling",
+      ],
+      note: "Hourly bookings have a four-hour minimum. Day rates start from £500.",
+    },
     closing: "Tell us the shape of the day and we will put a chauffeur against it.",
     seo: {
       title: "Private Chauffeur Hire London | CC City Chauffeurs",
       description:
-        "Private chauffeur hire in London — as directed, by the hour or by the day. Professional, comfortable and discreet chauffeur-driven travel across the UK and Europe.",
+        "Private chauffeur hire in London — as directed, by the hour or by the day. Professional, comfortable and discreet travel across the UK and Europe.",
     },
     template: "index",
   },
@@ -149,17 +160,26 @@ export const services: readonly Service[] = [
       heading: "Departures, handled the same way",
       paragraphs: [
         "Outbound, we work backwards from the time you want to be airside — not from the time the journey planner says the road takes. The vehicle arrives early, the luggage goes in, and the car leaves when you do.",
-        "Regular travellers usually move to an account so the details do not have to be repeated every time.",
+        "For regular travellers, the arrangement is agreed once and repeated — the details do not have to be sent every time.",
       ],
-      image: "collectionO2" as MediaKey,
-      imageAlt: "City Chauffeurs vehicles photographed in London at night",
+      image: "cullinanWorkshopRear" as MediaKey,
+      imageAlt: "Rolls-Royce Cullinan from the rear, photographed in the workshop",
     },
     vehicles: ["s-class", "range-rover", "cullinan", "v-class"],
+    booking: {
+      needs: [
+        "Flight number and arrival or departure time",
+        "The airport and terminal",
+        "The collection or drop-off address",
+        "Passengers, and how many large cases",
+      ],
+      note: "Waiting is complimentary for 60 minutes after landing. Airport parking and drop-off fees are added to the quote.",
+    },
     closing: "Send the flight number and we will do the rest.",
     seo: {
-      title: "Airport Transfers London | Chauffeur Meet & Greet | CC City Chauffeurs",
+      title: "Airport Transfers London | Meet & Greet | CC City Chauffeurs",
       description:
-        "Chauffeur-driven airport transfers for Gatwick and all London airports. Meet & greet, flight tracking, luggage assistance and 60 minutes complimentary waiting after landing.",
+        "Chauffeur airport transfers for Gatwick and all London airports — meet & greet, flight tracking, luggage help and 60 minutes' free waiting after landing.",
     },
     template: "columns",
   },
@@ -169,13 +189,13 @@ export const services: readonly Service[] = [
     label: "Corporate",
     display: ["For people", "whose time", "is the asset"],
     summary:
-      "Executive travel, client transportation and meeting schedules held to the minute, with accounts for regular requirements.",
+      "Executive travel, client transportation and meeting schedules held to the minute, with arrangements for regular travel.",
     standfirst:
       "Executives, fund managers, visiting clients and the people who have to get them there. Corporate work is planned around the schedule rather than the journey — the car is already waiting when the meeting overruns.",
-    hero: "corporate",
-    heroAlt: "City Chauffeurs vehicles against the Canary Wharf skyline at night",
+    hero: "cullinanCanaryWharf",
+    heroAlt: "Rolls-Royce Cullinan against the Canary Wharf skyline at night",
     facts: [
-      { label: "Accounts", value: "Available for regular travel" },
+      { label: "Regular travel", value: "Arranged around your schedule" },
       { label: "Districts", value: "Canary Wharf · Mayfair · The City" },
       { label: "Coverage", value: "London, UK and Europe" },
     ],
@@ -197,8 +217,8 @@ export const services: readonly Service[] = [
         copy: "Arrivals and departures coordinated across multiple vehicles, with one point of contact for the whole movement.",
       },
       {
-        title: "Corporate accounts",
-        copy: "Regular requirements can be arranged on account. Talk to us about how your travel is organised and we will set it up around that.",
+        title: "Regular requirements",
+        copy: "Talk to us about how your travel is organised — who books, how often, where — and we will set up an arrangement around it.",
       },
     ],
     detail: {
@@ -207,15 +227,24 @@ export const services: readonly Service[] = [
         "Most corporate work is London work: the City, Canary Wharf, Mayfair, Knightsbridge and the airports either side of them. Chauffeurs know the entrances, the restricted streets and where a car can actually stop.",
         "Beyond London, the same vehicles run city to city across the United Kingdom and into Europe — often a better use of a working day than a short flight.",
       ],
-      image: "cullinanCanaryWharf" as MediaKey,
-      imageAlt: "Rolls-Royce Cullinan at Canary Wharf at night",
+      image: "cullinanRearCabin" as MediaKey,
+      imageAlt: "The rear cabin of a Rolls-Royce Cullinan",
     },
     vehicles: ["s-class", "cullinan", "flying-spur", "v-class-jet"],
+    booking: {
+      needs: [
+        "Who is travelling, and who is booking",
+        "The dates — a single day or a regular pattern",
+        "Addresses and the meeting schedule",
+        "Any vehicle preference",
+      ],
+      note: "Regular travel is arranged around your pattern of bookings rather than priced journey by journey.",
+    },
     closing: "Tell us the pattern of travel and we will put together the arrangement.",
     seo: {
       title: "Corporate Chauffeur Service London | CC City Chauffeurs",
       description:
-        "Corporate chauffeur service in London — executive travel, client transportation, roadshows and corporate accounts across Canary Wharf, Mayfair, the UK and Europe.",
+        "Corporate chauffeur service in London — executive travel, client transportation, roadshows and regular business travel across Canary Wharf, Mayfair and the UK.",
     },
     template: "columns",
   },
@@ -246,7 +275,7 @@ export const services: readonly Service[] = [
       },
       {
         title: "Timings and routes",
-        copy: "Journeys are driven or reviewed in advance where the day depends on them, and timings are agreed with you rather than assumed.",
+        copy: "Routes are planned in advance for the day itself, and timings are agreed with you rather than assumed.",
       },
       {
         title: "Presentation",
@@ -266,12 +295,21 @@ export const services: readonly Service[] = [
       image: "cullinanHotelSide" as MediaKey,
       imageAlt: "Rolls-Royce Cullinan in profile at a hotel entrance",
     },
-    vehicles: ["cullinan", "ghost", "flying-spur", "v-class-8"],
+    vehicles: ["cullinan", "ghost", "flying-spur", "v-class"],
+    booking: {
+      needs: [
+        "The date",
+        "Ceremony and reception venues",
+        "How many cars, and who travels in each",
+        "The timings for the day",
+      ],
+      note: "Wedding pricing is bespoke to the day — send the venues and timings and we will come back with a figure.",
+    },
     closing: "Send us the date and the venues and we will build the day around them.",
     seo: {
       title: "Wedding Car Hire London | Chauffeur-Driven | CC City Chauffeurs",
       description:
-        "Chauffeur-driven wedding cars in London — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur, plus vehicles for the wider party. Timings, routes and presentation agreed in advance.",
+        "Chauffeur-driven wedding cars in London — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and cars for the wider party, every timing agreed in advance.",
     },
     template: "stack",
   },
@@ -315,10 +353,19 @@ export const services: readonly Service[] = [
         "Arrivals set the tone. A car that stops in the right place, at the right moment, with a chauffeur who steps out and opens the door properly, is doing more work than it appears to be.",
         "Departures matter more. Guests remember the twenty minutes they spent waiting for a car far longer than they remember the room.",
       ],
-      image: "collectionO2" as MediaKey,
-      imageAlt: "City Chauffeurs vehicles in London at night",
+      image: "heroCullinanEntrance" as MediaKey,
+      imageAlt: "Rolls-Royce Cullinan waiting at a London hotel entrance at night",
     },
-    vehicles: ["cullinan", "g-wagon", "v-class-8", "ghost"],
+    vehicles: ["cullinan", "g-wagon", "v-class", "ghost"],
+    booking: {
+      needs: [
+        "The date and the venue",
+        "Arrival and finish times",
+        "How many guests, and how many vehicles",
+        "Whether cars should be held on site",
+      ],
+      note: "Late finishes are agreed when the booking is made, not on the night.",
+    },
     closing: "Give us the venue and the running order and we will cover the movements.",
     seo: {
       title: "Event Chauffeur Service London | CC City Chauffeurs",
@@ -371,9 +418,18 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan in profile",
     },
     vehicles: ["flying-spur", "s-class", "cullinan", "v-class-jet"],
+    booking: {
+      needs: [
+        "Both addresses",
+        "The date and departure time",
+        "One way or return",
+        "Passengers and luggage",
+      ],
+      note: "Continental journeys are arranged on request, with the route and crossing agreed before the booking is confirmed.",
+    },
     closing: "Tell us the two cities and the date.",
     seo: {
-      title: "City to City Chauffeur | Long Distance UK & Europe | CC City Chauffeurs",
+      title: "City to City Chauffeur | UK & Europe | CC City Chauffeurs",
       description:
         "Long-distance chauffeur travel from London across the United Kingdom and into Europe. Door to door, one way or return, in the chauffeur fleet.",
     },
@@ -388,8 +444,8 @@ export const services: readonly Service[] = [
       "Corporate roadshows and multi-day itineraries with a dedicated chauffeur and vehicle for the duration.",
     standfirst:
       "Investor roadshows, client tours and multi-city executive itineraries. One chauffeur and one vehicle stay with the party for the whole programme, so the schedule is held by someone who already knows it.",
-    hero: "collectionCanaryWharf",
-    heroAlt: "City Chauffeurs vehicles against the Canary Wharf skyline",
+    hero: "fleetCullinan",
+    heroAlt: "Rolls-Royce Cullinan in black, photographed in the workshop",
     facts: [
       { label: "Duration", value: "Multi-day programmes" },
       { label: "Chauffeur", value: "Dedicated for the itinerary" },
@@ -427,9 +483,18 @@ export const services: readonly Service[] = [
       imageAlt: "The front cabin of a Rolls-Royce Cullinan",
     },
     vehicles: ["v-class-jet", "s-class", "flying-spur", "cullinan"],
+    booking: {
+      needs: [
+        "The draft itinerary — cities, dates and meeting addresses",
+        "How many are in the party, and the luggage",
+        "Any vehicle preference",
+        "Who is coordinating the programme",
+      ],
+      note: "Send the itinerary as it stands; changes can follow as the programme settles.",
+    },
     closing: "Send the draft itinerary and we will price the programme.",
     seo: {
-      title: "Corporate Roadshow Chauffeur | Multi-Day Travel | CC City Chauffeurs",
+      title: "Corporate Roadshow Chauffeur | CC City Chauffeurs",
       description:
         "Corporate roadshow chauffeur service — multi-day, multi-city itineraries with a dedicated chauffeur and vehicle across the UK and Europe.",
     },
@@ -479,6 +544,15 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan photographed in London",
     },
     vehicles: ["cullinan", "range-rover", "v-class", "ghost"],
+    booking: {
+      needs: [
+        "The date, and a half or full day",
+        "Where to start from",
+        "What you would like to see — or ask us to suggest",
+        "How many are travelling",
+      ],
+      note: "Hourly bookings have a four-hour minimum. Day rates start from £500.",
+    },
     closing: "Tell us the day and roughly what you would like to see.",
     seo: {
       title: "Private London Tours by Chauffeur | CC City Chauffeurs",
@@ -501,7 +575,7 @@ export const services: readonly Service[] = [
     facts: [
       { label: "Booked", value: "Regular or one-off" },
       { label: "Chauffeurs", value: "Consistent, where we can" },
-      { label: "Child seats", value: "Fitted on request" },
+      { label: "Booster seats", value: "Isofix, on request" },
     ],
     included: [
       {
@@ -513,8 +587,8 @@ export const services: readonly Service[] = [
         copy: "We keep the same chauffeur on a regular arrangement wherever scheduling allows, presented to the same standard as on any other booking.",
       },
       {
-        title: "Child and booster seats",
-        copy: "Tell us ages and we will fit the appropriate seats. Please confirm requirements when you book.",
+        title: "Booster seats",
+        copy: "Isofix booster seats are available on request — tell us the children's ages when you book so the right number are fitted.",
       },
       {
         title: "Standing arrangements",
@@ -525,17 +599,26 @@ export const services: readonly Service[] = [
       heading: "Reliability is the whole service",
       paragraphs: [
         "There is nothing glamorous about a school run, and that is rather the point. It has to happen at the same time, in the same way, with someone you have already met.",
-        "For families who also use us for airports and evenings out, the school run usually sits on the same account.",
+        "For families who also use us for airports and evenings out, the school run simply becomes part of the same arrangement.",
       ],
       image: "gWagonSide" as MediaKey,
       imageAlt: "Mercedes-AMG G-Wagon in profile",
     },
     vehicles: ["range-rover", "v-class", "s-class", "g-wagon"],
+    booking: {
+      needs: [
+        "The schedule — days, times and term dates",
+        "Home and school addresses",
+        "Children's ages, if booster seats are needed",
+        "Regular arrangement or one-off",
+      ],
+      note: "Isofix booster seats are available on request — the one type of child seat currently offered.",
+    },
     closing: "Tell us the schedule and we will set it up.",
     seo: {
       title: "School Run & Family Chauffeur London | CC City Chauffeurs",
       description:
-        "Regular school runs and family chauffeur travel in London with consistent arrangements and child seats fitted on request.",
+        "Regular school runs and family chauffeur travel in London with a consistent chauffeur, standing arrangements and Isofix booster seats on request.",
     },
     template: "stack",
   },

@@ -3,9 +3,9 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
-import { getVehicle, type VehicleId } from "@/content/fleet";
+import { getVehicle, passengersLabel, type VehicleId } from "@/content/fleet";
 import { contact, routes, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
-import { GhostLink, Rule, SectionHead, shell } from "./primitives";
+import { GhostLink, Rule, SectionHead, shell, Unbroken } from "./primitives";
 import { Reveal } from "./reveal";
 
 type Tone = "dark" | "light";
@@ -106,7 +106,7 @@ export function EditorialSplit({
         variant="image"
         className={`lg:col-span-6 ${flip ? "lg:order-2 lg:col-start-7" : ""}`}
       >
-        <div className={`media-zoom glow-ring relative ${aspect} w-full overflow-hidden bg-graphite`}>
+        <div className={`media-zoom relative ${aspect} w-full overflow-hidden bg-graphite`}>
           <Image
             src={image}
             alt={imageAlt}
@@ -323,7 +323,7 @@ export function VehicleStrip({
                   tone === "dark" ? "text-white/55" : "text-slate"
                 }`}
               >
-                {vehicle.passengers} passengers · {vehicle.rate}
+                {passengersLabel(vehicle)} · {vehicle.rate}
               </p>
             </Reveal>
           );
@@ -347,7 +347,9 @@ export function VehiclePlate({
   return (
     <div className="absolute inset-0 flex flex-col justify-between border border-hairline bg-graphite p-6">
       <span className="label-xs text-white/50">{marque}</span>
-      <span className="display-sm text-white/70">{name}</span>
+      <span className="display-sm text-white/70">
+        <Unbroken text={name} />
+      </span>
       <span className="label-xs text-white/45">Photography to follow</span>
     </div>
   );
@@ -425,5 +427,68 @@ export function EnquiryBand({
         </Reveal>
       </div>
     </section>
+  );
+}
+
+/**
+ * What we need to quote a service, set as a short numbered list beside the
+ * practical terms. It answers the questions the client otherwise has to go
+ * back and ask, which is where enquiries go cold.
+ */
+export function QuoteBrief({
+  needs,
+  note,
+  terms,
+  quoteHref,
+}: {
+  needs: readonly string[];
+  note: string;
+  terms: readonly string[];
+  quoteHref: string;
+}) {
+  return (
+    <>
+      <SectionHead label="To quote, we need" note="Send it in one message" />
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+        <Reveal as="ol" className="lg:col-span-6">
+          {needs.map((need, i) => (
+            <li
+              key={need}
+              className="flex items-baseline gap-5 border-t border-hairline py-5 last:border-b"
+            >
+              <span className="label-xs w-6 shrink-0 text-silver">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="label-sm text-white">{need}</span>
+            </li>
+          ))}
+        </Reveal>
+
+        <Reveal delay={100} className="lg:col-span-5 lg:col-start-8">
+          <p className="copy-lg max-w-[44ch] text-white/80">{note}</p>
+          <ul className="mt-8">
+            {terms.map((term) => (
+              <li
+                key={term}
+                className="copy border-t border-hairline py-4 text-white/60 last:border-b"
+              >
+                {term}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <GhostLink href={quoteHref}>Request a quote</GhostLink>
+            <a
+              href={whatsappUrl(WHATSAPP_INTRO)}
+              target="_blank"
+              rel="noreferrer"
+              className="label-xs link-quiet text-white/70 hover:text-white"
+            >
+              Or send it on WhatsApp
+            </a>
+          </div>
+        </Reveal>
+      </div>
+    </>
   );
 }

@@ -3,18 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { brand } from "@/content/media";
+import { brand } from "@/content/brand";
 import {
   contact,
-  navGroups,
   navLinks,
   routes,
   site,
   WHATSAPP_INTRO,
   whatsappUrl,
+  type NavGroup,
 } from "@/content/site";
+import { PhoneIcon, WhatsAppIcon } from "./icons";
 import { shell } from "./primitives";
 
 function Wordmark({ className = "" }: { className?: string }) {
@@ -28,12 +29,15 @@ function Wordmark({ className = "" }: { className?: string }) {
   );
 }
 
-export function Nav() {
+export function Nav({ groups }: { groups: readonly NavGroup[] }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 64);
@@ -47,6 +51,24 @@ export function Nav() {
     return () => {
       document.body.style.overflow = "";
     };
+  }, [open]);
+
+  // The full-screen menu behaves as a dialog: focus moves in when it opens,
+  // Escape closes it, and focus returns to the button that opened it.
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true;
+      closeButtonRef.current?.focus();
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === "Escape") setOpen(false);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      menuButtonRef.current?.focus();
+    }
   }, [open]);
 
   // Close everything when the route changes
@@ -86,7 +108,7 @@ export function Nav() {
           </Link>
 
           <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
-            {navGroups.map((group) => {
+            {groups.map((group) => {
               const expanded = openGroup === group.label;
               const here = isActive(group.href);
               return (
@@ -162,12 +184,28 @@ export function Nav() {
           </nav>
 
           <div className="flex items-center gap-6">
-            <a
-              href={contact.phoneHref}
-              className="label-xs link-quiet hidden text-white/70 transition-colors duration-500 hover:text-white xl:inline-block"
-            >
-              {contact.phoneDisplay}
-            </a>
+            {/* Call and WhatsApp as a matched pair of quiet icon buttons —
+                recognisable marks, drawn in the site's own white and silver. */}
+            <div className="flex items-center gap-2">
+              <a
+                href={contact.phoneHref}
+                aria-label={`Call ${site.name} on ${contact.phoneDisplay}`}
+                title={`Call ${contact.phoneDisplay}`}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+              >
+                <PhoneIcon className="h-[19px] w-[19px]" />
+              </a>
+              <a
+                href={whatsappUrl(WHATSAPP_INTRO)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`WhatsApp ${site.name} on ${contact.mobileDisplay}`}
+                title="Message us on WhatsApp"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+              >
+                <WhatsAppIcon className="h-[18px] w-[18px]" />
+              </a>
+            </div>
             <Link
               href={routes.quote}
               className="btn-ghost btn-solid-invert hidden !min-h-11 !px-6 !py-3 sm:inline-flex"
@@ -175,11 +213,13 @@ export function Nav() {
               Request a quote
             </Link>
             <button
+              ref={menuButtonRef}
               type="button"
               onClick={() => setOpen(true)}
-              className="label-xs flex items-center gap-2.5 text-white lg:hidden"
+              className="label-xs flex min-h-11 items-center gap-2.5 text-white lg:hidden"
               aria-label="Open menu"
               aria-expanded={open}
+              aria-controls="site-menu"
             >
               <span className="flex flex-col gap-[5px]" aria-hidden>
                 <span className="block h-px w-6 bg-current" />
@@ -191,7 +231,7 @@ export function Nav() {
         </div>
 
         {/* Dropdown panel — a hairline sheet, not a mega-menu */}
-        {navGroups.map((group) => (
+        {groups.map((group) => (
           <div
             key={`panel-${group.label}`}
             onMouseEnter={() => setOpenGroup(group.label)}
@@ -241,14 +281,21 @@ export function Nav() {
         className={`fixed inset-0 z-60 overflow-y-auto bg-obsidian text-white transition-opacity duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:hidden ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
-        aria-hidden={!open}
+        id="site-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        // Closed, the menu is out of the tab order and the accessibility tree
+        // entirely — not merely transparent.
+        inert={!open}
       >
         <div className={`${shell} flex items-center justify-between py-6`}>
           <Wordmark />
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={() => setOpen(false)}
-            className="label-xs flex items-center gap-2.5"
+            className="label-xs flex min-h-11 items-center gap-2.5"
             aria-label="Close menu"
           >
             <span className="relative block h-4 w-4" aria-hidden>
@@ -259,8 +306,8 @@ export function Nav() {
           </button>
         </div>
 
-        <nav className={`${shell} mt-4 flex flex-col pb-16`} aria-label="Primary">
-          {navGroups.map((group) => (
+        <nav className={`${shell} mt-4 flex flex-col pb-16`} aria-label="Menu">
+          {groups.map((group) => (
             <div key={group.label} className="border-t border-hairline">
               <button
                 type="button"
@@ -323,15 +370,17 @@ export function Nav() {
           </Link>
 
           <div className="mt-10 flex flex-col gap-3">
-            <a href={contact.phoneHref} className="label-sm text-silver">
+            <a href={contact.phoneHref} className="label-sm flex items-center gap-3 text-silver">
+              <PhoneIcon className="h-4 w-4" />
               {contact.phoneDisplay}
             </a>
             <a
               href={whatsappUrl(WHATSAPP_INTRO)}
               target="_blank"
               rel="noreferrer"
-              className="label-sm text-silver"
+              className="label-sm flex items-center gap-3 text-silver"
             >
+              <WhatsAppIcon className="h-4 w-4" />
               WhatsApp {contact.mobileDisplay}
             </a>
             <a href={contact.emailHref} className="label-sm text-silver">

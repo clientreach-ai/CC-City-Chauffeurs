@@ -9,13 +9,14 @@ import { Reveal } from "@/components/site/reveal";
 import { media } from "@/content/media";
 import { services } from "@/content/services";
 import { chauffeurStandards, routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Chauffeur Services London | CC City Chauffeurs",
   description:
-    "Chauffeur services in London and across the UK — private chauffeur, airport transfers, corporate travel, weddings, events, city to city, roadshows, tours and school runs.",
-  alternates: { canonical: "/chauffeur-services" },
-};
+    "Chauffeur services in London and UK-wide — private chauffeur, airport transfers, corporate travel, weddings, events, city to city, roadshows and tours.",
+  path: "/chauffeur-services",
+});
 
 export default function ChauffeurServicesPage() {
   const [feature, ...rest] = services;
@@ -51,7 +52,7 @@ export default function ChauffeurServicesPage() {
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
           <Reveal variant="image" className="lg:col-span-7">
             <Link href={routes.service(feature.slug)} className="group block">
-              <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite sm:aspect-16/10">
+              <div className="media-zoom relative aspect-4/3 w-full overflow-hidden bg-graphite sm:aspect-16/10">
                 <Image
                   src={media[feature.hero]}
                   alt={feature.heroAlt}
@@ -99,24 +100,24 @@ export default function ChauffeurServicesPage() {
               as="li"
               key={service.slug}
               delay={Math.min(i * 45, 250)}
-              className="group border-t border-hairline-ink last:border-b"
+              className="group border-t border-hairline last:border-b"
             >
               <Link
                 href={routes.service(service.slug)}
                 className="grid grid-cols-1 gap-x-12 gap-y-4 py-8 sm:py-10 lg:grid-cols-12"
               >
-                <span className="label-xs text-slate lg:col-span-1">
+                <span className="label-xs text-white/55 lg:col-span-1">
                   {service.index}
                 </span>
-                <h3 className="display-md text-ink transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5 lg:col-span-5">
+                <h3 className="display-md text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5 lg:col-span-5">
                   {service.label}
                 </h3>
-                <p className="copy max-w-[56ch] text-slate lg:col-span-5">
+                <p className="copy max-w-[56ch] text-white/60 lg:col-span-5">
                   {service.summary}
                 </p>
                 <span
                   aria-hidden
-                  className="label-xs text-ink opacity-0 transition-opacity duration-500 group-hover:opacity-100 lg:col-span-1 lg:text-right"
+                  className="label-xs text-white opacity-0 transition-opacity duration-500 group-hover:opacity-100 lg:col-span-1 lg:text-right"
                 >
                   View
                 </span>
@@ -139,7 +140,7 @@ export default function ChauffeurServicesPage() {
         <div className="grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-12">
           <Reveal className="lg:col-span-5">
             <h2 className="display-lg max-w-[14ch] text-white">
-              Selected, trained, and briefed
+              Presented and briefed
             </h2>
           </Reveal>
           <Reveal delay={100} className="lg:col-span-6 lg:col-start-7">

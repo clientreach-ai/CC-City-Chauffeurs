@@ -7,13 +7,14 @@ import { EnquiryBand } from "@/components/site/sections";
 import { gallery } from "@/content/gallery";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Gallery | The Fleet, Photographed | CC City Chauffeurs",
   description:
-    "Photographs of the CC City Chauffeurs fleet — Rolls-Royce Cullinan, Mercedes-AMG G-Wagon, Lamborghini Urus and more, shot across London and at the workshop.",
-  alternates: { canonical: "/gallery" },
-};
+    "Photography from CC City Chauffeurs' own shoots — the Rolls-Royce Cullinan, Mercedes-AMG G-Wagon, Lamborghini Urus and more, across London and in the workshop.",
+  path: "/gallery",
+});
 
 export default function GalleryPage() {
   return (
@@ -22,9 +23,9 @@ export default function GalleryPage() {
         height="short"
         eyebrow="Gallery"
         display={["The cars,", "photographed"]}
-        standfirst="Our own vehicles, shot properly — at hotel entrances across London, at Canary Wharf and North Greenwich, and in the workshop. Every frame is a car you can actually book."
+        standfirst="From our own shoots — at hotel entrances across London, at Canary Wharf and North Greenwich, and in the workshop. Some of the cars pictured are from shoots rather than the current fleet list; the fleet page shows what can be booked today."
         image={media.collectionCanaryWharf}
-        imageAlt="City Chauffeurs vehicles against the Canary Wharf skyline at night"
+        imageAlt="A Rolls-Royce Cullinan and a Ferrari SF90 against the Canary Wharf skyline at night"
         objectPosition="object-[center_45%]"
         facts={[
           { label: "Frames", value: `${gallery.length} photographs` },

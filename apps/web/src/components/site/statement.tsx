@@ -1,14 +1,16 @@
-import Image from "next/image";
-
-import { media } from "@/content/media";
-import { assurances, site } from "@/content/site";
-import { Rule, SectionLabel, shell } from "./primitives";
+import { routes, site } from "@/content/site";
+import { QuietLink, Rule, SectionLabel, shell } from "./primitives";
 import { Reveal } from "./reveal";
 
+/**
+ * The value proposition, said once and briefly. The longer account of the
+ * company — the principles in practice, what is included, where we work —
+ * lives on the About page.
+ */
 export function Statement({ index }: { index: string }) {
   return (
-    <section id="chauffeur" className="glow-pool bg-obsidian text-white">
-      <div className={shell}>
+    <section id="chauffeur" className="bg-obsidian text-white">
+      <div className={`${shell} pb-20 lg:pb-28`}>
         <Rule tone="dark" />
 
         <div className="flex flex-wrap items-baseline justify-between gap-4 py-6">
@@ -18,63 +20,32 @@ export function Statement({ index }: { index: string }) {
           <p className="label-xs text-white/55">{site.coverage}</p>
         </div>
 
-        <Reveal className="pb-16 sm:pb-24">
-          <h2 className="display-lg max-w-[22ch] text-white">
-            A luxury, discreet way of travelling — without the hassle.
-          </h2>
-        </Reveal>
-
-        <div className="grid grid-cols-1 gap-12 pb-24 lg:grid-cols-12 lg:gap-16 lg:pb-36">
-          <Reveal variant="image" className="lg:col-span-5">
-            <div className="media-zoom glow-ring relative aspect-[4/5] w-full overflow-hidden bg-graphite">
-              <Image
-                src={media.statement}
-                alt="The Spirit of Ecstasy on the bonnet of a Rolls-Royce"
-                fill
-                sizes="(max-width: 1024px) 100vw, 40vw"
-                placeholder="blur"
-                className="object-cover object-[58%_center]"
-              />
-            </div>
+        <div className="grid grid-cols-1 gap-10 pt-6 lg:grid-cols-12 lg:items-end lg:gap-16 lg:pt-10">
+          <Reveal className="lg:col-span-7">
+            <h2 className="display-lg max-w-[20ch] text-white">
+              A luxury, discreet way of travelling — without the hassle.
+            </h2>
           </Reveal>
 
-          <div className="lg:col-span-6 lg:col-start-7 lg:pt-4">
-            <Reveal delay={80}>
-              <p className="copy-lg max-w-[54ch] text-white/80">
-                City Chauffeurs provides discreet, professional chauffeur services
-                for clients who expect the highest standards — private clients,
-                executives, wedding parties and corporate accounts. Every journey is
-                planned around comfort, timing and confidentiality.
+          <div className="lg:col-span-4 lg:col-start-9">
+            <Reveal delay={100}>
+              <p className="copy-lg max-w-[46ch] text-white/75">
+                Discreet, professional chauffeur services for private clients,
+                executives, wedding parties and corporate travel — planned around
+                comfort, timing and confidentiality. London based, working across the
+                United Kingdom and Europe.
               </p>
             </Reveal>
 
-            <Reveal delay={160}>
-              <p className="copy mt-6 max-w-[54ch] text-white/60">
-                Based in London, we operate across the entire United Kingdom and into
-                Europe. The fleet is selected for rear-seat comfort, presence and
-                discretion, and every vehicle is presented immaculately for each
-                journey. Supercars are available too — chauffeur-driven or self-drive
-                — but the chauffeur is what we are built around.
-              </p>
-            </Reveal>
-
-            <Reveal delay={220} className="mt-10">
-              <p className="label-xs text-white">{site.director}</p>
-              <p className="label-xs mt-2 text-white/45">Director, {site.legalName}</p>
-            </Reveal>
-
-            <Reveal delay={280} className="mt-12">
-              <Rule tone="dark" />
-              <ul className="grid grid-cols-1 sm:grid-cols-2">
-                {assurances.map((item) => (
-                  <li
-                    key={item}
-                    className="label-xs border-b border-hairline py-4 text-white/55"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
+            <Reveal
+              delay={160}
+              className="mt-8 flex flex-wrap items-end justify-between gap-6"
+            >
+              <div>
+                <p className="label-xs text-white">{site.director}</p>
+                <p className="label-xs mt-2 text-white/55">Director, {site.legalName}</p>
+              </div>
+              <QuietLink href={routes.about}>About the company</QuietLink>
             </Reveal>
           </div>
         </div>

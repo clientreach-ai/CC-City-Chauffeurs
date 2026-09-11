@@ -1,10 +1,7 @@
-import { contact, whatsappUrl } from "@/content/site";
+import { contact, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
 import { EnquiryForm } from "./enquiry-form";
 import { Rule, SectionLabel, shell } from "./primitives";
 import { Reveal } from "./reveal";
-
-const WHATSAPP_INTRO =
-  "Hello City Chauffeurs, I'd like to enquire about a chauffeur booking.";
 
 const channels = [
   {
@@ -64,7 +61,11 @@ export function Enquire({ index }: { index: string }) {
                 >
                   <span className="min-w-0">
                     <span className="label-xs block text-white/55">{channel.label}</span>
-                    <span className="display-sm mt-3 block truncate text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5">
+                    <span
+                      className={`display-sm mt-3 block text-white transition-transform duration-700 ease-editorial group-hover:translate-x-1.5 ${
+                        channel.value.includes("@") ? "normal-case [overflow-wrap:anywhere]" : ""
+                      }`}
+                    >
                       {channel.value}
                     </span>
                     <span className="label-xs mt-3 block text-white/50">{channel.note}</span>
