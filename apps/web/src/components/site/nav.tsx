@@ -15,7 +15,7 @@ import {
   whatsappUrl,
   type NavGroup,
 } from "@/content/site";
-import { WhatsAppIcon } from "./icons";
+import { PhoneIcon, WhatsAppIcon } from "./icons";
 import { shell } from "./primitives";
 
 function Wordmark({ className = "" }: { className?: string }) {
@@ -184,22 +184,28 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
           </nav>
 
           <div className="flex items-center gap-6">
-            <a
-              href={contact.phoneHref}
-              className="label-xs link-quiet hidden text-white/70 transition-colors duration-500 hover:text-white xl:inline-block"
-            >
-              {contact.phoneDisplay}
-            </a>
-            <a
-              href={whatsappUrl(WHATSAPP_INTRO)}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`WhatsApp ${site.name} on ${contact.mobileDisplay}`}
-              title="Message us on WhatsApp"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
-            >
-              <WhatsAppIcon className="h-[18px] w-[18px]" />
-            </a>
+            {/* Call and WhatsApp as a matched pair of quiet icon buttons —
+                recognisable marks, drawn in the site's own white and silver. */}
+            <div className="flex items-center gap-2">
+              <a
+                href={contact.phoneHref}
+                aria-label={`Call ${site.name} on ${contact.phoneDisplay}`}
+                title={`Call ${contact.phoneDisplay}`}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+              >
+                <PhoneIcon className="h-[19px] w-[19px]" />
+              </a>
+              <a
+                href={whatsappUrl(WHATSAPP_INTRO)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`WhatsApp ${site.name} on ${contact.mobileDisplay}`}
+                title="Message us on WhatsApp"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+              >
+                <WhatsAppIcon className="h-[18px] w-[18px]" />
+              </a>
+            </div>
             <Link
               href={routes.quote}
               className="btn-ghost btn-solid-invert hidden !min-h-11 !px-6 !py-3 sm:inline-flex"
@@ -364,7 +370,8 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
           </Link>
 
           <div className="mt-10 flex flex-col gap-3">
-            <a href={contact.phoneHref} className="label-sm text-silver">
+            <a href={contact.phoneHref} className="label-sm flex items-center gap-3 text-silver">
+              <PhoneIcon className="h-4 w-4" />
               {contact.phoneDisplay}
             </a>
             <a

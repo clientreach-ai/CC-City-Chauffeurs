@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { contact, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
-import { WhatsAppIcon } from "./icons";
+import { PhoneIcon, WhatsAppIcon } from "./icons";
 
 /**
  * A single quiet contact affordance on small screens — the client loses
@@ -29,8 +29,9 @@ export function ContactBar() {
       <div className="grid grid-cols-2 divide-x divide-hairline">
         <a
           href={contact.phoneHref}
-          className="label-xs flex items-center justify-center py-4 text-white/70"
+          className="label-xs flex items-center justify-center gap-2.5 py-4 text-white/70"
         >
+          <PhoneIcon className="h-4 w-4" />
           Call the office
         </a>
         <a
