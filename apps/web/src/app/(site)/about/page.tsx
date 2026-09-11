@@ -34,7 +34,7 @@ export default function AboutPage() {
       <PageHero
         eyebrow="About"
         display={["A luxury,", "discreet way", "to travel"]}
-        standfirst="City Chauffeurs is a London chauffeur company working for private clients, executives, wedding parties and corporate accounts across the United Kingdom and Europe."
+        standfirst="City Chauffeurs is a London chauffeur company working for private clients, executives, wedding parties and corporate travel across the United Kingdom and Europe."
         image={media.cullinanWorkshopSide}
         imageAlt="Rolls-Royce Cullinan photographed in profile at the workshop"
         objectPosition="object-[center_45%]"
@@ -137,7 +137,7 @@ export default function AboutPage() {
           image={media.cullinanFrontCabin}
           imageAlt="The front cabin of a Rolls-Royce Cullinan"
           eyebrow="Our chauffeurs"
-          heading="Selected, trained and briefed"
+          heading="Presented and briefed"
           paragraphs={[
             "The chauffeur is the service. Ours are presented properly and briefed on the booking before they arrive — not handed an address on the morning.",
           ]}

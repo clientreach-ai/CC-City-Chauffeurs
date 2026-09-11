@@ -50,7 +50,7 @@ export default function SupercarExperiencesPage() {
       <PageHero
         eyebrow="Supercar experiences · Chauffeur-driven"
         display={["The arrival", "is the", "occasion"]}
-        standfirst="Statement vehicles from our own fleet, chauffeur-driven for select, pre-arranged journeys. All of the presence, none of the parking."
+        standfirst="Statement vehicles from the fleet, chauffeur-driven for select, pre-arranged journeys. All of the presence, none of the parking."
         image={media.sf90HotelNight}
         imageAlt="A supercar photographed outside a London hotel at night"
         facts={[

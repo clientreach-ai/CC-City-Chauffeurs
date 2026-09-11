@@ -139,7 +139,7 @@ export default function ChauffeurServicesPage() {
         <div className="grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-12">
           <Reveal className="lg:col-span-5">
             <h2 className="display-lg max-w-[14ch] text-white">
-              Selected, trained, and briefed
+              Presented and briefed
             </h2>
           </Reveal>
           <Reveal delay={100} className="lg:col-span-6 lg:col-start-7">
