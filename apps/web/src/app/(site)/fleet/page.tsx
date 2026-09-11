@@ -12,7 +12,7 @@ import {
   shell,
 } from "@/components/site/primitives";
 import { EnquiryBand, Section, StatementBand, VehiclePlate } from "@/components/site/sections";
-import { fleetCategories, vehicles, type Vehicle } from "@/content/fleet";
+import { fleetCategories, passengersLabel, type Vehicle, UNCONFIRMED, vehicles } from "@/content/fleet";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
 
@@ -57,8 +57,8 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
 
         <dl className="mt-8">
           {[
-            { label: "Passengers", value: vehicle.passengers },
-            { label: "Luggage", value: vehicle.luggage },
+            { label: "Passengers", value: vehicle.passengers ?? UNCONFIRMED },
+            { label: "Luggage", value: vehicle.luggage ?? UNCONFIRMED },
             { label: "Availability", value: vehicle.availability },
             { label: "Indicative rate", value: vehicle.rate },
           ].map((spec) => (
@@ -175,7 +175,7 @@ export default function FleetPage() {
       <Section tone="dark" className="pt-16 lg:pt-24">
         <SectionHead
           label="Specification index"
-          note="Standard configuration · Confirmed on enquiry"
+          note="Indicative rates · Capacity confirmed on enquiry"
           tone="dark"
         />
         <ul>
@@ -188,9 +188,11 @@ export default function FleetPage() {
               >
                 <span className="label-sm text-white sm:col-span-4">{vehicle.name}</span>
                 <span className="label-xs text-white/55 sm:col-span-2">
-                  {vehicle.passengers} passengers
+                  {passengersLabel(vehicle)}
                 </span>
-                <span className="label-xs text-white/55 sm:col-span-2">{vehicle.luggage}</span>
+                <span className="label-xs text-white/55 sm:col-span-2">
+                  {vehicle.luggage ?? `Luggage ${UNCONFIRMED.toLowerCase()}`}
+                </span>
                 <span className="label-xs text-white/55 sm:col-span-2">
                   {vehicle.availability}
                 </span>
@@ -202,9 +204,9 @@ export default function FleetPage() {
           })}
         </ul>
         <p className="label-xs mt-8 max-w-[62ch] text-white/55">
-          Rates are indicative and depend on date, duration and route. Passenger and
-          luggage figures are the standard configuration for each model and are
-          confirmed when a vehicle is booked.
+          Rates are indicative and depend on date, duration and route. Where a
+          capacity is shown it is our own figure for that vehicle; the rest are
+          confirmed with you when you enquire, against the party and the luggage.
         </p>
       </Section>
 
