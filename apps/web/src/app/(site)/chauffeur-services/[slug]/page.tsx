@@ -15,7 +15,8 @@ import {
 } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { getService, services, type Service } from "@/content/services";
-import { bookingTerms, routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
+import { bookingTerms, routes, site } from "@/content/site";
 
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
@@ -30,17 +31,11 @@ export async function generateMetadata({
   const service = getService(slug);
   if (!service) return {};
 
-  return {
+  return pageMetadata({
     title: service.seo.title,
     description: service.seo.description,
-    alternates: { canonical: `/chauffeur-services/${service.slug}` },
-    openGraph: {
-      title: service.seo.title,
-      description: service.seo.description,
-      locale: "en_GB",
-      type: "website",
-    },
-  };
+    path: `/chauffeur-services/${service.slug}`,
+  });
 }
 
 function OtherServices({ current }: { current: Service }) {
@@ -74,6 +69,37 @@ export default async function ServicePage({
   if (!service) notFound();
 
   const quoteHref = routes.quoteFor(service.slug);
+
+  // Service and breadcrumb schema, both mirroring what the page shows.
+  const pageUrl = `${site.url}/chauffeur-services/${service.slug}`;
+  const schema = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: service.label,
+      serviceType: `${service.label} chauffeur service`,
+      description: service.seo.description,
+      url: pageUrl,
+      provider: { "@id": `${site.url}/#business` },
+      areaServed: ["London", "United Kingdom", "Europe"],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: site.url },
+        { "@type": "ListItem", position: 2, name: "Chauffeur services", item: `${site.url}/chauffeur-services` },
+        { "@type": "ListItem", position: 3, name: service.label, item: pageUrl },
+      ],
+    },
+  ];
+  const jsonLd = (
+    <script
+      type="application/ld+json"
+      // Static, author-controlled content — no user input reaches this string.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
 
   const hero = (
     <PageHero
@@ -142,6 +168,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
+        {jsonLd}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             heading={["What the", "service", "involves"]}
@@ -169,6 +196,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
+        {jsonLd}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             tone="dark"
@@ -193,6 +221,7 @@ export default async function ServicePage({
   return (
     <>
       {hero}
+      {jsonLd}
       <Section tone="dark" className="pt-20 lg:pt-28">
         {detailSplit("dark", true)}
       </Section>

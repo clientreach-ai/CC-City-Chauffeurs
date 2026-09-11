@@ -5,6 +5,7 @@ import { PageHero } from "@/components/site/page-hero";
 import { GhostLink, QuietLink, SectionHead, shell } from "@/components/site/primitives";
 import { Reveal } from "@/components/site/reveal";
 import { media } from "@/content/media";
+import { pageMetadata } from "@/content/seo";
 import {
   contact,
   routes,
@@ -14,12 +15,12 @@ import {
   whatsappUrl,
 } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Contact | CC City Chauffeurs, London",
   description:
-    "Contact CC City Chauffeurs — WhatsApp, telephone or email. London based chauffeur company covering the United Kingdom and Europe. Enquiries handled in confidence.",
-  alternates: { canonical: "/contact" },
-};
+    "Contact CC City Chauffeurs by WhatsApp, telephone or email. A London chauffeur company covering the UK and Europe. Enquiries handled in confidence.",
+  path: "/contact",
+});
 
 const channels = [
   {

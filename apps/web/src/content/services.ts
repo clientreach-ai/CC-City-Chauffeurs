@@ -114,7 +114,7 @@ export const services: readonly Service[] = [
     seo: {
       title: "Private Chauffeur Hire London | CC City Chauffeurs",
       description:
-        "Private chauffeur hire in London — as directed, by the hour or by the day. Professional, comfortable and discreet chauffeur-driven travel across the UK and Europe.",
+        "Private chauffeur hire in London — as directed, by the hour or by the day. Professional, comfortable and discreet travel across the UK and Europe.",
     },
     template: "index",
   },
@@ -177,9 +177,9 @@ export const services: readonly Service[] = [
     },
     closing: "Send the flight number and we will do the rest.",
     seo: {
-      title: "Airport Transfers London | Chauffeur Meet & Greet | CC City Chauffeurs",
+      title: "Airport Transfers London | Meet & Greet | CC City Chauffeurs",
       description:
-        "Chauffeur-driven airport transfers for Gatwick and all London airports. Meet & greet, flight tracking, luggage assistance and 60 minutes complimentary waiting after landing.",
+        "Chauffeur airport transfers for Gatwick and all London airports — meet & greet, flight tracking, luggage help and 60 minutes' free waiting after landing.",
     },
     template: "columns",
   },
@@ -244,7 +244,7 @@ export const services: readonly Service[] = [
     seo: {
       title: "Corporate Chauffeur Service London | CC City Chauffeurs",
       description:
-        "Corporate chauffeur service in London — executive travel, client transportation, roadshows and regular business travel across Canary Wharf, Mayfair, the UK and Europe.",
+        "Corporate chauffeur service in London — executive travel, client transportation, roadshows and regular business travel across Canary Wharf, Mayfair and the UK.",
     },
     template: "columns",
   },
@@ -309,7 +309,7 @@ export const services: readonly Service[] = [
     seo: {
       title: "Wedding Car Hire London | Chauffeur-Driven | CC City Chauffeurs",
       description:
-        "Chauffeur-driven wedding cars in London — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur, plus vehicles for the wider party. Timings, routes and presentation agreed in advance.",
+        "Chauffeur-driven wedding cars in London — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and cars for the wider party, every timing agreed in advance.",
     },
     template: "stack",
   },
@@ -429,7 +429,7 @@ export const services: readonly Service[] = [
     },
     closing: "Tell us the two cities and the date.",
     seo: {
-      title: "City to City Chauffeur | Long Distance UK & Europe | CC City Chauffeurs",
+      title: "City to City Chauffeur | UK & Europe | CC City Chauffeurs",
       description:
         "Long-distance chauffeur travel from London across the United Kingdom and into Europe. Door to door, one way or return, in the chauffeur fleet.",
     },
@@ -494,7 +494,7 @@ export const services: readonly Service[] = [
     },
     closing: "Send the draft itinerary and we will price the programme.",
     seo: {
-      title: "Corporate Roadshow Chauffeur | Multi-Day Travel | CC City Chauffeurs",
+      title: "Corporate Roadshow Chauffeur | CC City Chauffeurs",
       description:
         "Corporate roadshow chauffeur service — multi-day, multi-city itineraries with a dedicated chauffeur and vehicle across the UK and Europe.",
     },

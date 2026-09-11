@@ -7,13 +7,14 @@ import { EnquiryBand } from "@/components/site/sections";
 import { gallery } from "@/content/gallery";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Gallery | The Fleet, Photographed | CC City Chauffeurs",
   description:
-    "Photographs of the CC City Chauffeurs fleet — Rolls-Royce Cullinan, Mercedes-AMG G-Wagon, Lamborghini Urus and more, shot across London and at the workshop.",
-  alternates: { canonical: "/gallery" },
-};
+    "Photography from CC City Chauffeurs' own shoots — the Rolls-Royce Cullinan, Mercedes-AMG G-Wagon, Lamborghini Urus and more, across London and in the workshop.",
+  path: "/gallery",
+});
 
 export default function GalleryPage() {
   return (
