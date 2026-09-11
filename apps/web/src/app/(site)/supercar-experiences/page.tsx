@@ -51,8 +51,8 @@ export default function SupercarExperiencesPage() {
         eyebrow="Supercar experiences · Chauffeur-driven"
         display={["The arrival", "is the", "occasion"]}
         standfirst="Statement vehicles from the fleet, chauffeur-driven for select, pre-arranged journeys. All of the presence, none of the parking."
-        image={media.sf90HotelNight}
-        imageAlt="A supercar photographed outside a London hotel at night"
+        image={media.fleetUrus}
+        imageAlt="Lamborghini Urus in purple, photographed in the workshop"
         facts={[
           { label: "Basis", value: "Chauffeur-driven" },
           { label: "Booked", value: "Pre-arranged, by the hour or evening" },

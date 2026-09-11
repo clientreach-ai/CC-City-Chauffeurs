@@ -56,7 +56,7 @@ export default function SupercarHirePage() {
         display={["Take", "the wheel"]}
         standfirst="Selected supercars from the fleet, available to hire without a chauffeur. Subject to driver eligibility and insurance requirements, with terms agreed before the booking is confirmed."
         image={media.fleetUrus}
-        imageAlt="Lamborghini Urus photographed at the workshop"
+        imageAlt="Lamborghini Urus in purple, photographed in the workshop"
         objectPosition="object-[center_45%]"
         facts={[
           { label: "Basis", value: "Self drive, by arrangement" },
