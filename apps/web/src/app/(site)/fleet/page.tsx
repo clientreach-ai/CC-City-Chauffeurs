@@ -3,14 +3,7 @@ import Image from "next/image";
 
 import { PageHero } from "@/components/site/page-hero";
 import { Reveal } from "@/components/site/reveal";
-import {
-  GhostLink,
-  QuietLink,
-  Rule,
-  SectionHead,
-  SectionLabel,
-  shell,
-} from "@/components/site/primitives";
+import { GhostLink, QuietLink, Rule, SectionHead, SectionLabel, shell, Unbroken } from "@/components/site/primitives";
 import { EnquiryBand, Section, StatementBand, VehiclePlate } from "@/components/site/sections";
 import { fleetCategories, passengersLabel, type Vehicle, UNCONFIRMED, vehicles } from "@/content/fleet";
 import { media } from "@/content/media";
@@ -53,7 +46,9 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
 
       <div className={wide ? "lg:col-span-4 lg:col-start-9" : "lg:col-span-6 lg:col-start-7"}>
         <p className="label-xs text-white/55">{vehicle.marque}</p>
-        <h3 className="display-md mt-4 text-white">{vehicle.name}</h3>
+        <h3 className="display-md mt-4 text-white">
+          <Unbroken text={vehicle.name} />
+        </h3>
         <p className="copy mt-5 max-w-[46ch] text-white/60">{vehicle.line}</p>
 
         <dl className="mt-8">

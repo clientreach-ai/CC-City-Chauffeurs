@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { getVehicle, passengersLabel, type VehicleId } from "@/content/fleet";
 import { contact, routes, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
-import { GhostLink, Rule, SectionHead, shell } from "./primitives";
+import { GhostLink, Rule, SectionHead, shell, Unbroken } from "./primitives";
 import { Reveal } from "./reveal";
 
 type Tone = "dark" | "light";
@@ -347,7 +347,9 @@ export function VehiclePlate({
   return (
     <div className="absolute inset-0 flex flex-col justify-between border border-hairline bg-graphite p-6">
       <span className="label-xs text-white/50">{marque}</span>
-      <span className="display-sm text-white/70">{name}</span>
+      <span className="display-sm text-white/70">
+        <Unbroken text={name} />
+      </span>
       <span className="label-xs text-white/45">Photography to follow</span>
     </div>
   );

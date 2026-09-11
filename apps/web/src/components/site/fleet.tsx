@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { fleetCategories, getVehicle, homepageVehicles, vehicles } from "@/content/fleet";
 import { routes } from "@/content/site";
-import { GhostLink, QuietLink, SectionLabel, shell } from "./primitives";
+import { GhostLink, QuietLink, SectionLabel, shell, Unbroken } from "./primitives";
 import { Reveal } from "./reveal";
 
 const marqueeNames = Array.from(
@@ -90,7 +90,9 @@ export function Fleet({ index }: { index: string }) {
                     <span className="text-white/55">{vehicle.marque}</span>
                     <span className="text-white/75">{vehicle.rate}</span>
                   </p>
-                  <h3 className="display-sm mt-3 text-white">{vehicle.name}</h3>
+                  <h3 className="display-sm mt-3 text-white">
+                    <Unbroken text={vehicle.name} />
+                  </h3>
                 </div>
               </Link>
             </Reveal>

@@ -49,8 +49,16 @@ export default function SiteLayout({
         // Static, author-controlled object — no user input reaches this string.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(businessSchema) }}
       />
+      <a
+        href="#content"
+        className="label-xs sr-only fixed top-3 left-3 z-70 bg-white px-5 py-3.5 text-ink focus:not-sr-only"
+      >
+        Skip to content
+      </a>
       <Nav groups={navGroups} />
-      <main>{children}</main>
+      <main id="content" tabIndex={-1} className="outline-none">
+        {children}
+      </main>
       <Footer />
       <ContactBar />
     </div>

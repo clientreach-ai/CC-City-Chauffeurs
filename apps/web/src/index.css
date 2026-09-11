@@ -392,6 +392,13 @@
     max-width: 100%;
   }
 
+  /* One visible focus ring across the marketing site. The shared UI
+     package sets outlines to a faint grey that disappears on black. */
+  [data-site] :focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+
   /* Anchored sections clear the fixed navigation */
   section[id],
   [data-anchor] {
