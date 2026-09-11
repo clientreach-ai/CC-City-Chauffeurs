@@ -7,6 +7,7 @@ import {
   EditorialSplit,
   EnquiryBand,
   IndexRows,
+  QuoteBrief,
   Section,
   Statement,
   StatementBand,
@@ -14,7 +15,7 @@ import {
 } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { getService, services, type Service } from "@/content/services";
-import { routes } from "@/content/site";
+import { bookingTerms, routes } from "@/content/site";
 
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
@@ -72,6 +73,8 @@ export default async function ServicePage({
   const service = getService(slug);
   if (!service) notFound();
 
+  const quoteHref = routes.quoteFor(service.slug);
+
   const hero = (
     <PageHero
       crumbs={[
@@ -85,7 +88,7 @@ export default async function ServicePage({
       facts={service.facts}
       actions={
         <>
-          <GhostLink href={routes.quote}>Request a quote</GhostLink>
+          <GhostLink href={quoteHref}>Request a quote</GhostLink>
           <QuietLink href={routes.fleet}>See the fleet</QuietLink>
         </>
       }
@@ -108,11 +111,22 @@ export default async function ServicePage({
       heading={service.detail.heading}
       paragraphs={service.detail.paragraphs}
       action={
-        <GhostLink href={routes.quote} tone={tone}>
+        <GhostLink href={quoteHref} tone={tone}>
           Request a quote
         </GhostLink>
       }
     />
+  );
+
+  const brief = (
+    <Section tone="dark" className="pt-16 lg:pt-24">
+      <QuoteBrief
+        needs={service.booking.needs}
+        note={service.booking.note}
+        terms={bookingTerms}
+        quoteHref={quoteHref}
+      />
+    </Section>
   );
 
   const closing = (
@@ -120,6 +134,7 @@ export default async function ServicePage({
       heading={service.closing}
       body="Send the details however suits you — most of our clients simply message us — and we will confirm availability and cost."
       tone="dark"
+      primaryHref={quoteHref}
     />
   );
 
@@ -143,6 +158,7 @@ export default async function ServicePage({
         <Section tone="dark" className="pt-16 lg:pt-24">
           <VehicleStrip ids={service.vehicles} tone="dark" />
         </Section>
+        {brief}
         <OtherServices current={service} />
         {closing}
       </>
@@ -167,6 +183,7 @@ export default async function ServicePage({
         <Section tone="dark">
           <VehicleStrip ids={service.vehicles} />
         </Section>
+        {brief}
         <OtherServices current={service} />
         {closing}
       </>
@@ -190,6 +207,7 @@ export default async function ServicePage({
       <Section tone="dark">
         <VehicleStrip ids={service.vehicles} tone="dark" />
       </Section>
+      {brief}
       <OtherServices current={service} />
       {closing}
     </>
