@@ -99,24 +99,24 @@ export default function ChauffeurServicesPage() {
               as="li"
               key={service.slug}
               delay={Math.min(i * 45, 250)}
-              className="group border-t border-hairline-ink last:border-b"
+              className="group border-t border-hairline last:border-b"
             >
               <Link
                 href={routes.service(service.slug)}
                 className="grid grid-cols-1 gap-x-12 gap-y-4 py-8 sm:py-10 lg:grid-cols-12"
               >
-                <span className="label-xs text-slate lg:col-span-1">
+                <span className="label-xs text-white/55 lg:col-span-1">
                   {service.index}
                 </span>
-                <h3 className="display-md text-ink transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5 lg:col-span-5">
+                <h3 className="display-md text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5 lg:col-span-5">
                   {service.label}
                 </h3>
-                <p className="copy max-w-[56ch] text-slate lg:col-span-5">
+                <p className="copy max-w-[56ch] text-white/60 lg:col-span-5">
                   {service.summary}
                 </p>
                 <span
                   aria-hidden
-                  className="label-xs text-ink opacity-0 transition-opacity duration-500 group-hover:opacity-100 lg:col-span-1 lg:text-right"
+                  className="label-xs text-white opacity-0 transition-opacity duration-500 group-hover:opacity-100 lg:col-span-1 lg:text-right"
                 >
                   View
                 </span>
