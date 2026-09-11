@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { contact, whatsappUrl } from "@/content/site";
+import { WhatsAppIcon } from "./icons";
 
 const WHATSAPP_INTRO =
   "Hello City Chauffeurs, I'd like to enquire about a chauffeur booking.";
@@ -39,8 +40,9 @@ export function ContactBar() {
           href={whatsappUrl(WHATSAPP_INTRO)}
           target="_blank"
           rel="noreferrer"
-          className="label-xs flex items-center justify-center py-4 text-white"
+          className="label-xs flex items-center justify-center gap-2.5 py-4 text-white"
         >
+          <WhatsAppIcon className="h-4 w-4" />
           WhatsApp us
         </a>
       </div>
