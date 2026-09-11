@@ -3,12 +3,11 @@ import type { Metadata } from "next";
 import { Enquire } from "@/components/site/enquire";
 import { Fleet } from "@/components/site/fleet";
 import { Hero } from "@/components/site/hero";
+import { Occasions } from "@/components/site/occasions";
 import { Principles } from "@/components/site/principles";
-import { SelfDrive } from "@/components/site/self-drive";
 import { Services } from "@/components/site/services";
 import { Statement } from "@/components/site/statement";
 import { Testimonials } from "@/components/site/testimonials";
-import { Weddings } from "@/components/site/weddings";
 import { testimonials } from "@/content/testimonials";
 
 export const metadata: Metadata = {
@@ -26,33 +25,26 @@ export const metadata: Metadata = {
 };
 
 /**
- * The homepage as a conversion journey, not a list of sections.
+ * The homepage is a first impression, not the whole site. Each band says one
+ * thing and hands off to the page that says the rest:
  *
- *   Hero       — position, then capture. The quote bar is the front door.
- *   Statement  — what the company is, and the facts we can evidence.
- *   Weddings   — ~70% of revenue and the client's own first priority, so it
- *                sits third rather than sixth. This is the single most
- *                commercially significant ordering decision on the page.
- *   Services   — the Phase 1 lines: airport, corporate, private.
- *   Fleet      — the strongest asset the business owns.
- *   Principles — professionalism, comfort, discretion, made concrete.
- *   SelfDrive  — the self-drive branch, clearly signposted off the spine.
+ *   Hero       — the vehicle first, the positioning second.
+ *   Statement  — a chauffeur company first, in one paragraph.        → /about
+ *   Services   — the six services most people come for.              → /chauffeur-services
+ *   Fleet      — three photographed vehicles, supercars signposted.  → /fleet
+ *   Principles — professionalism, comfort, discretion.
+ *   Occasions  — weddings and corporate, side by side.               → service pages
  *   Enquire    — the ask.
- *
- * Corporate is no longer its own band; it is the featured tile inside
- * Services, which keeps it a Phase 1 priority without spending a full
- * section on a line the business has no accounts in yet.
  */
 export default function Home() {
   // Order and numbering in one place — reordering the array renumbers the
   // page, so the two can never drift apart.
   const bands = [
     Statement,
-    Weddings,
     Services,
     Fleet,
     Principles,
-    SelfDrive,
+    Occasions,
     // Only takes a number once there are real quotes to show, so the
     // numbering never skips a band the visitor cannot see.
     ...(testimonials.length > 0 ? [Testimonials] : []),
