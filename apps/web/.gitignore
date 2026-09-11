@@ -58,3 +58,6 @@ dev-dist
 .dev.vars*
 
 .open-next
+
+# Unprocessed source photography — web-ready versions live in src/media/
+/src/media/assets/
