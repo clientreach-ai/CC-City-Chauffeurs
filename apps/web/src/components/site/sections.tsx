@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
-import { getVehicle, type VehicleId } from "@/content/fleet";
+import { getVehicle, passengersLabel, type VehicleId } from "@/content/fleet";
 import { contact, routes, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
 import { GhostLink, Rule, SectionHead, shell } from "./primitives";
 import { Reveal } from "./reveal";
@@ -323,7 +323,7 @@ export function VehicleStrip({
                   tone === "dark" ? "text-white/55" : "text-slate"
                 }`}
               >
-                {vehicle.passengers} passengers · {vehicle.rate}
+                {passengersLabel(vehicle)} · {vehicle.rate}
               </p>
             </Reveal>
           );

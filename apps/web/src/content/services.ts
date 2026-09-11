@@ -266,7 +266,7 @@ export const services: readonly Service[] = [
       image: "cullinanHotelSide" as MediaKey,
       imageAlt: "Rolls-Royce Cullinan in profile at a hotel entrance",
     },
-    vehicles: ["cullinan", "ghost", "flying-spur", "v-class-8"],
+    vehicles: ["cullinan", "ghost", "flying-spur", "v-class"],
     closing: "Send us the date and the venues and we will build the day around them.",
     seo: {
       title: "Wedding Car Hire London | Chauffeur-Driven | CC City Chauffeurs",
@@ -318,7 +318,7 @@ export const services: readonly Service[] = [
       image: "collectionO2" as MediaKey,
       imageAlt: "City Chauffeurs vehicles in London at night",
     },
-    vehicles: ["cullinan", "g-wagon", "v-class-8", "ghost"],
+    vehicles: ["cullinan", "g-wagon", "v-class", "ghost"],
     closing: "Give us the venue and the running order and we will cover the movements.",
     seo: {
       title: "Event Chauffeur Service London | CC City Chauffeurs",
