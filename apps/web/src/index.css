@@ -317,9 +317,66 @@
   }
 }
 
+/* Scrollbar -----------------------------------------------------------------
+   Defined as a utility, the same way shadcn defines `no-scrollbar`, and put
+   on the document root so every page picks it up. A square silver thumb on
+   an obsidian track, parted from the page by a single hairline.
+
+   Fine pointers only. Phones and tablets keep their native overlay
+   scrollbars, so touch scrolling and momentum are untouched.
+
+   Firefox has no scrollbar pseudo-elements, so it gets the two standard
+   properties instead. They are fenced off from Chromium on purpose: once
+   Chromium sees `scrollbar-color` it ignores the pseudo-elements, and the
+   hover state with them. */
+@utility scrollbar-brand {
+  @media (hover: hover) and (pointer: fine) {
+    @supports not selector(::-webkit-scrollbar) {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(201 203 205 / 0.35) var(--color-obsidian);
+    }
+
+    &::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+      background-color: var(--color-obsidian);
+    }
+
+    &::-webkit-scrollbar-track {
+      background-color: var(--color-obsidian);
+      box-shadow: inset 1px 0 0 rgb(255 255 255 / 0.06);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border: 3px solid var(--color-obsidian);
+      border-radius: 0;
+      background-clip: padding-box;
+      background-color: rgb(201 203 205 / 0.3);
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: rgb(201 203 205 / 0.6);
+    }
+
+    &::-webkit-scrollbar-thumb:active {
+      background-color: rgb(255 255 255 / 0.85);
+    }
+
+    &::-webkit-scrollbar-corner {
+      background-color: var(--color-obsidian);
+    }
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+
+  /* The branded scrollbar belongs to the marketing site only — the app
+     routes (login, dashboard) follow the app theme and keep the default. */
+  html:has([data-site]) {
+    @apply scrollbar-brand;
   }
 
   /*
