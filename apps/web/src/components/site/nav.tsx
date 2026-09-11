@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { brand } from "@/content/brand";
 import {
@@ -35,6 +35,9 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
   const [open, setOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 64);
@@ -48,6 +51,24 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
     return () => {
       document.body.style.overflow = "";
     };
+  }, [open]);
+
+  // The full-screen menu behaves as a dialog: focus moves in when it opens,
+  // Escape closes it, and focus returns to the button that opened it.
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true;
+      closeButtonRef.current?.focus();
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === "Escape") setOpen(false);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      menuButtonRef.current?.focus();
+    }
   }, [open]);
 
   // Close everything when the route changes
@@ -186,11 +207,13 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
               Request a quote
             </Link>
             <button
+              ref={menuButtonRef}
               type="button"
               onClick={() => setOpen(true)}
-              className="label-xs flex items-center gap-2.5 text-white lg:hidden"
+              className="label-xs flex min-h-11 items-center gap-2.5 text-white lg:hidden"
               aria-label="Open menu"
               aria-expanded={open}
+              aria-controls="site-menu"
             >
               <span className="flex flex-col gap-[5px]" aria-hidden>
                 <span className="block h-px w-6 bg-current" />
@@ -252,14 +275,21 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
         className={`fixed inset-0 z-60 overflow-y-auto bg-obsidian text-white transition-opacity duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:hidden ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
-        aria-hidden={!open}
+        id="site-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        // Closed, the menu is out of the tab order and the accessibility tree
+        // entirely — not merely transparent.
+        inert={!open}
       >
         <div className={`${shell} flex items-center justify-between py-6`}>
           <Wordmark />
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={() => setOpen(false)}
-            className="label-xs flex items-center gap-2.5"
+            className="label-xs flex min-h-11 items-center gap-2.5"
             aria-label="Close menu"
           >
             <span className="relative block h-4 w-4" aria-hidden>
@@ -270,7 +300,7 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
           </button>
         </div>
 
-        <nav className={`${shell} mt-4 flex flex-col pb-16`} aria-label="Primary">
+        <nav className={`${shell} mt-4 flex flex-col pb-16`} aria-label="Menu">
           {groups.map((group) => (
             <div key={group.label} className="border-t border-hairline">
               <button
