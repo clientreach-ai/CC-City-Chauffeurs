@@ -26,8 +26,13 @@ export const contact = {
   phoneDisplay: "020 8443 3332",
   phoneHref: "tel:+442084433332",
   phoneE164: "+442084433332",
-  mobileDisplay: "07370 955161",
-  whatsappNumber: "447370955161",
+  /*
+   * WhatsApp — the number the client's existing site links every WhatsApp
+   * button to (wa.me/447804429407). PRD §17 Q2 is still open on which single
+   * mobile number the business standardises on; change it here only.
+   */
+  mobileDisplay: "07804 429407",
+  whatsappNumber: "447804429407",
   email: "enquiries@city-chauffeurs.com",
   emailHref: "mailto:enquiries@city-chauffeurs.com",
 } as const;

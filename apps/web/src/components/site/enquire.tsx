@@ -1,10 +1,7 @@
-import { contact, whatsappUrl } from "@/content/site";
+import { contact, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
 import { EnquiryForm } from "./enquiry-form";
 import { Rule, SectionLabel, shell } from "./primitives";
 import { Reveal } from "./reveal";
-
-const WHATSAPP_INTRO =
-  "Hello City Chauffeurs, I'd like to enquire about a chauffeur booking.";
 
 const channels = [
   {
