@@ -5,28 +5,28 @@ import { assurances, site } from "@/content/site";
 import { Rule, SectionLabel, shell } from "./primitives";
 import { Reveal } from "./reveal";
 
-export function Statement() {
+export function Statement({ index }: { index: string }) {
   return (
-    <section id="chauffeur" className="bg-mist text-ink">
+    <section id="chauffeur" className="glow-pool bg-obsidian text-white">
       <div className={shell}>
-        <Rule tone="light" />
+        <Rule tone="dark" />
 
         <div className="flex flex-wrap items-baseline justify-between gap-4 py-6">
-          <SectionLabel index="01" tone="light">
+          <SectionLabel index={index} tone="dark">
             A chauffeur company first
           </SectionLabel>
-          <p className="label-xs text-slate">{site.coverage}</p>
+          <p className="label-xs text-white/55">{site.coverage}</p>
         </div>
 
         <Reveal className="pb-16 sm:pb-24">
-          <h2 className="display-lg max-w-[22ch] text-ink">
+          <h2 className="display-lg max-w-[22ch] text-white">
             A luxury, discreet way of travelling — without the hassle.
           </h2>
         </Reveal>
 
         <div className="grid grid-cols-1 gap-12 pb-24 lg:grid-cols-12 lg:gap-16 lg:pb-36">
           <Reveal variant="image" className="lg:col-span-5">
-            <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink">
+            <div className="media-zoom glow-ring relative aspect-[4/5] w-full overflow-hidden bg-graphite">
               <Image
                 src={media.statement}
                 alt="The Spirit of Ecstasy on the bonnet of a Rolls-Royce"
@@ -40,7 +40,7 @@ export function Statement() {
 
           <div className="lg:col-span-6 lg:col-start-7 lg:pt-4">
             <Reveal delay={80}>
-              <p className="copy-lg max-w-[54ch] text-ink/85">
+              <p className="copy-lg max-w-[54ch] text-white/80">
                 City Chauffeurs provides discreet, professional chauffeur services
                 for clients who expect the highest standards — private clients,
                 executives, wedding parties and corporate accounts. Every journey is
@@ -49,7 +49,7 @@ export function Statement() {
             </Reveal>
 
             <Reveal delay={160}>
-              <p className="copy mt-6 max-w-[54ch] text-slate">
+              <p className="copy mt-6 max-w-[54ch] text-white/60">
                 Based in London, we operate across the entire United Kingdom and into
                 Europe. The fleet is selected for rear-seat comfort, presence and
                 discretion, and every vehicle is presented immaculately for each
@@ -59,17 +59,17 @@ export function Statement() {
             </Reveal>
 
             <Reveal delay={220} className="mt-10">
-              <p className="label-xs text-ink">{site.director}</p>
-              <p className="label-xs mt-2 text-slate">Director, {site.legalName}</p>
+              <p className="label-xs text-white">{site.director}</p>
+              <p className="label-xs mt-2 text-white/45">Director, {site.legalName}</p>
             </Reveal>
 
             <Reveal delay={280} className="mt-12">
-              <Rule tone="light" />
+              <Rule tone="dark" />
               <ul className="grid grid-cols-1 sm:grid-cols-2">
                 {assurances.map((item) => (
                   <li
                     key={item}
-                    className="label-xs border-b border-hairline-ink py-4 text-slate"
+                    className="label-xs border-b border-hairline py-4 text-white/55"
                   >
                     {item}
                   </li>

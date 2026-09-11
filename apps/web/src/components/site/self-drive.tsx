@@ -11,22 +11,22 @@ import { Reveal } from "./reveal";
  * brand, but the site should read as a chauffeur company first — so this runs
  * at a smaller typographic scale than the chauffeur sections above it.
  */
-export function SelfDrive() {
+export function SelfDrive({ index }: { index: string }) {
   return (
-    <section id="self-drive" className="bg-mist text-ink">
+    <section id="self-drive" className="bg-obsidian text-white">
       <div className={shell}>
-        <Rule tone="light" />
+        <Rule tone="dark" />
 
         <div className="flex flex-wrap items-baseline justify-between gap-4 py-6">
-          <SectionLabel index="07" tone="light">
+          <SectionLabel index={index} tone="dark">
             Supercars
           </SectionLabel>
-          <p className="label-xs text-slate">Chauffeur-driven or self-drive</p>
+          <p className="label-xs text-white/55">Chauffeur-driven or self-drive</p>
         </div>
 
         <div className="grid grid-cols-1 items-center gap-10 pb-24 lg:grid-cols-12 lg:gap-16 lg:pb-36">
           <Reveal variant="image" className="lg:col-span-6">
-            <div className="relative aspect-16/10 w-full overflow-hidden bg-ink">
+            <div className="media-zoom glow-ring relative aspect-16/10 w-full overflow-hidden bg-graphite">
               <Image
                 src={media.selfDrive}
                 alt="A supercar photographed outside a London hotel at night"
@@ -40,11 +40,11 @@ export function SelfDrive() {
 
           <div className="lg:col-span-5 lg:col-start-8">
             <Reveal delay={80}>
-              <h2 className="display-lg max-w-[12ch] text-ink">Or take the wheel</h2>
+              <h2 className="display-lg max-w-[12ch] text-white">Or take the wheel</h2>
             </Reveal>
 
             <Reveal delay={140}>
-              <p className="copy mt-6 max-w-[46ch] text-slate">
+              <p className="copy mt-6 max-w-[46ch] text-white/60">
                 Selected supercars from the fleet are available to hire without a
                 chauffeur, subject to driver eligibility and insurance requirements.
                 Prefer to be driven? The same cars can be arranged chauffeur-driven
@@ -53,23 +53,23 @@ export function SelfDrive() {
             </Reveal>
 
             <Reveal delay={200} className="mt-8">
-              <Rule tone="light" />
+              <Rule tone="dark" />
               {supercarIds.map((id) => (
                 <div
                   key={id}
-                  className="label-xs flex items-baseline justify-between gap-4 border-b border-hairline-ink py-4 text-slate"
+                  className="label-xs flex items-baseline justify-between gap-4 border-b border-hairline py-4 text-white/50"
                 >
                   <span>{vehicles[id].name}</span>
-                  <span className="text-ink">{vehicles[id].availability}</span>
+                  <span className="text-silver">{vehicles[id].availability}</span>
                 </div>
               ))}
             </Reveal>
 
             <Reveal delay={260} className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
-              <GhostLink href={routes.supercarHire} tone="light">
+              <GhostLink href={routes.supercarHire} tone="dark">
                 Supercar hire
               </GhostLink>
-              <QuietLink href={routes.supercarExperiences} tone="light">
+              <QuietLink href={routes.supercarExperiences} tone="dark">
                 Or be driven in one
               </QuietLink>
             </Reveal>

@@ -25,7 +25,7 @@ const principles = [
   },
 ];
 
-export function Principles() {
+export function Principles({ index }: { index: string }) {
   return (
     <section className="bg-obsidian text-white">
       {/* Full-bleed cabin photography as the opening statement */}
@@ -57,8 +57,8 @@ export function Principles() {
 
       <div className={`${shell} pt-16 pb-24 lg:pt-24 lg:pb-36`}>
         <div className="flex flex-wrap items-baseline justify-between gap-4 pb-12 lg:pb-20">
-          <SectionLabel index="04">Three principles</SectionLabel>
-          <p className="label-xs text-white/40">Held on every journey</p>
+          <SectionLabel index={index}>Three principles</SectionLabel>
+          <p className="label-xs text-white/55">Held on every journey</p>
         </div>
 
         {principles.map((principle, i) => (
@@ -86,7 +86,7 @@ export function Principles() {
               ) : null}
 
               {principle.image ? (
-                <div className="relative mt-8 aspect-[16/10] w-full overflow-hidden bg-ink">
+                <div className="media-zoom glow-ring relative mt-8 aspect-[16/10] w-full overflow-hidden bg-graphite">
                   <Image
                     src={principle.image}
                     alt={principle.imageAlt ?? ""}

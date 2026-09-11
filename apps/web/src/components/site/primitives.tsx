@@ -22,7 +22,7 @@ export function SectionLabel({
   return (
     <p
       className={`label-xs flex items-center gap-3 ${
-        tone === "dark" ? "text-steel" : "text-slate"
+        tone === "dark" ? "text-steel" : "text-ink-muted"
       } ${className}`}
     >
       {index ? (
@@ -73,7 +73,7 @@ export function SectionHead({
           {label}
         </SectionLabel>
         {note ? (
-          <p className={`label-xs ${tone === "dark" ? "text-white/40" : "text-slate"}`}>
+          <p className={`label-xs ${tone === "dark" ? "text-white/55" : "text-slate"}`}>
             {note}
           </p>
         ) : null}

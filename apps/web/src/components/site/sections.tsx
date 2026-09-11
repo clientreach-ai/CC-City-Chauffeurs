@@ -106,7 +106,7 @@ export function EditorialSplit({
         variant="image"
         className={`lg:col-span-6 ${flip ? "lg:order-2 lg:col-start-7" : ""}`}
       >
-        <div className={`relative ${aspect} w-full overflow-hidden bg-obsidian`}>
+        <div className={`media-zoom glow-ring relative ${aspect} w-full overflow-hidden bg-graphite`}>
           <Image
             src={image}
             alt={imageAlt}
@@ -122,7 +122,7 @@ export function EditorialSplit({
       <div className={`lg:col-span-5 ${flip ? "lg:order-1" : "lg:col-start-8"} lg:pt-4`}>
         {eyebrow ? (
           <Reveal>
-            <p className={`label-xs ${tone === "dark" ? "text-white/40" : "text-slate"}`}>
+            <p className={`label-xs ${tone === "dark" ? "text-white/55" : "text-slate"}`}>
               {eyebrow}
             </p>
           </Reveal>
@@ -200,7 +200,7 @@ export function IndexRows({
               {row.index ? (
                 <span
                   className={`label-xs shrink-0 ${
-                    tone === "dark" ? "text-white/30" : "text-slate/60"
+                    tone === "dark" ? "text-white/50" : "text-slate/60"
                   }`}
                 >
                   {row.index}
@@ -320,7 +320,7 @@ export function VehicleStrip({
               </p>
               <p
                 className={`label-xs mt-2 ${
-                  tone === "dark" ? "text-white/40" : "text-slate"
+                  tone === "dark" ? "text-white/55" : "text-slate"
                 }`}
               >
                 {vehicle.passengers} passengers · {vehicle.rate}
@@ -346,9 +346,9 @@ export function VehiclePlate({
 }) {
   return (
     <div className="absolute inset-0 flex flex-col justify-between border border-hairline bg-graphite p-6">
-      <span className="label-xs text-white/30">{marque}</span>
+      <span className="label-xs text-white/50">{marque}</span>
       <span className="display-sm text-white/70">{name}</span>
-      <span className="label-xs text-white/25">Photography to follow</span>
+      <span className="label-xs text-white/45">Photography to follow</span>
     </div>
   );
 }
