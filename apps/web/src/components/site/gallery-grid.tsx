@@ -82,7 +82,7 @@ function GalleryRow({
             onClick={() => page(-1)}
             disabled={atStart}
             aria-label={`Scroll ${group.label} photographs backwards`}
-            className="flex h-11 w-11 items-center justify-center border border-hairline text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink disabled:pointer-events-none disabled:opacity-25"
+            className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-hairline text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink disabled:pointer-events-none disabled:opacity-25"
           >
             <span aria-hidden>←</span>
           </button>
@@ -91,7 +91,7 @@ function GalleryRow({
             onClick={() => page(1)}
             disabled={atEnd}
             aria-label={`Scroll ${group.label} photographs forwards`}
-            className="flex h-11 w-11 items-center justify-center border border-hairline text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink disabled:pointer-events-none disabled:opacity-25"
+            className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-hairline text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink disabled:pointer-events-none disabled:opacity-25"
           >
             <span aria-hidden>→</span>
           </button>
@@ -128,7 +128,7 @@ function GalleryRow({
 
               <span
                 aria-hidden
-                className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center border border-white/25 bg-obsidian/55 text-white backdrop-blur-[2px] transition-colors duration-400 group-hover:border-white"
+                className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-[3px] border border-white/25 bg-obsidian/55 text-white backdrop-blur-[2px] transition-colors duration-400 group-hover:border-white"
               >
                 <svg
                   viewBox="0 0 16 16"
@@ -308,14 +308,14 @@ export function GalleryGrid() {
               width={current.width}
               height={current.height}
               sizes="92vw"
-              className="enter-image max-h-[72svh] w-auto max-w-full object-contain"
+              className="enter-image max-h-[72svh] w-auto max-w-full rounded-[var(--radius-media)] object-contain"
               priority
             />
 
             <button
               type="button"
               onClick={() => step(-1)}
-              className="absolute left-1 flex h-12 w-12 items-center justify-center border border-hairline bg-obsidian/70 text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink sm:left-5"
+              className="absolute left-1 flex h-12 w-12 items-center justify-center rounded-[3px] border border-hairline bg-obsidian/70 text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink sm:left-5"
               aria-label="Previous photograph"
             >
               <span aria-hidden>←</span>
@@ -323,7 +323,7 @@ export function GalleryGrid() {
             <button
               type="button"
               onClick={() => step(1)}
-              className="absolute right-1 flex h-12 w-12 items-center justify-center border border-hairline bg-obsidian/70 text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink sm:right-5"
+              className="absolute right-1 flex h-12 w-12 items-center justify-center rounded-[3px] border border-hairline bg-obsidian/70 text-white transition-colors duration-400 hover:border-white hover:bg-white hover:text-ink sm:right-5"
               aria-label="Next photograph"
             >
               <span aria-hidden>→</span>

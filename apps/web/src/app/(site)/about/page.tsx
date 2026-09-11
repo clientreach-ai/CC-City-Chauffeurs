@@ -60,7 +60,7 @@ export default function AboutPage() {
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
           <Reveal variant="image" className="lg:col-span-5">
-            <div className="relative aspect-4/5 w-full overflow-hidden bg-ink">
+            <div className="media-zoom glow-ring relative aspect-4/5 w-full overflow-hidden bg-graphite">
               <Image
                 src={media.statement}
                 alt="The Spirit of Ecstasy on the bonnet of a Rolls-Royce"
