@@ -1,7 +1,5 @@
 import type { Route } from "next";
 
-import { services } from "./services";
-
 /**
  * Business facts for CC City Chauffeurs.
  *
@@ -28,8 +26,13 @@ export const contact = {
   phoneDisplay: "020 8443 3332",
   phoneHref: "tel:+442084433332",
   phoneE164: "+442084433332",
-  mobileDisplay: "07370 955161",
-  whatsappNumber: "447370955161",
+  /*
+   * WhatsApp — the number the client's existing site links every WhatsApp
+   * button to (wa.me/447804429407). PRD §17 Q2 is still open on which single
+   * mobile number the business standardises on; change it here only.
+   */
+  mobileDisplay: "07804 429407",
+  whatsappNumber: "447804429407",
   email: "enquiries@city-chauffeurs.com",
   emailHref: "mailto:enquiries@city-chauffeurs.com",
 } as const;
@@ -58,38 +61,12 @@ export const routes = {
   about: "/about" as Route,
   contact: "/contact" as Route,
   quote: "/request-a-quote" as Route,
+  /** The quote form with a service already chosen. */
+  quoteFor: (service: string) => `/request-a-quote?service=${service}` as Route,
 } as const;
 
 export type NavItem = { label: string; href: Route; note?: string };
 export type NavGroup = { label: string; href: Route; items: readonly NavItem[] };
-
-export const navGroups: readonly NavGroup[] = [
-  {
-    label: "Chauffeur",
-    href: routes.services,
-    items: services.map((service) => ({
-      label: service.label,
-      href: routes.service(service.slug),
-      note: service.summary,
-    })),
-  },
-  {
-    label: "Supercar",
-    href: routes.supercarHire,
-    items: [
-      {
-        label: "Supercar Hire",
-        href: routes.supercarHire,
-        note: "Self-drive hire, subject to driver eligibility and insurance.",
-      },
-      {
-        label: "Supercar Experiences",
-        href: routes.supercarExperiences,
-        note: "Chauffeur-driven statement cars for arrivals and occasions.",
-      },
-    ],
-  },
-];
 
 export const navLinks: readonly NavItem[] = [
   { label: "Fleet", href: routes.fleet },
@@ -161,4 +138,14 @@ export const principles = [
     title: "Discretion",
     copy: "Absolute confidentiality for every client, every journey. Names, destinations and schedules stay between us.",
   },
+] as const;
+
+/**
+ * Terms that apply across chauffeur bookings, as given on the client intake
+ * (PRD Appendix A). Cancellation wording is still being confirmed (PRD §17
+ * Q6), so it is deliberately not published.
+ */
+export const bookingTerms = [
+  "We ask for 48 hours' notice wherever possible.",
+  "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
 ] as const;

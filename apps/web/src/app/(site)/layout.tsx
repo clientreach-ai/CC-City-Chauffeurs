@@ -1,23 +1,38 @@
 import { ContactBar } from "@/components/site/contact-bar";
 import { Footer } from "@/components/site/footer";
 import { Nav } from "@/components/site/nav";
-import { contact, site } from "@/content/site";
+import { brand } from "@/content/brand";
+import { navGroups } from "@/content/navigation";
+import { shareImage } from "@/content/seo";
+import { contact, serviceAreas, site } from "@/content/site";
 
-/** Structured data limited to facts published on the client's existing site. */
+/**
+ * Structured data limited to facts the client has published or confirmed:
+ * name, contact details, London base and the areas served. No ratings,
+ * opening hours or price range — none of them are established yet.
+ */
 const businessSchema = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
+  "@id": `${site.url}/#business`,
   name: site.legalName,
   description: site.positioning,
+  url: site.url,
   telephone: contact.phoneE164,
   email: contact.email,
-  url: site.url,
+  image: `${site.url}${shareImage.url}`,
+  logo: `${site.url}${brand.logo.src}`,
   address: {
     "@type": "PostalAddress",
     addressLocality: "London",
     addressCountry: "GB",
   },
-  areaServed: ["London", "United Kingdom", "Europe"],
+  areaServed: [
+    ...serviceAreas.map((area) => ({ "@type": "Place", name: `${area}, London` })),
+    { "@type": "City", name: "London" },
+    { "@type": "Country", name: "United Kingdom" },
+    { "@type": "Place", name: "Europe" },
+  ],
 };
 
 /**
@@ -28,14 +43,22 @@ export default function SiteLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="bg-ink font-[family-name:var(--font-ui)] antialiased">
+    <div data-site className="bg-ink font-[family-name:var(--font-ui)] antialiased">
       <script
         type="application/ld+json"
         // Static, author-controlled object — no user input reaches this string.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(businessSchema) }}
       />
-      <Nav />
-      <main>{children}</main>
+      <a
+        href="#content"
+        className="label-xs sr-only fixed top-3 left-3 z-70 bg-white px-5 py-3.5 text-ink focus:not-sr-only"
+      >
+        Skip to content
+      </a>
+      <Nav groups={navGroups} />
+      <main id="content" tabIndex={-1} className="outline-none">
+        {children}
+      </main>
       <Footer />
       <ContactBar />
     </div>

@@ -13,13 +13,14 @@ import {
 } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Supercar Experiences London | Chauffeur-Driven | CC City Chauffeurs",
   description:
     "Chauffeur-driven supercar experiences in London — statement arrivals, occasions and pre-arranged journeys in the Lamborghini Urus, Huracán and Revuelto.",
-  alternates: { canonical: "/supercar-experiences" },
-};
+  path: "/supercar-experiences",
+});
 
 const occasions = [
   {
@@ -50,9 +51,9 @@ export default function SupercarExperiencesPage() {
       <PageHero
         eyebrow="Supercar experiences · Chauffeur-driven"
         display={["The arrival", "is the", "occasion"]}
-        standfirst="Statement vehicles from our own fleet, chauffeur-driven for select, pre-arranged journeys. All of the presence, none of the parking."
-        image={media.sf90HotelNight}
-        imageAlt="A supercar photographed outside a London hotel at night"
+        standfirst="Statement vehicles from the fleet, chauffeur-driven for select, pre-arranged journeys. All of the presence, none of the parking."
+        image={media.fleetUrus}
+        imageAlt="Lamborghini Urus in purple, photographed in the workshop"
         facts={[
           { label: "Basis", value: "Chauffeur-driven" },
           { label: "Booked", value: "Pre-arranged, by the hour or evening" },
@@ -60,7 +61,7 @@ export default function SupercarExperiencesPage() {
         ]}
         actions={
           <>
-            <GhostLink href={routes.quote}>Request a quote</GhostLink>
+            <GhostLink href={routes.quoteFor("supercar-experience")}>Request a quote</GhostLink>
             <QuietLink href={routes.supercarHire}>Or drive it yourself</QuietLink>
           </>
         }

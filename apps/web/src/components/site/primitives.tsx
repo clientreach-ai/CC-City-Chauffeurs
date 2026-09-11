@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 /** Page gutter. One shared value so every section aligns to the same column. */
 export const shell = "mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16";
@@ -145,5 +145,23 @@ export function QuietLink({
     <Link href={href as Route} className={classes}>
       {children}
     </Link>
+  );
+}
+
+/**
+ * Keeps hyphenated words whole — "V-Class", "G-Wagon", "Rolls-Royce" — so a
+ * vehicle name set in display type never breaks as "V- / CLASS". Spaces
+ * still wrap as normal.
+ */
+export function Unbroken({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(" ").map((word, i) => (
+        <Fragment key={`${word}-${i}`}>
+          {i > 0 ? " " : null}
+          {word.includes("-") ? <span className="whitespace-nowrap">{word}</span> : word}
+        </Fragment>
+      ))}
+    </>
   );
 }

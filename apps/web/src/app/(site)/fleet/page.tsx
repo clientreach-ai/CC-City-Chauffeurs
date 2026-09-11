@@ -3,25 +3,19 @@ import Image from "next/image";
 
 import { PageHero } from "@/components/site/page-hero";
 import { Reveal } from "@/components/site/reveal";
-import {
-  GhostLink,
-  QuietLink,
-  Rule,
-  SectionHead,
-  SectionLabel,
-  shell,
-} from "@/components/site/primitives";
+import { GhostLink, QuietLink, Rule, SectionHead, SectionLabel, shell, Unbroken } from "@/components/site/primitives";
 import { EnquiryBand, Section, StatementBand, VehiclePlate } from "@/components/site/sections";
-import { fleetCategories, vehicles, type Vehicle } from "@/content/fleet";
+import { fleetCategories, passengersLabel, type Vehicle, UNCONFIRMED, vehicles } from "@/content/fleet";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "The Fleet | Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
   description:
-    "The CC City Chauffeurs fleet — chauffeur fleet, high-profile SUVs, group transport and statement vehicles. Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, Range Rover Vogue and Lamborghini.",
-  alternates: { canonical: "/fleet" },
-};
+    "The CC City Chauffeurs fleet — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, and Lamborghini.",
+  path: "/fleet",
+});
 
 function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
   const wide = index % 3 === 0;
@@ -33,7 +27,7 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
       }`}
     >
       <div className={wide ? "lg:col-span-7" : "lg:col-span-5"}>
-        <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite">
+        <div className="media-zoom relative aspect-4/3 w-full overflow-hidden bg-graphite">
           {vehicle.image ? (
             <Image
               src={vehicle.image}
@@ -52,13 +46,15 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
 
       <div className={wide ? "lg:col-span-4 lg:col-start-9" : "lg:col-span-6 lg:col-start-7"}>
         <p className="label-xs text-white/55">{vehicle.marque}</p>
-        <h3 className="display-md mt-4 text-white">{vehicle.name}</h3>
+        <h3 className="display-md mt-4 text-white">
+          <Unbroken text={vehicle.name} />
+        </h3>
         <p className="copy mt-5 max-w-[46ch] text-white/60">{vehicle.line}</p>
 
         <dl className="mt-8">
           {[
-            { label: "Passengers", value: vehicle.passengers },
-            { label: "Luggage", value: vehicle.luggage },
+            { label: "Passengers", value: vehicle.passengers ?? UNCONFIRMED },
+            { label: "Luggage", value: vehicle.luggage ?? UNCONFIRMED },
             { label: "Availability", value: vehicle.availability },
             { label: "Indicative rate", value: vehicle.rate },
           ].map((spec) => (
@@ -80,7 +76,10 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
         </p>
 
         <div className="mt-8">
-          <GhostLink href={routes.quote} className="!px-6 !py-3">
+          <GhostLink
+            href={`${routes.quote}?vehicle=${encodeURIComponent(vehicle.name)}`}
+            className="!px-6 !py-3"
+          >
             Enquire about this vehicle
           </GhostLink>
         </div>
@@ -175,7 +174,7 @@ export default function FleetPage() {
       <Section tone="dark" className="pt-16 lg:pt-24">
         <SectionHead
           label="Specification index"
-          note="Standard configuration · Confirmed on enquiry"
+          note="Indicative rates · Capacity confirmed on enquiry"
           tone="dark"
         />
         <ul>
@@ -184,27 +183,29 @@ export default function FleetPage() {
             return (
               <li
                 key={id}
-                className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-hairline-ink py-5 last:border-b sm:grid-cols-12 sm:items-baseline"
+                className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-hairline py-5 last:border-b sm:grid-cols-12 sm:items-baseline"
               >
-                <span className="label-sm text-ink sm:col-span-4">{vehicle.name}</span>
-                <span className="label-xs text-slate sm:col-span-2">
-                  {vehicle.passengers} passengers
+                <span className="label-sm text-white sm:col-span-4">{vehicle.name}</span>
+                <span className="label-xs text-white/55 sm:col-span-2">
+                  {passengersLabel(vehicle)}
                 </span>
-                <span className="label-xs text-slate sm:col-span-2">{vehicle.luggage}</span>
-                <span className="label-xs text-slate sm:col-span-2">
+                <span className="label-xs text-white/55 sm:col-span-2">
+                  {vehicle.luggage ?? `Luggage ${UNCONFIRMED.toLowerCase()}`}
+                </span>
+                <span className="label-xs text-white/55 sm:col-span-2">
                   {vehicle.availability}
                 </span>
-                <span className="label-xs text-ink sm:col-span-2 sm:text-right">
+                <span className="label-xs text-white sm:col-span-2 sm:text-right">
                   {vehicle.rate}
                 </span>
               </li>
             );
           })}
         </ul>
-        <p className="label-xs mt-8 max-w-[62ch] text-slate">
-          Rates are indicative and depend on date, duration and route. Passenger and
-          luggage figures are the standard configuration for each model and are
-          confirmed when a vehicle is booked.
+        <p className="label-xs mt-8 max-w-[62ch] text-white/55">
+          Rates are indicative and depend on date, duration and route. Where a
+          capacity is shown it is our own figure for that vehicle; the rest are
+          confirmed with you when you enquire, against the party and the luggage.
         </p>
       </Section>
 

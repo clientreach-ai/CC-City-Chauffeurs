@@ -13,7 +13,7 @@ export function Testimonials({ index }: { index: string }) {
   if (testimonials.length === 0) return null;
 
   return (
-    <section id="testimonials" className="glow-pool bg-obsidian text-white">
+    <section id="testimonials" className="bg-obsidian text-white">
       <div className={shell}>
         <Rule tone="dark" />
 
@@ -29,7 +29,7 @@ export function Testimonials({ index }: { index: string }) {
             <Reveal
               key={`${item.name}-${item.district}`}
               delay={Math.min(i * 80, 320)}
-              className="glow-edge border-t border-hairline pt-7"
+              className="border-t border-hairline pt-7"
             >
               <blockquote className="quote-lg text-white/90">
                 {item.quote}

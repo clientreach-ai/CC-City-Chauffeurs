@@ -24,7 +24,6 @@ export function PageHero({
   facts,
   actions,
   objectPosition = "object-center",
-  mobileObjectPosition,
   height = "tall",
 }: {
   eyebrow?: string;
@@ -35,8 +34,8 @@ export function PageHero({
   imageAlt: string;
   facts?: readonly HeroFact[];
   actions?: React.ReactNode;
+  /** A literal Tailwind class, e.g. "object-[center_40%]". */
   objectPosition?: string;
-  mobileObjectPosition?: string;
   height?: "tall" | "short";
 }) {
   const frame =
@@ -57,7 +56,7 @@ export function PageHero({
           quality={85}
           sizes="100vw"
           placeholder="blur"
-          className={`object-cover ${mobileObjectPosition ?? objectPosition} sm:${objectPosition}`}
+          className={`object-cover ${objectPosition}`}
         />
         <div
           aria-hidden
@@ -71,8 +70,6 @@ export function PageHero({
           aria-hidden
           className="absolute inset-0 hidden sm:block sm:bg-[linear-gradient(90deg,rgba(6,6,7,0.62)_0%,rgba(6,6,7,0.18)_40%,rgba(6,6,7,0)_66%)]"
         />
-        {/* Corners fall away so the headline holds against the photograph */}
-        <div aria-hidden className="vignette absolute inset-0" />
       </div>
 
       <div className="relative flex flex-1 flex-col justify-end pt-28 sm:pt-32">

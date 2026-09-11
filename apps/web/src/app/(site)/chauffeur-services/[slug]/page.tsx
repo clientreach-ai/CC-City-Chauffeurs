@@ -7,6 +7,7 @@ import {
   EditorialSplit,
   EnquiryBand,
   IndexRows,
+  QuoteBrief,
   Section,
   Statement,
   StatementBand,
@@ -14,7 +15,8 @@ import {
 } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { getService, services, type Service } from "@/content/services";
-import { routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
+import { bookingTerms, routes, site } from "@/content/site";
 
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
@@ -29,17 +31,11 @@ export async function generateMetadata({
   const service = getService(slug);
   if (!service) return {};
 
-  return {
+  return pageMetadata({
     title: service.seo.title,
     description: service.seo.description,
-    alternates: { canonical: `/chauffeur-services/${service.slug}` },
-    openGraph: {
-      title: service.seo.title,
-      description: service.seo.description,
-      locale: "en_GB",
-      type: "website",
-    },
-  };
+    path: `/chauffeur-services/${service.slug}`,
+  });
 }
 
 function OtherServices({ current }: { current: Service }) {
@@ -72,6 +68,39 @@ export default async function ServicePage({
   const service = getService(slug);
   if (!service) notFound();
 
+  const quoteHref = routes.quoteFor(service.slug);
+
+  // Service and breadcrumb schema, both mirroring what the page shows.
+  const pageUrl = `${site.url}/chauffeur-services/${service.slug}`;
+  const schema = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: service.label,
+      serviceType: `${service.label} chauffeur service`,
+      description: service.seo.description,
+      url: pageUrl,
+      provider: { "@id": `${site.url}/#business` },
+      areaServed: ["London", "United Kingdom", "Europe"],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: site.url },
+        { "@type": "ListItem", position: 2, name: "Chauffeur services", item: `${site.url}/chauffeur-services` },
+        { "@type": "ListItem", position: 3, name: service.label, item: pageUrl },
+      ],
+    },
+  ];
+  const jsonLd = (
+    <script
+      type="application/ld+json"
+      // Static, author-controlled content — no user input reaches this string.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+
   const hero = (
     <PageHero
       crumbs={[
@@ -85,7 +114,7 @@ export default async function ServicePage({
       facts={service.facts}
       actions={
         <>
-          <GhostLink href={routes.quote}>Request a quote</GhostLink>
+          <GhostLink href={quoteHref}>Request a quote</GhostLink>
           <QuietLink href={routes.fleet}>See the fleet</QuietLink>
         </>
       }
@@ -108,11 +137,22 @@ export default async function ServicePage({
       heading={service.detail.heading}
       paragraphs={service.detail.paragraphs}
       action={
-        <GhostLink href={routes.quote} tone={tone}>
+        <GhostLink href={quoteHref} tone={tone}>
           Request a quote
         </GhostLink>
       }
     />
+  );
+
+  const brief = (
+    <Section tone="dark" className="pt-16 lg:pt-24">
+      <QuoteBrief
+        needs={service.booking.needs}
+        note={service.booking.note}
+        terms={bookingTerms}
+        quoteHref={quoteHref}
+      />
+    </Section>
   );
 
   const closing = (
@@ -120,6 +160,7 @@ export default async function ServicePage({
       heading={service.closing}
       body="Send the details however suits you — most of our clients simply message us — and we will confirm availability and cost."
       tone="dark"
+      primaryHref={quoteHref}
     />
   );
 
@@ -127,6 +168,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
+        {jsonLd}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             heading={["What the", "service", "involves"]}
@@ -143,6 +185,7 @@ export default async function ServicePage({
         <Section tone="dark" className="pt-16 lg:pt-24">
           <VehicleStrip ids={service.vehicles} tone="dark" />
         </Section>
+        {brief}
         <OtherServices current={service} />
         {closing}
       </>
@@ -153,6 +196,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
+        {jsonLd}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             tone="dark"
@@ -167,6 +211,7 @@ export default async function ServicePage({
         <Section tone="dark">
           <VehicleStrip ids={service.vehicles} />
         </Section>
+        {brief}
         <OtherServices current={service} />
         {closing}
       </>
@@ -176,6 +221,7 @@ export default async function ServicePage({
   return (
     <>
       {hero}
+      {jsonLd}
       <Section tone="dark" className="pt-20 lg:pt-28">
         {detailSplit("dark", true)}
       </Section>
@@ -190,6 +236,7 @@ export default async function ServicePage({
       <Section tone="dark">
         <VehicleStrip ids={service.vehicles} tone="dark" />
       </Section>
+      {brief}
       <OtherServices current={service} />
       {closing}
     </>
