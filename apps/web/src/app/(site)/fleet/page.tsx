@@ -33,7 +33,7 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
       }`}
     >
       <div className={wide ? "lg:col-span-7" : "lg:col-span-5"}>
-        <div className="relative aspect-4/3 w-full overflow-hidden bg-graphite">
+        <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite">
           {vehicle.image ? (
             <Image
               src={vehicle.image}
@@ -51,7 +51,7 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
       </div>
 
       <div className={wide ? "lg:col-span-4 lg:col-start-9" : "lg:col-span-6 lg:col-start-7"}>
-        <p className="label-xs text-white/40">{vehicle.marque}</p>
+        <p className="label-xs text-white/55">{vehicle.marque}</p>
         <h3 className="display-md mt-4 text-white">{vehicle.name}</h3>
         <p className="copy mt-5 max-w-[46ch] text-white/60">{vehicle.line}</p>
 
@@ -66,14 +66,14 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
               key={spec.label}
               className="flex items-baseline justify-between gap-6 border-b border-hairline py-3.5 first:border-t"
             >
-              <dt className="label-xs text-white/40">{spec.label}</dt>
+              <dt className="label-xs text-white/55">{spec.label}</dt>
               <dd className="label-xs text-white">{spec.value}</dd>
             </div>
           ))}
         </dl>
 
-        <p className="label-xs mt-6 flex flex-wrap gap-x-4 gap-y-2 text-white/40">
-          <span className="text-white/25">Suited to</span>
+        <p className="label-xs mt-6 flex flex-wrap gap-x-4 gap-y-2 text-white/55">
+          <span className="text-white/45">Suited to</span>
           {vehicle.suited.map((item) => (
             <span key={item}>{item}</span>
           ))}
@@ -134,7 +134,7 @@ export default function FleetPage() {
                 <span className="display-sm mt-3 block text-white/85 transition-colors duration-500 group-hover:text-white">
                   {category.title}
                 </span>
-                <span className="label-xs mt-3 block text-white/35">
+                <span className="label-xs mt-3 block text-white/50">
                   {category.vehicles.length} vehicles
                 </span>
               </a>
@@ -148,7 +148,7 @@ export default function FleetPage() {
           <div className={`${shell} pt-16 pb-6 lg:pt-24`}>
             <div className="flex flex-wrap items-baseline justify-between gap-4 pb-10">
               <SectionLabel index={category.index}>{category.title}</SectionLabel>
-              <p className="label-xs text-white/40">{category.summary}</p>
+              <p className="label-xs text-white/55">{category.summary}</p>
             </div>
 
             <div className="flex flex-col gap-14 lg:gap-20">
@@ -172,11 +172,11 @@ export default function FleetPage() {
       />
 
       {/* Full specification index */}
-      <Section tone="light" className="pt-16 lg:pt-24">
+      <Section tone="dark" className="pt-16 lg:pt-24">
         <SectionHead
           label="Specification index"
           note="Standard configuration · Confirmed on enquiry"
-          tone="light"
+          tone="dark"
         />
         <ul>
           {uniqueVehicles.map((id) => {

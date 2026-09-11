@@ -22,7 +22,6 @@ function Wordmark({ className = "" }: { className?: string }) {
     <Image
       src={brand.logo}
       alt={site.legalName}
-      priority
       sizes="300px"
       className={`h-7 w-auto sm:h-9 ${className}`}
     />
@@ -65,68 +64,120 @@ export function Nav() {
         onMouseLeave={() => setOpenGroup(null)}
         className={`fixed inset-x-0 top-0 z-50 text-white transition-[background-color,border-color,backdrop-filter] duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] ${
           (scrolled || openGroup) && !open
-            ? "border-b border-hairline bg-obsidian/95 backdrop-blur-[2px]"
+            ? "border-b border-hairline bg-obsidian/95 backdrop-blur-[6px]"
             : "border-b border-transparent bg-transparent"
         }`}
       >
+        {/* Contrast guarantee while the bar is transparent over the hero */}
         <div
-          className={`${shell} flex items-center justify-between transition-[padding] duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] ${
-            scrolled || openGroup ? "py-4" : "py-6 lg:py-7"
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(180deg,rgba(6,6,7,0.65)_0%,rgba(6,6,7,0)_100%)] transition-opacity duration-700 ${
+            scrolled || openGroup ? "opacity-0" : "opacity-100"
+          }`}
+        />
+
+        <div
+          className={`${shell} relative flex items-center justify-between transition-[padding] duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] ${
+            scrolled || openGroup ? "py-4" : "py-5 lg:py-6"
           }`}
         >
           <Link href={routes.home} aria-label={`${site.legalName} — home`} className="shrink-0">
             <Wordmark />
           </Link>
 
-          <nav className="hidden items-center gap-8 xl:flex" aria-label="Primary">
-            {navGroups.map((group) => (
-              <div
-                key={group.label}
-                onMouseEnter={() => setOpenGroup(group.label)}
-                onFocus={() => setOpenGroup(group.label)}
-              >
-                <Link
-                  href={group.href}
-                  aria-expanded={openGroup === group.label}
-                  className={`label-xs link-quiet transition-colors duration-500 hover:text-white ${
-                    isActive(group.href) || openGroup === group.label
-                      ? "text-white"
-                      : "text-white/70"
-                  }`}
+          <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
+            {navGroups.map((group) => {
+              const expanded = openGroup === group.label;
+              const here = isActive(group.href);
+              return (
+                <div
+                  key={group.label}
+                  className="relative"
+                  onMouseEnter={() => setOpenGroup(group.label)}
                 >
-                  {group.label}
-                </Link>
-              </div>
-            ))}
+                  {/*
+                    A disclosure button, not a link. It carries a chevron so it
+                    is visibly different from a plain destination, and it opens
+                    on click as well as hover — hover alone is unusable on a
+                    touchscreen, where the old link simply navigated away.
+                    The destination itself is the "Overview" link inside.
+                  */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroup(expanded ? null : group.label)}
+                    aria-expanded={expanded}
+                    aria-haspopup="true"
+                    className={`label-xs flex h-11 items-center gap-2 transition-colors duration-400 hover:text-white ${
+                      here || expanded ? "text-white" : "text-white/70"
+                    }`}
+                  >
+                    {group.label}
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 10 6"
+                      className={`h-[5px] w-[9px] transition-transform duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] ${
+                        expanded ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                    >
+                      <path d="M1 1l4 4 4-4" strokeLinecap="square" />
+                    </svg>
+                  </button>
+                  {/* Where you are, stated plainly */}
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-0 -bottom-0.5 h-px origin-left bg-white transition-transform duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] ${
+                      here ? "scale-x-100" : "scale-x-0"
+                    }`}
+                  />
+                </div>
+              );
+            })}
 
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onMouseEnter={() => setOpenGroup(null)}
-                className={`label-xs link-quiet transition-colors duration-500 hover:text-white ${
-                  isActive(link.href) ? "text-white" : "text-white/70"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const here = isActive(link.href);
+              return (
+                <div key={link.href} className="relative">
+                  <Link
+                    href={link.href}
+                    onMouseEnter={() => setOpenGroup(null)}
+                    aria-current={here ? "page" : undefined}
+                    className={`label-xs flex h-11 items-center transition-colors duration-400 hover:text-white ${
+                      here ? "text-white" : "text-white/70"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-0 -bottom-0.5 h-px origin-left bg-white transition-transform duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] ${
+                      here ? "scale-x-100" : "scale-x-0"
+                    }`}
+                  />
+                </div>
+              );
+            })}
           </nav>
 
           <div className="flex items-center gap-6">
             <a
               href={contact.phoneHref}
-              className="label-xs link-quiet hidden text-white/70 transition-colors duration-500 hover:text-white lg:inline-block"
+              className="label-xs link-quiet hidden text-white/70 transition-colors duration-500 hover:text-white xl:inline-block"
             >
               {contact.phoneDisplay}
             </a>
-            <Link href={routes.quote} className="btn-ghost btn-on-dark hidden !px-6 !py-3 sm:inline-flex">
+            <Link
+              href={routes.quote}
+              className="btn-ghost btn-solid-invert hidden !min-h-11 !px-6 !py-3 sm:inline-flex"
+            >
               Request a quote
             </Link>
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="label-xs flex items-center gap-2.5 text-white xl:hidden"
+              className="label-xs flex items-center gap-2.5 text-white lg:hidden"
               aria-label="Open menu"
               aria-expanded={open}
             >
@@ -144,7 +195,7 @@ export function Nav() {
           <div
             key={`panel-${group.label}`}
             onMouseEnter={() => setOpenGroup(group.label)}
-            className={`absolute inset-x-0 top-full hidden border-t border-hairline bg-obsidian/97 backdrop-blur-[2px] transition-[opacity,visibility] duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] xl:block ${
+            className={`absolute inset-x-0 top-full hidden border-t border-hairline bg-obsidian/97 backdrop-blur-[2px] transition-[opacity,visibility] duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:block ${
               openGroup === group.label
                 ? "visible opacity-100"
                 : "invisible opacity-0"
@@ -152,12 +203,13 @@ export function Nav() {
           >
             <div className={`${shell} grid grid-cols-12 gap-x-12 py-10`}>
               <div className="col-span-3">
-                <p className="label-xs text-white/35">{group.label}</p>
+                <p className="label-xs text-white/50">{group.label}</p>
                 <Link
                   href={group.href}
-                  className="label-xs link-quiet mt-5 inline-block text-white"
+                  className="label-xs link-quiet mt-5 inline-flex items-center gap-2.5 text-white"
                 >
-                  View overview
+                  All {group.label.toLowerCase()} services
+                  <span aria-hidden>→</span>
                 </Link>
               </div>
               <ul className="col-span-9 grid grid-cols-3 gap-x-10 gap-y-1">
@@ -171,7 +223,7 @@ export function Nav() {
                         {item.label}
                       </span>
                       {item.note ? (
-                        <span className="copy mt-1.5 block text-white/35">
+                        <span className="copy mt-1.5 block text-white/50">
                           {item.note}
                         </span>
                       ) : null}
@@ -186,7 +238,7 @@ export function Nav() {
 
       {/* Full-screen menu — the same editorial language, nothing decorative */}
       <div
-        className={`fixed inset-0 z-60 overflow-y-auto bg-obsidian text-white transition-opacity duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] xl:hidden ${
+        className={`fixed inset-0 z-60 overflow-y-auto bg-obsidian text-white transition-opacity duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:hidden ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
         aria-hidden={!open}
@@ -219,7 +271,7 @@ export function Nav() {
                 aria-expanded={mobileGroup === group.label}
               >
                 <span className="display-md text-white/90">{group.label}</span>
-                <span className="label-xs text-white/40">
+                <span className="label-xs text-white/55">
                   {mobileGroup === group.label ? "Close" : "View"}
                 </span>
               </button>

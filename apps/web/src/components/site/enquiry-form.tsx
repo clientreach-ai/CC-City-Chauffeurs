@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState, type FormEvent, type ReactNode } from "react";
 
 import { contact, whatsappUrl } from "@/content/site";
 
@@ -35,7 +36,7 @@ const vehicleOptions = [
 ];
 
 const fieldClass =
-  "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-[family-name:var(--font-ui)] text-[0.9375rem] text-white placeholder:text-white/25 focus:border-white focus:outline-none transition-colors duration-500";
+  "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-[family-name:var(--font-ui)] text-[0.9375rem] text-white placeholder:text-white/45 focus:border-white focus:outline-none transition-colors duration-500";
 
 function Field({
   label,
@@ -48,7 +49,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="label-xs block text-white/40">{label}</span>
+      <span className="label-xs block text-white/55">{label}</span>
       <span className="mt-1 block">{children}</span>
     </label>
   );
@@ -75,27 +76,66 @@ function Group({ index, title, children }: { index: string; title: string; child
  *
  * `variant="short"` is the homepage band; `variant="full"` is the quote page.
  */
-export function EnquiryForm({
-  variant = "short",
-  defaultService,
-  submitLabel = "Send via WhatsApp",
-}: {
+type EnquiryFormProps = {
   variant?: "short" | "full";
   defaultService?: string;
   submitLabel?: string;
-}) {
+};
+
+/**
+ * Wrapper. `useSearchParams` needs a Suspense boundary or the page that
+ * renders this form drops out of static rendering entirely — so the boundary
+ * lives here rather than at each call site.
+ */
+export function EnquiryForm(props: EnquiryFormProps) {
+  return (
+    <Suspense fallback={<div className="min-h-[22rem]" aria-hidden />}>
+      <EnquiryFormInner {...props} />
+    </Suspense>
+  );
+}
+
+function EnquiryFormInner({
+  variant = "short",
+  defaultService,
+  submitLabel = "Send via WhatsApp",
+}: EnquiryFormProps) {
   const full = variant === "full";
   const [sent, setSent] = useState(false);
+
+  /*
+   * Answers already given in the hero quote bar arrive as query parameters.
+   * Reading them here rather than on the server keeps the quote page
+   * statically rendered, which matters more on a conversion page than
+   * server-side prefill would.
+   */
+  const params = useSearchParams();
+  const fromBar = {
+    service: params.get("service") ?? undefined,
+    date: params.get("date") ?? undefined,
+    passengers: params.get("passengers") ?? undefined,
+  };
+
+  // Match the bar's service to the canonical option so the select shows it as
+  // chosen rather than silently falling back to the first entry.
+  const presetService = fromBar.service
+    ? serviceOptions.find(
+        (option) =>
+          option.toLowerCase() === fromBar.service?.toLowerCase() ||
+          option.toLowerCase().startsWith(fromBar.service?.toLowerCase() ?? ""),
+      )
+    : undefined;
+
   const [form, setForm] = useState({
     name: "",
     phone: "",
     email: "",
-    service: defaultService ?? serviceOptions[0],
-    date: "",
+    service: presetService ?? defaultService ?? serviceOptions[0],
+    date: fromBar.date ?? "",
     time: "",
     pickup: "",
     destination: "",
-    passengers: "",
+    passengers: fromBar.passengers ?? "",
     luggage: "",
     vehicle: vehicleOptions[0],
     notes: "",
@@ -315,7 +355,7 @@ export function EnquiryForm({
         </a>
       </div>
 
-      <p className="label-xs mt-6 max-w-[60ch] text-white/40" role="status" aria-live="polite">
+      <p className="label-xs mt-6 max-w-[60ch] text-white/55" role="status" aria-live="polite">
         {sent
           ? `WhatsApp should have opened with your enquiry ready to send. If it did not, call us on ${contact.phoneDisplay}.`
           : "All enquiries are handled in strict confidence. Nothing is submitted until you send the message."}
