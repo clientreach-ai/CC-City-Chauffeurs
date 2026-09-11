@@ -54,7 +54,7 @@ export default function SupercarHirePage() {
       <PageHero
         eyebrow="Supercar hire · Self drive"
         display={["Take", "the wheel"]}
-        standfirst="Selected supercars from our own fleet, available to hire without a chauffeur. Subject to driver eligibility and insurance requirements, with terms agreed before the booking is confirmed."
+        standfirst="Selected supercars from the fleet, available to hire without a chauffeur. Subject to driver eligibility and insurance requirements, with terms agreed before the booking is confirmed."
         image={media.fleetUrus}
         imageAlt="Lamborghini Urus photographed at the workshop"
         objectPosition="object-[center_45%]"
@@ -75,8 +75,8 @@ export default function SupercarHirePage() {
 
       <Section tone="dark" className="pt-16 lg:pt-24">
         <Statement
-          heading={["Our cars.", "Not a", "broker's."]}
-          body="The supercars available for hire are the ones we own and photograph. You are booking a specific car with a known history, not a listing that gets substituted the week before."
+          heading={["A specific car,", "agreed in", "advance"]}
+          body="You know exactly which car you are booking before anything is agreed, and every condition that comes with it is set out before the booking is confirmed — not discovered at the handover."
         />
         <VehicleStrip
           ids={["urus", "huracan", "revuelto"]}

@@ -149,7 +149,7 @@ export const services: readonly Service[] = [
       heading: "Departures, handled the same way",
       paragraphs: [
         "Outbound, we work backwards from the time you want to be airside — not from the time the journey planner says the road takes. The vehicle arrives early, the luggage goes in, and the car leaves when you do.",
-        "Regular travellers usually move to an account so the details do not have to be repeated every time.",
+        "For regular travellers, the arrangement is agreed once and repeated — the details do not have to be sent every time.",
       ],
       image: "collectionO2" as MediaKey,
       imageAlt: "City Chauffeurs vehicles photographed in London at night",
@@ -169,13 +169,13 @@ export const services: readonly Service[] = [
     label: "Corporate",
     display: ["For people", "whose time", "is the asset"],
     summary:
-      "Executive travel, client transportation and meeting schedules held to the minute, with accounts for regular requirements.",
+      "Executive travel, client transportation and meeting schedules held to the minute, with arrangements for regular travel.",
     standfirst:
       "Executives, fund managers, visiting clients and the people who have to get them there. Corporate work is planned around the schedule rather than the journey — the car is already waiting when the meeting overruns.",
     hero: "corporate",
     heroAlt: "City Chauffeurs vehicles against the Canary Wharf skyline at night",
     facts: [
-      { label: "Accounts", value: "Available for regular travel" },
+      { label: "Regular travel", value: "Arranged around your schedule" },
       { label: "Districts", value: "Canary Wharf · Mayfair · The City" },
       { label: "Coverage", value: "London, UK and Europe" },
     ],
@@ -197,8 +197,8 @@ export const services: readonly Service[] = [
         copy: "Arrivals and departures coordinated across multiple vehicles, with one point of contact for the whole movement.",
       },
       {
-        title: "Corporate accounts",
-        copy: "Regular requirements can be arranged on account. Talk to us about how your travel is organised and we will set it up around that.",
+        title: "Regular requirements",
+        copy: "Talk to us about how your travel is organised — who books, how often, where — and we will set up an arrangement around it.",
       },
     ],
     detail: {
@@ -215,7 +215,7 @@ export const services: readonly Service[] = [
     seo: {
       title: "Corporate Chauffeur Service London | CC City Chauffeurs",
       description:
-        "Corporate chauffeur service in London — executive travel, client transportation, roadshows and corporate accounts across Canary Wharf, Mayfair, the UK and Europe.",
+        "Corporate chauffeur service in London — executive travel, client transportation, roadshows and regular business travel across Canary Wharf, Mayfair, the UK and Europe.",
     },
     template: "columns",
   },
@@ -246,7 +246,7 @@ export const services: readonly Service[] = [
       },
       {
         title: "Timings and routes",
-        copy: "Journeys are driven or reviewed in advance where the day depends on them, and timings are agreed with you rather than assumed.",
+        copy: "Routes are planned in advance for the day itself, and timings are agreed with you rather than assumed.",
       },
       {
         title: "Presentation",
@@ -501,7 +501,7 @@ export const services: readonly Service[] = [
     facts: [
       { label: "Booked", value: "Regular or one-off" },
       { label: "Chauffeurs", value: "Consistent, where we can" },
-      { label: "Child seats", value: "Fitted on request" },
+      { label: "Booster seats", value: "Isofix, on request" },
     ],
     included: [
       {
@@ -513,8 +513,8 @@ export const services: readonly Service[] = [
         copy: "We keep the same chauffeur on a regular arrangement wherever scheduling allows, presented to the same standard as on any other booking.",
       },
       {
-        title: "Child and booster seats",
-        copy: "Tell us ages and we will fit the appropriate seats. Please confirm requirements when you book.",
+        title: "Booster seats",
+        copy: "Isofix booster seats are available on request — tell us the children's ages when you book so the right number are fitted.",
       },
       {
         title: "Standing arrangements",
@@ -525,7 +525,7 @@ export const services: readonly Service[] = [
       heading: "Reliability is the whole service",
       paragraphs: [
         "There is nothing glamorous about a school run, and that is rather the point. It has to happen at the same time, in the same way, with someone you have already met.",
-        "For families who also use us for airports and evenings out, the school run usually sits on the same account.",
+        "For families who also use us for airports and evenings out, the school run simply becomes part of the same arrangement.",
       ],
       image: "gWagonSide" as MediaKey,
       imageAlt: "Mercedes-AMG G-Wagon in profile",
@@ -535,7 +535,7 @@ export const services: readonly Service[] = [
     seo: {
       title: "School Run & Family Chauffeur London | CC City Chauffeurs",
       description:
-        "Regular school runs and family chauffeur travel in London with consistent arrangements and child seats fitted on request.",
+        "Regular school runs and family chauffeur travel in London with a consistent chauffeur, standing arrangements and Isofix booster seats on request.",
     },
     template: "stack",
   },
