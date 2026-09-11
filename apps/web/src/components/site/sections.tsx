@@ -106,7 +106,7 @@ export function EditorialSplit({
         variant="image"
         className={`lg:col-span-6 ${flip ? "lg:order-2 lg:col-start-7" : ""}`}
       >
-        <div className={`media-zoom glow-ring relative ${aspect} w-full overflow-hidden bg-graphite`}>
+        <div className={`media-zoom relative ${aspect} w-full overflow-hidden bg-graphite`}>
           <Image
             src={image}
             alt={imageAlt}

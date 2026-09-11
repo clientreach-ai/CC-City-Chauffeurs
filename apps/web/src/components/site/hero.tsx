@@ -4,12 +4,7 @@ import { media } from "@/content/media";
 import { contact, site } from "@/content/site";
 import { Enter } from "./enter";
 import { shell } from "./primitives";
-import { QuoteBar } from "./quote-bar";
 
-/**
- * Facts, not claims. Each of these is evidenced by the client intake — see
- * the gated list in `content/site.ts` for what may not appear here.
- */
 const heroFacts = [
   { label: "Based", value: "London · UK & Europe" },
   { label: "Airports", value: "Meet & greet · Flight tracking" },
@@ -19,12 +14,8 @@ const heroFacts = [
 /**
  * The vehicle is the hero object, so display type never crosses its
  * silhouette. Two deliberate compositions rather than one shrunk down:
- *   · small screens — full-bleed photograph above a type band
+ *   · small screens — full-bleed photograph above a black type band
  *   · sm and up     — cinematic full-screen photograph with a baseline band
- *
- * The quote bar is docked into the baseline. Every reference design puts a
- * search bar here; ours asks the two questions that start a quote, because
- * the commercial goal is a price in the visitor's hands, not a search result.
  */
 export function Hero() {
   return (
@@ -32,7 +23,7 @@ export function Hero() {
       id="top"
       className="relative isolate flex min-h-svh w-full flex-col overflow-hidden bg-obsidian"
     >
-      <div className="relative h-[52svh] w-full shrink-0 sm:absolute sm:inset-0 sm:h-full">
+      <div className="relative h-[54svh] w-full shrink-0 sm:absolute sm:inset-0 sm:h-full">
         <Image
           src={media.hero}
           alt="Rolls-Royce Cullinan waiting at a London hotel entrance at night"
@@ -57,26 +48,23 @@ export function Hero() {
           aria-hidden
           className="absolute inset-0 hidden sm:block sm:bg-[linear-gradient(90deg,rgba(6,6,7,0.6)_0%,rgba(6,6,7,0.15)_38%,rgba(6,6,7,0)_62%)]"
         />
-        {/* Corners fall away so the headline holds against the photograph */}
-        <div aria-hidden className="vignette absolute inset-0" />
       </div>
 
       <div className="relative flex flex-1 flex-col justify-end pt-7 sm:pt-28">
-        <div className={`${shell} pb-8 sm:pb-10`}>
+        <div className={`${shell} pb-8 sm:pb-12`}>
           <div className="grid grid-cols-1 gap-x-16 gap-y-9 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-7">
               <Enter delay={120}>
-                <p className="label-xs flex items-center gap-3 text-silver">
-                  <span aria-hidden className="h-px w-8 bg-silver/50" />
-                  {site.tagline}
-                </p>
+                <p className="label-xs text-silver">{site.tagline}</p>
               </Enter>
 
-              <Enter delay={220} className="mt-5 sm:mt-7">
+              <Enter delay={220} className="mt-4 sm:mt-6">
                 <h1 className="display-hero text-white">
-                  The quiet luxury
+                  The quiet
                   <br />
-                  of being driven
+                  luxury of
+                  <br />
+                  being driven
                 </h1>
               </Enter>
             </div>
@@ -91,13 +79,10 @@ export function Hero() {
 
               <Enter
                 delay={520}
-                className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-4"
+                className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-7"
               >
-                <a
-                  href="#enquire"
-                  className="btn-ghost btn-solid-invert"
-                >
-                  Get an indicative quote
+                <a href="#enquire" className="btn-ghost btn-on-dark">
+                  Book a chauffeur
                 </a>
                 <a
                   href="#fleet"
@@ -110,15 +95,8 @@ export function Hero() {
           </div>
         </div>
 
-        {/* The quote bar — the front door to a price */}
-        <Enter delay={640}>
-          <div className={`${shell} pb-8 sm:pb-10`}>
-            <QuoteBar />
-          </div>
-        </Enter>
-
         {/* Hairline fact bar — grounds the hero without cluttering it */}
-        <Enter delay={760}>
+        <Enter delay={680}>
           <div className="border-t border-hairline">
             <div
               className={`${shell} grid grid-cols-1 divide-y divide-hairline sm:grid-cols-3 sm:divide-x sm:divide-y-0`}

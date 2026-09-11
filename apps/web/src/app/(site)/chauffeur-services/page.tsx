@@ -51,7 +51,7 @@ export default function ChauffeurServicesPage() {
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
           <Reveal variant="image" className="lg:col-span-7">
             <Link href={routes.service(feature.slug)} className="group block">
-              <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite sm:aspect-16/10">
+              <div className="media-zoom relative aspect-4/3 w-full overflow-hidden bg-graphite sm:aspect-16/10">
                 <Image
                   src={media[feature.hero]}
                   alt={feature.heroAlt}

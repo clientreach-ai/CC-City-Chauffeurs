@@ -113,7 +113,7 @@ function GalleryRow({
               type="button"
               onClick={(event) => onOpen(image, event.currentTarget)}
               aria-label={`Enlarge: ${image.alt}`}
-              className="tile-lift glow-ring relative block w-full cursor-zoom-in overflow-hidden bg-graphite focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="relative block w-full cursor-zoom-in overflow-hidden bg-graphite focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               <span className="media-zoom relative block aspect-[4/3] w-full">
                 <Image
@@ -308,7 +308,7 @@ export function GalleryGrid() {
               width={current.width}
               height={current.height}
               sizes="92vw"
-              className="enter-image max-h-[72svh] w-auto max-w-full rounded-[var(--radius-media)] object-contain"
+              className="enter-image max-h-[72svh] w-auto max-w-full object-contain"
               priority
             />
 
