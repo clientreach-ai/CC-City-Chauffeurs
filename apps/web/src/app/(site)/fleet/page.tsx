@@ -33,7 +33,7 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
       }`}
     >
       <div className={wide ? "lg:col-span-7" : "lg:col-span-5"}>
-        <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite">
+        <div className="media-zoom relative aspect-4/3 w-full overflow-hidden bg-graphite">
           {vehicle.image ? (
             <Image
               src={vehicle.image}

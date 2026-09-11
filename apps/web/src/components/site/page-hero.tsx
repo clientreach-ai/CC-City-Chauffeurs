@@ -71,8 +71,6 @@ export function PageHero({
           aria-hidden
           className="absolute inset-0 hidden sm:block sm:bg-[linear-gradient(90deg,rgba(6,6,7,0.62)_0%,rgba(6,6,7,0.18)_40%,rgba(6,6,7,0)_66%)]"
         />
-        {/* Corners fall away so the headline holds against the photograph */}
-        <div aria-hidden className="vignette absolute inset-0" />
       </div>
 
       <div className="relative flex flex-1 flex-col justify-end pt-28 sm:pt-32">
