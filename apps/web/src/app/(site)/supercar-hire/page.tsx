@@ -91,7 +91,7 @@ export default function SupercarHirePage() {
           tone="dark"
         />
         <IndexRows rows={conditions} tone="dark" columns={2} />
-        <p className="label-xs mt-10 max-w-[62ch] text-slate">
+        <p className="label-xs mt-10 max-w-[62ch] text-white/55">
           Specific requirements — minimum age, licence held, deposit and mileage —
           depend on the vehicle and are confirmed on enquiry.
         </p>

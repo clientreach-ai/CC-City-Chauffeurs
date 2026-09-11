@@ -184,24 +184,24 @@ export default function FleetPage() {
             return (
               <li
                 key={id}
-                className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-hairline-ink py-5 last:border-b sm:grid-cols-12 sm:items-baseline"
+                className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-hairline py-5 last:border-b sm:grid-cols-12 sm:items-baseline"
               >
-                <span className="label-sm text-ink sm:col-span-4">{vehicle.name}</span>
-                <span className="label-xs text-slate sm:col-span-2">
+                <span className="label-sm text-white sm:col-span-4">{vehicle.name}</span>
+                <span className="label-xs text-white/55 sm:col-span-2">
                   {vehicle.passengers} passengers
                 </span>
-                <span className="label-xs text-slate sm:col-span-2">{vehicle.luggage}</span>
-                <span className="label-xs text-slate sm:col-span-2">
+                <span className="label-xs text-white/55 sm:col-span-2">{vehicle.luggage}</span>
+                <span className="label-xs text-white/55 sm:col-span-2">
                   {vehicle.availability}
                 </span>
-                <span className="label-xs text-ink sm:col-span-2 sm:text-right">
+                <span className="label-xs text-white sm:col-span-2 sm:text-right">
                   {vehicle.rate}
                 </span>
               </li>
             );
           })}
         </ul>
-        <p className="label-xs mt-8 max-w-[62ch] text-slate">
+        <p className="label-xs mt-8 max-w-[62ch] text-white/55">
           Rates are indicative and depend on date, duration and route. Passenger and
           luggage figures are the standard configuration for each model and are
           confirmed when a vehicle is booked.

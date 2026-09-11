@@ -74,7 +74,7 @@ export default function AboutPage() {
 
           <div className="lg:col-span-6 lg:col-start-7 lg:pt-4">
             <Reveal>
-              <p className="copy-lg max-w-[54ch] text-ink/85">
+              <p className="copy-lg max-w-[54ch] text-white/80">
                 City Chauffeurs provides discreet, professional chauffeur services
                 for clients who expect the highest standards. Every journey is
                 planned around comfort, timing and confidentiality — the three things
@@ -83,7 +83,7 @@ export default function AboutPage() {
             </Reveal>
 
             <Reveal delay={100}>
-              <p className="copy mt-6 max-w-[54ch] text-slate">
+              <p className="copy mt-6 max-w-[54ch] text-white/60">
                 Based in London, we operate across the entire United Kingdom and into
                 Europe. The fleet is selected for rear-seat comfort, presence and
                 discretion, and every vehicle is presented immaculately for each
@@ -93,7 +93,7 @@ export default function AboutPage() {
             </Reveal>
 
             <Reveal delay={160}>
-              <p className="copy mt-6 max-w-[54ch] text-slate">
+              <p className="copy mt-6 max-w-[54ch] text-white/60">
                 We are not the cheapest way to get across London, and we are not
                 trying to be. We are the version where somebody has already thought
                 about the route, the timing and where the car can actually stop.
@@ -101,8 +101,8 @@ export default function AboutPage() {
             </Reveal>
 
             <Reveal delay={220} className="mt-10">
-              <p className="label-xs text-ink">{site.director}</p>
-              <p className="label-xs mt-2 text-slate">Director, {site.legalName}</p>
+              <p className="label-xs text-white">{site.director}</p>
+              <p className="label-xs mt-2 text-white/55">Director, {site.legalName}</p>
             </Reveal>
           </div>
         </div>
@@ -151,8 +151,8 @@ export default function AboutPage() {
         <SectionHead label="Practicalities" note="London based · UK & Europe" tone="dark" />
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-6">
-            <h3 className="display-md text-ink">Where we work</h3>
-            <p className="copy mt-5 max-w-[46ch] text-slate">
+            <h3 className="display-md text-white">Where we work</h3>
+            <p className="copy mt-5 max-w-[46ch] text-white/60">
               Most journeys start in central and west London, and go anywhere from
               there. Airport work covers Gatwick and all London airports, including
               private terminals on request.
@@ -162,7 +162,7 @@ export default function AboutPage() {
               {serviceAreas.map((area) => (
                 <li
                   key={area}
-                  className="label-xs border-b border-hairline-ink py-4 text-slate"
+                  className="label-xs border-b border-hairline py-4 text-white/55"
                 >
                   {area}
                 </li>
@@ -171,8 +171,8 @@ export default function AboutPage() {
           </div>
 
           <div className="lg:col-span-5 lg:col-start-8">
-            <h3 className="display-md text-ink">What is included as standard</h3>
-            <p className="copy mt-5 max-w-[44ch] text-slate">
+            <h3 className="display-md text-white">What is included as standard</h3>
+            <p className="copy mt-5 max-w-[44ch] text-white/60">
               These apply to every booking rather than being sold as extras.
             </p>
             <Rule tone="dark" className="mt-8" />
@@ -180,7 +180,7 @@ export default function AboutPage() {
               {assurances.map((item) => (
                 <li
                   key={item}
-                  className="label-xs border-b border-hairline-ink py-4 text-slate"
+                  className="label-xs border-b border-hairline py-4 text-white/55"
                 >
                   {item}
                 </li>
