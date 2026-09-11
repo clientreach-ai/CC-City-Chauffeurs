@@ -1,6 +1,7 @@
 import { ContactBar } from "@/components/site/contact-bar";
 import { Footer } from "@/components/site/footer";
 import { Nav } from "@/components/site/nav";
+import { navGroups } from "@/content/navigation";
 import { contact, site } from "@/content/site";
 
 /** Structured data limited to facts published on the client's existing site. */
@@ -34,7 +35,7 @@ export default function SiteLayout({
         // Static, author-controlled object — no user input reaches this string.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(businessSchema) }}
       />
-      <Nav />
+      <Nav groups={navGroups} />
       <main>{children}</main>
       <Footer />
       <ContactBar />

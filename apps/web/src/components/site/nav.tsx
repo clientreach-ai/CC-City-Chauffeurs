@@ -5,15 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { brand } from "@/content/media";
+import { brand } from "@/content/brand";
 import {
   contact,
-  navGroups,
   navLinks,
   routes,
   site,
   WHATSAPP_INTRO,
   whatsappUrl,
+  type NavGroup,
 } from "@/content/site";
 import { WhatsAppIcon } from "./icons";
 import { shell } from "./primitives";
@@ -29,7 +29,7 @@ function Wordmark({ className = "" }: { className?: string }) {
   );
 }
 
-export function Nav() {
+export function Nav({ groups }: { groups: readonly NavGroup[] }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -87,7 +87,7 @@ export function Nav() {
           </Link>
 
           <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
-            {navGroups.map((group) => {
+            {groups.map((group) => {
               const expanded = openGroup === group.label;
               const here = isActive(group.href);
               return (
@@ -202,7 +202,7 @@ export function Nav() {
         </div>
 
         {/* Dropdown panel — a hairline sheet, not a mega-menu */}
-        {navGroups.map((group) => (
+        {groups.map((group) => (
           <div
             key={`panel-${group.label}`}
             onMouseEnter={() => setOpenGroup(group.label)}
@@ -271,7 +271,7 @@ export function Nav() {
         </div>
 
         <nav className={`${shell} mt-4 flex flex-col pb-16`} aria-label="Primary">
-          {navGroups.map((group) => (
+          {groups.map((group) => (
             <div key={group.label} className="border-t border-hairline">
               <button
                 type="button"
