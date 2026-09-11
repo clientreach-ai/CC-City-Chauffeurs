@@ -104,7 +104,7 @@ function GalleryRow({
         onScroll={sync}
         className="-mx-6 mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-6 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:gap-5 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >
-        {group.images.map((image, i) => (
+        {group.images.map((image) => (
           <figure
             key={image.src}
             className="w-[78vw] shrink-0 snap-start sm:w-[46%] lg:w-[31%]"
@@ -121,7 +121,11 @@ function GalleryRow({
                   alt={image.alt}
                   fill
                   sizes="(max-width: 640px) 78vw, (max-width: 1024px) 46vw, 31vw"
-                  loading={i < 3 ? "eager" : "lazy"}
+                  // Every row lazy-loads. Eager-loading the first three of each
+                  // row fetched ~18 frames before the visitor scrolled at all;
+                  // the browser's lazy threshold still brings in the first row
+                  // straight away, since it sits just below the hero.
+                  loading="lazy"
                   className="object-cover"
                 />
               </span>

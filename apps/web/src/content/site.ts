@@ -1,7 +1,5 @@
 import type { Route } from "next";
 
-import { services } from "./services";
-
 /**
  * Business facts for CC City Chauffeurs.
  *
@@ -64,34 +62,6 @@ export const routes = {
 
 export type NavItem = { label: string; href: Route; note?: string };
 export type NavGroup = { label: string; href: Route; items: readonly NavItem[] };
-
-export const navGroups: readonly NavGroup[] = [
-  {
-    label: "Chauffeur",
-    href: routes.services,
-    items: services.map((service) => ({
-      label: service.label,
-      href: routes.service(service.slug),
-      note: service.summary,
-    })),
-  },
-  {
-    label: "Supercar",
-    href: routes.supercarHire,
-    items: [
-      {
-        label: "Supercar Hire",
-        href: routes.supercarHire,
-        note: "Self-drive hire, subject to driver eligibility and insurance.",
-      },
-      {
-        label: "Supercar Experiences",
-        href: routes.supercarExperiences,
-        note: "Chauffeur-driven statement cars for arrivals and occasions.",
-      },
-    ],
-  },
-];
 
 export const navLinks: readonly NavItem[] = [
   { label: "Fleet", href: routes.fleet },

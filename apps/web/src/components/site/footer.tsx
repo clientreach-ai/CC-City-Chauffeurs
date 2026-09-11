@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { brand } from "@/content/media";
+import { brand } from "@/content/brand";
 import { services } from "@/content/services";
 import {
   contact,

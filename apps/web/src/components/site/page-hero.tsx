@@ -24,7 +24,6 @@ export function PageHero({
   facts,
   actions,
   objectPosition = "object-center",
-  mobileObjectPosition,
   height = "tall",
 }: {
   eyebrow?: string;
@@ -35,8 +34,8 @@ export function PageHero({
   imageAlt: string;
   facts?: readonly HeroFact[];
   actions?: React.ReactNode;
+  /** A literal Tailwind class, e.g. "object-[center_40%]". */
   objectPosition?: string;
-  mobileObjectPosition?: string;
   height?: "tall" | "short";
 }) {
   const frame =
@@ -57,7 +56,7 @@ export function PageHero({
           quality={85}
           sizes="100vw"
           placeholder="blur"
-          className={`object-cover ${mobileObjectPosition ?? objectPosition} sm:${objectPosition}`}
+          className={`object-cover ${objectPosition}`}
         />
         <div
           aria-hidden
