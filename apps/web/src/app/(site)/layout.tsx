@@ -28,7 +28,7 @@ export default function SiteLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="bg-ink font-[family-name:var(--font-ui)] antialiased">
+    <div data-site className="bg-ink font-[family-name:var(--font-ui)] antialiased">
       <script
         type="application/ld+json"
         // Static, author-controlled object — no user input reaches this string.
