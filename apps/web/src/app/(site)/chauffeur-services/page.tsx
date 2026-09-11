@@ -9,13 +9,14 @@ import { Reveal } from "@/components/site/reveal";
 import { media } from "@/content/media";
 import { services } from "@/content/services";
 import { chauffeurStandards, routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Chauffeur Services London | CC City Chauffeurs",
   description:
-    "Chauffeur services in London and across the UK — private chauffeur, airport transfers, corporate travel, weddings, events, city to city, roadshows, tours and school runs.",
-  alternates: { canonical: "/chauffeur-services" },
-};
+    "Chauffeur services in London and UK-wide — private chauffeur, airport transfers, corporate travel, weddings, events, city to city, roadshows and tours.",
+  path: "/chauffeur-services",
+});
 
 export default function ChauffeurServicesPage() {
   const [feature, ...rest] = services;

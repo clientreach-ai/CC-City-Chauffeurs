@@ -9,20 +9,14 @@ import { Services } from "@/components/site/services";
 import { Statement } from "@/components/site/statement";
 import { Testimonials } from "@/components/site/testimonials";
 import { testimonials } from "@/content/testimonials";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
-  title: "CC City Chauffeurs | Luxury Chauffeur Service, London",
+export const metadata = pageMetadata({
+  title: "Luxury Chauffeur Service London | CC City Chauffeurs",
   description:
-    "A luxury, discreet way of travelling — without the hassle. Chauffeur-driven travel for private clients, executives, weddings and corporate accounts across London, the UK and Europe.",
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "CC City Chauffeurs | Luxury Chauffeur Service, London",
-    description:
-      "Chauffeur-driven travel for private clients, executives, weddings and corporate accounts. London based. UK & Europe.",
-    locale: "en_GB",
-    type: "website",
-  },
-};
+    "Luxury chauffeur service in London — private chauffeurs, airport transfers, weddings and corporate travel across Mayfair, Knightsbridge, the UK and Europe.",
+  path: "/",
+});
 
 /**
  * The homepage is a first impression, not the whole site. Each band says one

@@ -6,6 +6,7 @@ import { QuietLink, SectionHead, shell } from "@/components/site/primitives";
 import { Reveal } from "@/components/site/reveal";
 import { fleetVehicles } from "@/content/fleet";
 import { media } from "@/content/media";
+import { pageMetadata } from "@/content/seo";
 import {
   contact,
   routes,
@@ -13,12 +14,12 @@ import {
   whatsappUrl,
 } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Request a Quote | CC City Chauffeurs",
   description:
     "Request a chauffeur quote from CC City Chauffeurs. Send the journey — date, route, passengers and vehicle — and we will confirm availability and cost.",
-  alternates: { canonical: "/request-a-quote" },
-};
+  path: "/request-a-quote",
+});
 
 /** Names only reach the client form — never the fleet model or its images. */
 const vehicleNames = fleetVehicles.map((vehicle) => vehicle.name);

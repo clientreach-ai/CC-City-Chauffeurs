@@ -15,13 +15,14 @@ import { EnquiryBand, Section, StatementBand, VehiclePlate } from "@/components/
 import { fleetCategories, passengersLabel, type Vehicle, UNCONFIRMED, vehicles } from "@/content/fleet";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
+import { pageMetadata } from "@/content/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "The Fleet | Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
   description:
-    "The CC City Chauffeurs fleet — chauffeur fleet, high-profile SUVs, group transport and statement vehicles. Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, Range Rover Vogue and Lamborghini.",
-  alternates: { canonical: "/fleet" },
-};
+    "The CC City Chauffeurs fleet — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, and Lamborghini.",
+  path: "/fleet",
+});
 
 function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
   const wide = index % 3 === 0;

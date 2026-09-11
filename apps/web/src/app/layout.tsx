@@ -3,6 +3,8 @@ import { Cormorant_Garamond, Manrope } from "next/font/google";
 
 import "../index.css";
 import Providers from "@/components/providers";
+import { shareImage } from "@/content/seo";
+import { site } from "@/content/site";
 
 /** Display face — light weight, high contrast, set uppercase at large sizes. */
 const cormorant = Cormorant_Garamond({
@@ -21,9 +23,21 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "CC City Chauffeurs",
+  // Resolves every relative canonical and social URL against the live domain.
+  metadataBase: new URL(site.url),
+  title: "CC City Chauffeurs | Luxury Chauffeur Service, London",
   description:
     "A luxury, discreet way of travelling — without the hassle. Chauffeur services across London, the UK and Europe.",
+  applicationName: site.legalName,
+  openGraph: {
+    siteName: site.legalName,
+    locale: "en_GB",
+    type: "website",
+    images: [shareImage],
+  },
+  twitter: { card: "summary_large_image", images: [shareImage] },
+  // Phone numbers on the page are real links already; stop iOS restyling them.
+  formatDetection: { telephone: false },
 };
 
 export default function RootLayout({

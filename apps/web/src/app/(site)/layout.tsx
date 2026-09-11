@@ -1,24 +1,38 @@
 import { ContactBar } from "@/components/site/contact-bar";
 import { Footer } from "@/components/site/footer";
 import { Nav } from "@/components/site/nav";
+import { brand } from "@/content/brand";
 import { navGroups } from "@/content/navigation";
-import { contact, site } from "@/content/site";
+import { shareImage } from "@/content/seo";
+import { contact, serviceAreas, site } from "@/content/site";
 
-/** Structured data limited to facts published on the client's existing site. */
+/**
+ * Structured data limited to facts the client has published or confirmed:
+ * name, contact details, London base and the areas served. No ratings,
+ * opening hours or price range — none of them are established yet.
+ */
 const businessSchema = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
+  "@id": `${site.url}/#business`,
   name: site.legalName,
   description: site.positioning,
+  url: site.url,
   telephone: contact.phoneE164,
   email: contact.email,
-  url: site.url,
+  image: `${site.url}${shareImage.url}`,
+  logo: `${site.url}${brand.logo.src}`,
   address: {
     "@type": "PostalAddress",
     addressLocality: "London",
     addressCountry: "GB",
   },
-  areaServed: ["London", "United Kingdom", "Europe"],
+  areaServed: [
+    ...serviceAreas.map((area) => ({ "@type": "Place", name: `${area}, London` })),
+    { "@type": "City", name: "London" },
+    { "@type": "Country", name: "United Kingdom" },
+    { "@type": "Place", name: "Europe" },
+  ],
 };
 
 /**

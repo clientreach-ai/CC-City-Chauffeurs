@@ -12,6 +12,7 @@ import {
   StatementBand,
 } from "@/components/site/sections";
 import { media } from "@/content/media";
+import { pageMetadata } from "@/content/seo";
 import {
   assurances,
   chauffeurStandards,
@@ -21,12 +22,12 @@ import {
   site,
 } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "About | Luxury Chauffeur Company, London | CC City Chauffeurs",
   description:
     "CC City Chauffeurs is a London chauffeur company built on professionalism, comfort and discretion — a luxury, discreet way of travelling without the hassle.",
-  alternates: { canonical: "/about" },
-};
+  path: "/about",
+});
 
 export default function AboutPage() {
   return (
