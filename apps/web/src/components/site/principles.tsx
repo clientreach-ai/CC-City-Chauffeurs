@@ -1,36 +1,22 @@
 import Image from "next/image";
 
 import { media } from "@/content/media";
-import { chauffeurStandards } from "@/content/site";
+import { principles } from "@/content/site";
 import { SectionLabel, shell } from "./primitives";
 import { Reveal } from "./reveal";
 
-const principles = [
-  {
-    title: "Professionalism",
-    copy: "Every journey is conducted with the highest level of professionalism and attention to detail — from the standard of presentation to the route planned before you step outside.",
-    list: chauffeurStandards,
-  },
-  {
-    title: "Comfort",
-    copy: "A rear-seat focused service, ensuring our clients travel in complete comfort. Vehicles are chosen for the quality of the seat you sit in, not the badge on the bonnet.",
-    image: media.principlesDetail,
-    imageAlt: "Illuminated Cullinan door sill",
-  },
-  {
-    title: "Discretion",
-    copy: "Absolute confidentiality for every client, every journey. Names, destinations and schedules stay between us.",
-    image: media.principlesWheel,
-    imageAlt: "Rolls-Royce cabin detail",
-  },
-];
+const numerals = ["I", "II", "III"];
 
+/**
+ * The three principles, set as one editorial row beneath a single cabin
+ * photograph. How each principle works in practice is expanded on /about.
+ */
 export function Principles({ index }: { index: string }) {
   return (
-    <section className="bg-obsidian text-white">
+    <section className="bg-ink text-white">
       {/* Full-bleed cabin photography as the opening statement */}
       <Reveal variant="image">
-        <div className="relative h-[62svh] min-h-[380px] w-full overflow-hidden lg:h-[78svh]">
+        <div className="relative h-[48svh] min-h-80 w-full overflow-hidden lg:h-[60svh]">
           <Image
             src={media.principlesCabin}
             alt="The rear cabin of a Rolls-Royce Cullinan"
@@ -42,9 +28,9 @@ export function Principles({ index }: { index: string }) {
           />
           <div
             aria-hidden
-            className="absolute inset-0 bg-[linear-gradient(0deg,rgba(6,6,7,0.9)_0%,rgba(6,6,7,0.25)_45%,rgba(6,6,7,0.35)_100%)]"
+            className="absolute inset-0 bg-[linear-gradient(0deg,rgba(11,11,12,0.92)_0%,rgba(11,11,12,0.25)_50%,rgba(11,11,12,0.35)_100%)]"
           />
-          <div className={`${shell} absolute inset-x-0 bottom-0 pb-10 sm:pb-14`}>
+          <div className={`${shell} absolute inset-x-0 bottom-0 pb-10 sm:pb-12`}>
             <Reveal delay={200}>
               <p className="label-xs text-silver">The way we work</p>
               <p className="quote-lg mt-5 max-w-[24ch] text-white">
@@ -55,51 +41,25 @@ export function Principles({ index }: { index: string }) {
         </div>
       </Reveal>
 
-      <div className={`${shell} pt-16 pb-24 lg:pt-24 lg:pb-36`}>
-        <div className="flex flex-wrap items-baseline justify-between gap-4 pb-12 lg:pb-20">
+      <div className={`${shell} pt-14 pb-20 lg:pt-20 lg:pb-28`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-4 pb-10 lg:pb-14">
           <SectionLabel index={index}>Three principles</SectionLabel>
           <p className="label-xs text-white/55">Held on every journey</p>
         </div>
 
-        {principles.map((principle, i) => (
-          <Reveal
-            key={principle.title}
-            delay={i * 80}
-            className="grid grid-cols-1 gap-8 border-t border-hairline py-12 lg:grid-cols-12 lg:gap-16 lg:py-20 last:border-b"
-          >
-            <h3 className="display-lg text-white lg:col-span-6">{principle.title}</h3>
-
-            <div className="lg:col-span-5 lg:col-start-8">
-              <p className="copy-lg max-w-[46ch] text-white/70">{principle.copy}</p>
-
-              {principle.list ? (
-                <ul className="mt-8">
-                  {principle.list.map((item) => (
-                    <li
-                      key={item}
-                      className="label-xs border-b border-hairline py-3.5 text-white/45 first:border-t"
-                    >
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
-              {principle.image ? (
-                <div className="media-zoom glow-ring relative mt-8 aspect-[16/10] w-full overflow-hidden bg-graphite">
-                  <Image
-                    src={principle.image}
-                    alt={principle.imageAlt ?? ""}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 38vw"
-                    placeholder="blur"
-                    className="object-cover"
-                  />
-                </div>
-              ) : null}
-            </div>
-          </Reveal>
-        ))}
+        <div className="grid grid-cols-1 gap-x-12 md:grid-cols-3">
+          {principles.map((principle, i) => (
+            <Reveal
+              key={principle.title}
+              delay={i * 90}
+              className="border-t border-hairline py-8 md:py-10"
+            >
+              <p className="label-xs text-silver">{numerals[i]}</p>
+              <h3 className="display-md mt-5 text-white">{principle.title}</h3>
+              <p className="copy mt-5 max-w-[40ch] text-white/65">{principle.copy}</p>
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
   );
