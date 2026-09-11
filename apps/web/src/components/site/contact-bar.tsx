@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { contact, whatsappUrl } from "@/content/site";
+import { contact, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
 import { WhatsAppIcon } from "./icons";
-
-const WHATSAPP_INTRO =
-  "Hello City Chauffeurs, I'd like to enquire about a chauffeur booking.";
 
 /**
  * A single quiet contact affordance on small screens — the client loses
