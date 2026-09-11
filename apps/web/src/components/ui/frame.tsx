@@ -36,7 +36,7 @@ export function Frame({
   return (
     <div
       style={{ aspectRatio: ratio }}
-      className={`relative w-full overflow-hidden bg-graphite ${
+      className={`relative w-full overflow-hidden rounded-[var(--radius-media)] bg-graphite ${
         zoom ? "media-zoom" : ""
       } ${className}`}
     >
