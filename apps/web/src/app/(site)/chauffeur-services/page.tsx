@@ -67,7 +67,7 @@ export default function ChauffeurServicesPage() {
 
           <div className="lg:col-span-5">
             <Reveal delay={80}>
-              <p className="label-xs text-white/40">
+              <p className="label-xs text-white/55">
                 ({feature.index}) Most requested
               </p>
               <h3 className="display-md mt-4 text-white">{feature.label}</h3>
@@ -86,11 +86,11 @@ export default function ChauffeurServicesPage() {
       </Section>
 
       {/* The remaining services as an editorial index */}
-      <Section tone="light" className="pt-16 lg:pt-24">
+      <Section tone="dark" className="pt-16 lg:pt-24">
         <SectionHead
           label="Every chauffeur service"
           note="Chauffeur-led, London and UK-wide"
-          tone="light"
+          tone="dark"
         />
 
         <ul>

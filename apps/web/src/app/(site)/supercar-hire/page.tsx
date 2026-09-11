@@ -84,13 +84,13 @@ export default function SupercarHirePage() {
         />
       </Section>
 
-      <Section tone="light" className="pt-16 lg:pt-24">
+      <Section tone="dark" className="pt-16 lg:pt-24">
         <SectionHead
           label="What applies to every hire"
           note="Confirmed in writing before booking"
-          tone="light"
+          tone="dark"
         />
-        <IndexRows rows={conditions} tone="light" columns={2} />
+        <IndexRows rows={conditions} tone="dark" columns={2} />
         <p className="label-xs mt-10 max-w-[62ch] text-slate">
           Specific requirements — minimum age, licence held, deposit and mileage —
           depend on the vehicle and are confirmed on enquiry.

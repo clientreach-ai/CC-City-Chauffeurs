@@ -17,7 +17,7 @@ function FleetMarquee() {
       <div className="marquee-track flex w-max items-center">
         {sequence.map((name, i) => (
           <span key={`${name}-${i}`} className="flex items-center">
-            <span className="display-sm px-8 whitespace-nowrap text-white/35">{name}</span>
+            <span className="display-sm px-8 whitespace-nowrap text-white/50">{name}</span>
             <span aria-hidden className="h-1 w-1 bg-silver/50" />
           </span>
         ))}
@@ -29,13 +29,13 @@ function FleetMarquee() {
 function SpecRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-6 border-b border-hairline py-3.5">
-      <span className="label-xs text-white/40">{label}</span>
+      <span className="label-xs text-white/55">{label}</span>
       <span className="label-xs text-white">{value}</span>
     </div>
   );
 }
 
-export function Fleet() {
+export function Fleet({ index }: { index: string }) {
   const [leadId, ...supportIds] = homepageVehicles;
   const lead = getVehicle(leadId);
   const support = supportIds.map(getVehicle);
@@ -46,8 +46,8 @@ export function Fleet() {
 
       <div className={`${shell} pt-16 pb-24 lg:pt-24 lg:pb-36`}>
         <div className="flex flex-wrap items-baseline justify-between gap-4 pb-10">
-          <SectionLabel index="03">The Fleet</SectionLabel>
-          <p className="label-xs text-white/40">Four groupings · Chauffeur-led</p>
+          <SectionLabel index={index}>The Fleet</SectionLabel>
+          <p className="label-xs text-white/55">Four groupings · Chauffeur-led</p>
         </div>
 
         <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-12 lg:items-end lg:pb-24">
@@ -70,7 +70,7 @@ export function Fleet() {
         {/* Featured vehicle — treated as an editorial product, not a card */}
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
           <Reveal variant="image" className="lg:col-span-8">
-            <div className="relative aspect-4/3 w-full overflow-hidden bg-obsidian sm:aspect-16/10">
+            <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite sm:aspect-16/10">
               {lead.image ? (
                 <Image
                   src={lead.image}
@@ -87,7 +87,7 @@ export function Fleet() {
 
           <div className="lg:col-span-4">
             <Reveal delay={80}>
-              <p className="label-xs text-white/40">{lead.marque}</p>
+              <p className="label-xs text-white/55">{lead.marque}</p>
               <h3 className="display-md mt-4 text-white">{lead.name}</h3>
               <p className="copy mt-5 max-w-[40ch] text-white/60">{lead.line}</p>
             </Reveal>
@@ -118,7 +118,7 @@ export function Fleet() {
           {support.map((vehicle, i) => (
             <div key={vehicle.id}>
               <Reveal variant="image" delay={i * 100}>
-                <div className="relative aspect-4/3 w-full overflow-hidden bg-obsidian">
+                <div className="media-zoom glow-ring relative aspect-4/3 w-full overflow-hidden bg-graphite">
                   {vehicle.image ? (
                     <Image
                       src={vehicle.image}
@@ -132,16 +132,16 @@ export function Fleet() {
                 </div>
               </Reveal>
               <Reveal delay={i * 100 + 80}>
-                <p className="label-xs mt-6 text-white/40">{vehicle.marque}</p>
+                <p className="label-xs mt-6 text-white/55">{vehicle.marque}</p>
                 <h3 className="display-sm mt-3 text-white">{vehicle.name}</h3>
                 <p className="copy mt-4 max-w-[44ch] text-white/60">{vehicle.line}</p>
                 <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2">
                   <span className="label-xs text-white/70">
-                    <span className="text-white/35">Passengers </span>
+                    <span className="text-white/50">Passengers </span>
                     {vehicle.passengers}
                   </span>
                   <span className="label-xs text-white/70">
-                    <span className="text-white/35">Indicative </span>
+                    <span className="text-white/50">Indicative </span>
                     {vehicle.rate}
                   </span>
                 </div>
@@ -194,7 +194,7 @@ export function Fleet() {
 
           <Reveal className="mt-14 flex flex-wrap items-center gap-x-10 gap-y-5">
             <GhostLink href={routes.fleet}>View the full fleet</GhostLink>
-            <p className="label-xs max-w-[46ch] text-white/40">
+            <p className="label-xs max-w-[46ch] text-white/55">
               Rates are indicative and depend on date, duration and route. Send us the
               journey and we will come back with a price.
             </p>

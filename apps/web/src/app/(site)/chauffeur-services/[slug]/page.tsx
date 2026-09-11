@@ -140,8 +140,8 @@ export default async function ServicePage({
           eyebrow={service.detail.heading}
           quote={service.detail.paragraphs[0]}
         />
-        <Section tone="light" className="pt-16 lg:pt-24">
-          <VehicleStrip ids={service.vehicles} tone="light" />
+        <Section tone="dark" className="pt-16 lg:pt-24">
+          <VehicleStrip ids={service.vehicles} tone="dark" />
         </Section>
         <OtherServices current={service} />
         {closing}
@@ -153,13 +153,13 @@ export default async function ServicePage({
     return (
       <>
         {hero}
-        <Section tone="light" className="pt-16 lg:pt-24">
+        <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
-            tone="light"
+            tone="dark"
             heading={["What is", "included"]}
             body={service.summary}
           />
-          <IndexRows rows={included} tone="light" columns={2} />
+          <IndexRows rows={included} tone="dark" columns={2} />
         </Section>
         <Section tone="dark" className="pt-20 lg:pt-28">
           {detailSplit("dark", false)}
@@ -179,16 +179,16 @@ export default async function ServicePage({
       <Section tone="dark" className="pt-20 lg:pt-28">
         {detailSplit("dark", true)}
       </Section>
-      <Section tone="light" className="pt-16 lg:pt-24">
+      <Section tone="dark" className="pt-16 lg:pt-24">
         <Statement
-          tone="light"
+          tone="dark"
           heading={["How it", "is arranged"]}
           body={service.summary}
         />
-        <IndexRows rows={included} tone="light" />
+        <IndexRows rows={included} tone="dark" />
       </Section>
-      <Section tone="light">
-        <VehicleStrip ids={service.vehicles} tone="light" />
+      <Section tone="dark">
+        <VehicleStrip ids={service.vehicles} tone="dark" />
       </Section>
       <OtherServices current={service} />
       {closing}

@@ -107,22 +107,45 @@ export const serviceAreas = [
   "Canary Wharf",
 ] as const;
 
-/** Short factual notes used across the site. Each is supported by the intake. */
+/**
+ * Short factual notes used across the site.
+ *
+ * GATED CLAIMS — do not re-add without written evidence from the client:
+ *
+ *   "Fully licensed and insured"
+ *     Blocked by PRD §4.4 / Q1. The client answered "no" to holding a private
+ *     hire operator licence while naming TfL as their authority. Until that
+ *     position is established in writing, the site may not claim it.
+ *
+ *   "Professionally vetted and background-checked"
+ *     Not evidenced. Unblocks on sight of the vetting process.
+ *
+ *   "Trained in discretion and client confidentiality"
+ *     Blocked by PRD §10.11 — the client answered "none" to what training
+ *     chauffeurs receive. Unblocks if a standards induction is introduced.
+ *
+ * Everything below is supported by the client intake.
+ */
 export const assurances = [
-  "Fully licensed and insured",
-  "Professionally vetted chauffeurs",
   "Meet & greet at all London airports",
   "Flight tracking and luggage assistance",
   "60 minutes complimentary waiting after landing",
+  "Four-hour minimum booking",
+  "London based — UK and Europe",
   "Discreet enquiries, handled promptly",
 ] as const;
 
+/**
+ * How chauffeurs are presented. Descriptive of the service the client
+ * describes providing — no training, vetting or certification claims.
+ * See the gated list above.
+ */
 export const chauffeurStandards = [
-  "Professionally vetted and background-checked",
-  "Presented to the highest standards",
-  "Trained in discretion and client confidentiality",
+  "Presented formally for every booking",
+  "Routes planned and checked before the day",
   "Knowledgeable of London and UK routes",
-  "Experienced with high-profile and private clients",
+  "Experienced with private and corporate clients",
+  "Names withheld — faces shown, identities kept private",
 ] as const;
 
 export const principles = [

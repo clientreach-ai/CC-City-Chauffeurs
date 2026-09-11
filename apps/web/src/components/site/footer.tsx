@@ -49,13 +49,13 @@ export function Footer() {
               className="h-9 w-auto lg:h-10"
             />
           </Link>
-          <p className="label-xs max-w-[36ch] text-white/40">{site.positioning}</p>
+          <p className="label-xs max-w-[36ch] text-white/55">{site.positioning}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-x-8 gap-y-12 py-14 lg:grid-cols-4 lg:py-16">
           {columns.map((column) => (
             <div key={column.title}>
-              <p className="label-xs text-white/35">{column.title}</p>
+              <p className="label-xs text-white/50">{column.title}</p>
               <ul className="mt-6 flex flex-col gap-3.5">
                 {column.items.map((item) => (
                   <li key={item.href + item.label}>
@@ -72,7 +72,7 @@ export function Footer() {
           ))}
 
           <div>
-            <p className="label-xs text-white/35">Where we work</p>
+            <p className="label-xs text-white/50">Where we work</p>
             <ul className="mt-6 flex flex-col gap-3.5">
               {serviceAreas.map((area) => (
                 <li key={area} className="label-xs text-white/70">
@@ -84,7 +84,7 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="label-xs text-white/35">Contact</p>
+            <p className="label-xs text-white/50">Contact</p>
             <ul className="mt-6 flex flex-col gap-3.5">
               <li>
                 <a
@@ -128,7 +128,7 @@ export function Footer() {
                   About
                 </Link>
               </li>
-              <li className="label-xs text-white/35">{site.base}</li>
+              <li className="label-xs text-white/50">{site.base}</li>
             </ul>
           </div>
         </div>
@@ -137,10 +137,10 @@ export function Footer() {
 
         {/* Extra room on small screens for the fixed contact bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-8 pb-20 sm:pb-8">
-          <p className="label-xs text-white/35">
+          <p className="label-xs text-white/50">
             © {new Date().getFullYear()} {site.name}. All rights reserved.
           </p>
-          <p className="label-xs text-white/35">{site.tagline}</p>
+          <p className="label-xs text-white/50">{site.tagline}</p>
         </div>
       </div>
     </footer>

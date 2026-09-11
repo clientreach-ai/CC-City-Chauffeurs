@@ -83,11 +83,11 @@ export default function ContactPage() {
                     className="group flex items-baseline justify-between gap-6 border-t border-hairline py-6 first:border-t-0 last:border-b"
                   >
                     <span className="min-w-0">
-                      <span className="label-xs block text-white/40">{channel.label}</span>
+                      <span className="label-xs block text-white/55">{channel.label}</span>
                       <span className="display-sm mt-3 block truncate text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5">
                         {channel.value}
                       </span>
-                      <span className="copy mt-3 block text-white/40">{channel.note}</span>
+                      <span className="copy mt-3 block text-white/55">{channel.note}</span>
                     </span>
                     <span
                       aria-hidden
@@ -100,7 +100,7 @@ export default function ContactPage() {
               </Reveal>
 
               <Reveal delay={120} className="mt-12">
-                <p className="label-xs text-white/40">Where we work</p>
+                <p className="label-xs text-white/55">Where we work</p>
                 <ul className="mt-5 grid grid-cols-2">
                   {serviceAreas.map((area) => (
                     <li
@@ -111,13 +111,13 @@ export default function ContactPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="label-xs mt-6 text-white/40">
+                <p className="label-xs mt-6 text-white/55">
                   Plus Gatwick and all London airports, UK-wide travel and Europe.
                 </p>
               </Reveal>
 
               <Reveal delay={180} className="mt-10">
-                <p className="label-xs max-w-[46ch] text-white/40">
+                <p className="label-xs max-w-[46ch] text-white/55">
                   Chauffeur bookings are arranged in advance. Send the date and we will
                   confirm what is available — we do not publish availability hours we
                   cannot hold to.
