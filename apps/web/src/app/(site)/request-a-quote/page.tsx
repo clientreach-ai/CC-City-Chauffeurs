@@ -77,7 +77,7 @@ export default function RequestAQuotePage() {
                 </Reveal>
 
                 <Reveal delay={160} className="mt-10">
-                  <p className="label-xs text-white/40">Would rather just message?</p>
+                  <p className="label-xs text-white/55">Would rather just message?</p>
                   <div className="mt-5 flex flex-col gap-3">
                     <a
                       href={whatsappUrl(WHATSAPP_INTRO)}
@@ -106,7 +106,7 @@ export default function RequestAQuotePage() {
               </Reveal>
 
               <Reveal delay={120} className="mt-14">
-                <p className="label-xs max-w-[60ch] text-white/40">
+                <p className="label-xs max-w-[60ch] text-white/55">
                   Quotes depend on date, duration, route and vehicle. Indicative hourly
                   rates are published on the{" "}
                   <QuietLink href={routes.fleet} className="!text-white/70">

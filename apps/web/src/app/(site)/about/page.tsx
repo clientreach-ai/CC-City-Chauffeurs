@@ -51,16 +51,16 @@ export default function AboutPage() {
         }
       />
 
-      <Section tone="light" className="pt-16 lg:pt-24">
+      <Section tone="dark" className="pt-16 lg:pt-24">
         <Statement
-          tone="light"
+          tone="dark"
           heading={["Without", "the hassle"]}
           body="That phrase does most of the work. The point of a chauffeur is not the badge on the car — it is that the journey stops being something you have to think about."
         />
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
           <Reveal variant="image" className="lg:col-span-5">
-            <div className="relative aspect-4/5 w-full overflow-hidden bg-ink">
+            <div className="media-zoom glow-ring relative aspect-4/5 w-full overflow-hidden bg-graphite">
               <Image
                 src={media.statement}
                 alt="The Spirit of Ecstasy on the bonnet of a Rolls-Royce"
@@ -139,7 +139,7 @@ export default function AboutPage() {
           eyebrow="Our chauffeurs"
           heading="Selected, trained and briefed"
           paragraphs={[
-            "The chauffeur is the service. Ours are vetted, presented properly, and briefed on the booking before they arrive — not handed an address on the morning.",
+            "The chauffeur is the service. Ours are presented properly and briefed on the booking before they arrive — not handed an address on the morning.",
           ]}
           points={chauffeurStandards}
           aspect="aspect-4/3"
@@ -147,8 +147,8 @@ export default function AboutPage() {
         />
       </Section>
 
-      <Section tone="light" className="pt-16 lg:pt-24">
-        <SectionHead label="Practicalities" note="London based · UK & Europe" tone="light" />
+      <Section tone="dark" className="pt-16 lg:pt-24">
+        <SectionHead label="Practicalities" note="London based · UK & Europe" tone="dark" />
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-6">
             <h3 className="display-md text-ink">Where we work</h3>
@@ -157,7 +157,7 @@ export default function AboutPage() {
               there. Airport work covers Gatwick and all London airports, including
               private terminals on request.
             </p>
-            <Rule tone="light" className="mt-8" />
+            <Rule tone="dark" className="mt-8" />
             <ul className="grid grid-cols-2">
               {serviceAreas.map((area) => (
                 <li
@@ -175,7 +175,7 @@ export default function AboutPage() {
             <p className="copy mt-5 max-w-[44ch] text-slate">
               These apply to every booking rather than being sold as extras.
             </p>
-            <Rule tone="light" className="mt-8" />
+            <Rule tone="dark" className="mt-8" />
             <ul>
               {assurances.map((item) => (
                 <li

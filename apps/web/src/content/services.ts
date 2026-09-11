@@ -493,14 +493,14 @@ export const services: readonly Service[] = [
     label: "School & Family",
     display: ["The same", "familiar", "face"],
     summary:
-      "Regular school runs and family travel with vetted chauffeurs and consistent arrangements.",
+      "Regular school runs and family travel with consistent arrangements and a familiar chauffeur.",
     standfirst:
-      "Regular arrangements for school runs and family travel, with professionally vetted chauffeurs and — as far as we can manage it — the same chauffeur each time.",
+      "Regular arrangements for school runs and family travel, with — as far as we can manage it — the same chauffeur each time.",
     hero: "cullinanForecourt",
     heroAlt: "Rolls-Royce Cullinan waiting on a lit forecourt",
     facts: [
       { label: "Booked", value: "Regular or one-off" },
-      { label: "Chauffeurs", value: "Professionally vetted" },
+      { label: "Chauffeurs", value: "Consistent, where we can" },
       { label: "Child seats", value: "Fitted on request" },
     ],
     included: [
@@ -509,8 +509,8 @@ export const services: readonly Service[] = [
         copy: "For regular bookings we keep the same chauffeur on the run wherever the schedule allows, so it becomes routine for everyone.",
       },
       {
-        title: "Professionally vetted",
-        copy: "Chauffeurs are vetted and background-checked, presented to the same standard as on any other booking.",
+        title: "A familiar face",
+        copy: "We keep the same chauffeur on a regular arrangement wherever scheduling allows, presented to the same standard as on any other booking.",
       },
       {
         title: "Child and booster seats",
@@ -535,7 +535,7 @@ export const services: readonly Service[] = [
     seo: {
       title: "School Run & Family Chauffeur London | CC City Chauffeurs",
       description:
-        "Regular school runs and family chauffeur travel in London with professionally vetted chauffeurs, consistent arrangements and child seats fitted on request.",
+        "Regular school runs and family chauffeur travel in London with consistent arrangements and child seats fitted on request.",
     },
     template: "stack",
   },

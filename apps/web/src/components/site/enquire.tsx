@@ -28,15 +28,15 @@ const channels = [
   },
 ];
 
-export function Enquire() {
+export function Enquire({ index }: { index: string }) {
   return (
     <section id="enquire" className="bg-ink text-white">
       <div className={`${shell} pt-16 pb-24 lg:pt-24 lg:pb-32`}>
         <Rule />
 
         <div className="flex flex-wrap items-baseline justify-between gap-4 py-6">
-          <SectionLabel index="08">Enquire</SectionLabel>
-          <p className="label-xs text-white/40">London · UK · Europe</p>
+          <SectionLabel index={index}>Enquire</SectionLabel>
+          <p className="label-xs text-white/55">London · UK · Europe</p>
         </div>
 
         <Reveal className="pb-14 lg:pb-20">
@@ -63,11 +63,11 @@ export function Enquire() {
                   className="group flex items-baseline justify-between gap-6 border-t border-hairline py-6 last:border-b"
                 >
                   <span className="min-w-0">
-                    <span className="label-xs block text-white/40">{channel.label}</span>
+                    <span className="label-xs block text-white/55">{channel.label}</span>
                     <span className="display-sm mt-3 block truncate text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5">
                       {channel.value}
                     </span>
-                    <span className="label-xs mt-3 block text-white/35">{channel.note}</span>
+                    <span className="label-xs mt-3 block text-white/50">{channel.note}</span>
                   </span>
                   <span
                     aria-hidden
@@ -80,7 +80,7 @@ export function Enquire() {
             </Reveal>
 
             <Reveal delay={120} className="mt-10">
-              <p className="label-xs text-white/40">
+              <p className="label-xs text-white/55">
                 Chauffeur bookings are arranged in advance. Send the date and we will
                 confirm what is available.
               </p>
@@ -89,7 +89,7 @@ export function Enquire() {
 
           <div className="lg:col-span-6 lg:col-start-7">
             <Reveal delay={80}>
-              <p className="label-xs pb-8 text-white/40">Or set out the details here</p>
+              <p className="label-xs pb-8 text-white/55">Or set out the details here</p>
               <EnquiryForm />
             </Reveal>
           </div>

@@ -7,19 +7,32 @@
 
 /* ---------------------------------------------------------------------------
    CC City Chauffeurs — brand design system
-   Black · White · Silver. Editorial geometry, hairline rules, zero radius.
+
+   Direction: dark editorial. Obsidian and ink carry the page; light bands are
+   used sparingly, for contrast rather than as the ground. Silver and graphite
+   do the structural work — hairlines, rules and labels.
+
+   On glow: every lighting effect here is MONOCHROME — white and silver at low
+   opacity, nothing else. Coloured bloom is what makes a dark car site read as
+   a template. Light on this site behaves like light: it pools off the
+   photography, catches an edge, and falls away. That is where the expensive
+   feeling comes from, not from saturation.
+
    Tokens are deliberately theme-independent: the marketing site always renders
    in the brand palette regardless of the app's light/dark preference.
    ------------------------------------------------------------------------ */
 
 @theme {
-  /* Surfaces */
+  /* Dark surfaces — the ground */
   --color-obsidian: #060607;
   --color-ink: #0b0b0c;
   --color-graphite: #131315;
   --color-carbon: #1c1c1f;
+  /* One step above carbon, for cards that need to lift off the page */
+  --color-elevated: #17171a;
 
-  /* Light canvas */
+  /* Light canvas — contrast bands only */
+  --color-canvas: #fafaf9;
   --color-mist: #f3f3f2;
   --color-alabaster: #fafaf9;
 
@@ -27,6 +40,8 @@
   --color-silver: #c9cbcd;
   --color-steel: #8f9499;
   --color-slate: #5c6065;
+  /* Secondary copy on the light canvas. Holds AA at body sizes. */
+  --color-ink-muted: #4a4e53;
 
   /* Hairlines */
   --color-hairline: rgba(255, 255, 255, 0.14);
@@ -35,67 +50,84 @@
   --color-hairline-ink-strong: rgba(11, 11, 12, 0.32);
 
   /* Type */
-  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
-  --font-ui: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-newsreader), "Newsreader", Georgia, serif;
+  --font-ui: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Spacing rhythm — one scale, so every band breathes identically */
+  --space-section: clamp(5rem, 9vw, 9rem);
+  --space-section-tight: clamp(3.5rem, 6vw, 6rem);
+  --space-block: clamp(2.5rem, 4vw, 4rem);
+
+  /*
+    Corner radius.
+
+    Applied to framed photography and to raised cards — never to the
+    full-bleed heroes, where a rounded corner on an edge-to-edge photograph
+    just looks like a rendering fault. Scales gently with the viewport so a
+    phone-width tile is not wearing a desktop-sized curve.
+
+    Controls keep their near-square 2px: a rounded button next to a rounded
+    photograph starts to read as a consumer app rather than a marque.
+  */
+  --radius-media: clamp(8px, 0.7vw, 14px);
+  --radius-card: clamp(8px, 0.7vw, 14px);
 
   /* Motion — slow, quiet, expensive */
   --ease-editorial: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 @layer components {
-  /* Display typography ---------------------------------------------------- */
+  /* Display typography ----------------------------------------------------
+     Sentence case throughout. Uppercase serif at tight leading reads as a
+     fashion house; the brief asks for the opposite — legible, confident and
+     never intimidating. Leading opens as the size comes down. */
   .display-hero {
     font-family: var(--font-display);
     font-weight: 300;
-    font-size: clamp(2.5rem, 7.4vw, 6.5rem);
-    line-height: 0.86;
-    letter-spacing: -0.035em;
-    text-transform: uppercase;
+    font-size: clamp(2.75rem, 7vw, 6rem);
+    line-height: 1.02;
+    letter-spacing: -0.022em;
   }
 
   .display-xl {
     font-family: var(--font-display);
     font-weight: 300;
-    font-size: clamp(2.5rem, 7vw, 6rem);
-    line-height: 0.9;
-    letter-spacing: -0.032em;
-    text-transform: uppercase;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
   }
 
   .display-lg {
     font-family: var(--font-display);
     font-weight: 300;
-    font-size: clamp(2.125rem, 5vw, 4rem);
-    line-height: 0.94;
-    letter-spacing: -0.028em;
-    text-transform: uppercase;
+    font-size: clamp(2rem, 4.4vw, 3.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
   }
 
   .display-md {
     font-family: var(--font-display);
-    font-weight: 300;
-    font-size: clamp(1.75rem, 3.4vw, 2.75rem);
-    line-height: 1;
-    letter-spacing: -0.024em;
-    text-transform: uppercase;
+    font-weight: 400;
+    font-size: clamp(1.625rem, 3vw, 2.375rem);
+    line-height: 1.14;
+    letter-spacing: -0.015em;
   }
 
   .display-sm {
     font-family: var(--font-display);
-    font-weight: 300;
-    font-size: clamp(1.375rem, 2.2vw, 1.875rem);
-    line-height: 1.05;
-    letter-spacing: -0.018em;
-    text-transform: uppercase;
+    font-weight: 400;
+    font-size: clamp(1.25rem, 2vw, 1.625rem);
+    line-height: 1.2;
+    letter-spacing: -0.012em;
   }
 
-  /* Serif set in sentence case — used for pull quotes */
+  /* Pull quotes — the one place italic earns its keep */
   .quote-lg {
     font-family: var(--font-display);
     font-weight: 300;
-    font-size: clamp(1.75rem, 3.6vw, 3rem);
-    line-height: 1.14;
-    letter-spacing: -0.02em;
+    font-size: clamp(1.625rem, 3.2vw, 2.75rem);
+    line-height: 1.24;
+    letter-spacing: -0.014em;
   }
 
   /* UI typography --------------------------------------------------------- */
@@ -121,31 +153,34 @@
     font-family: var(--font-ui);
     font-weight: 400;
     font-size: 0.9375rem;
-    line-height: 1.65;
-    letter-spacing: -0.005em;
+    line-height: 1.68;
+    letter-spacing: -0.002em;
   }
 
   .copy-lg {
     font-family: var(--font-ui);
     font-weight: 400;
     font-size: clamp(1rem, 1.3vw, 1.125rem);
-    line-height: 1.6;
-    letter-spacing: -0.008em;
+    line-height: 1.62;
+    letter-spacing: -0.004em;
   }
 
-  /* Controls -------------------------------------------------------------- */
+  /* Controls --------------------------------------------------------------
+     Every control is at least 48px tall so it stays a comfortable thumb
+     target on a phone, which is where most enquiries arrive. */
   .btn-ghost {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
+    min-height: 3rem;
     border-radius: 2px;
     border-width: 1px;
     padding: 1.0625rem 1.75rem;
     font-family: var(--font-ui);
     font-weight: 500;
     font-size: 0.75rem;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     transition:
       background-color 0.45s var(--ease-editorial),
@@ -172,7 +207,39 @@
   .btn-on-light:hover {
     background-color: var(--color-ink);
     border-color: var(--color-ink);
-    color: var(--color-mist);
+    color: var(--color-canvas);
+  }
+
+  /* Primary action. Black is the accent in this palette, so the strongest
+     affordance on the page is simply solid ink. */
+  .btn-solid {
+    border-color: var(--color-ink);
+    background-color: var(--color-ink);
+    color: var(--color-canvas);
+  }
+
+  .btn-solid:hover {
+    background-color: #2a2c30;
+    border-color: #2a2c30;
+  }
+
+  /* Same weight of affordance, inverted for the dark bands. */
+  .btn-solid-invert {
+    border-color: #fff;
+    background-color: #fff;
+    color: var(--color-ink);
+  }
+
+  .btn-solid-invert:hover {
+    background-color: var(--color-silver);
+    border-color: var(--color-silver);
+  }
+
+  /* Visible focus for keyboard users, on either ground. */
+  .btn-ghost:focus-visible,
+  .link-quiet:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
   }
 
   /* Underlined text link that draws in from the left on hover */
@@ -201,6 +268,18 @@
 }
 
 @layer utilities {
+  /* Section rhythm — replaces per-component padding so every band on the
+     site breathes to the same measure. */
+  .section {
+    padding-top: var(--space-section);
+    padding-bottom: var(--space-section);
+  }
+
+  .section-tight {
+    padding-top: var(--space-section-tight);
+    padding-bottom: var(--space-section-tight);
+  }
+
   /* Entrance for content that is present on first paint (the hero).
      Pure CSS, so the type is never waiting on hydration to appear. */
   .enter {
@@ -249,11 +328,18 @@
     transform: none;
   }
 
-  /* Photographs simply fade up — slowly, and without moving. Anything more
-     energetic reads as a web effect rather than as a printed page. */
+  /* Photographs fade up and settle out of a very slight over-scale. The
+     movement is sub-perceptual frame to frame — it reads as the image
+     arriving rather than as an effect being played. */
   .js .reveal-image {
     opacity: 0;
     transition: opacity 1.4s var(--ease-editorial);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .js .reveal-image > * {
+    transform: scale(1.035);
+    transition: transform 1.8s var(--ease-editorial);
     transition-delay: var(--reveal-delay, 0ms);
   }
 
@@ -261,23 +347,156 @@
     opacity: 1;
   }
 
-  .marquee-track {
-    animation: cc-marquee 46s linear infinite;
+  .js .reveal-image[data-visible="true"] > * {
+    transform: none;
   }
 
-  @keyframes cc-marquee {
+  /* Photography that grows very slightly under the cursor. The frame is
+     always the clipping mask, so nothing bleeds past the hairline — and it
+     carries the corner radius, so the photograph is clipped to the curve
+     rather than sitting square inside a rounded box. */
+  .media-zoom {
+    overflow: hidden;
+    border-radius: var(--radius-media);
+  }
+
+  .media-zoom > * {
+    transition: transform 1.4s var(--ease-editorial);
+  }
+
+  .media-zoom:hover > *,
+  .group:hover .media-zoom > * {
+    transform: scale(1.04);
+  }
+
+  /* Cards rise by a hair. Any more and it reads as a web component
+     rather than as a plate on a page. */
+  .tile-lift {
+    transition:
+      transform 0.6s var(--ease-editorial),
+      border-color 0.6s var(--ease-editorial),
+      background-color 0.6s var(--ease-editorial);
+  }
+
+  .tile-lift:hover {
+    transform: translateY(-3px);
+  }
+
+  /* Lighting ---------------------------------------------------------------
+     All monochrome. These are the only glow primitives on the site; if a
+     section needs light, it composes one of these rather than inventing a
+     new gradient. */
+
+  /* A broad, soft pool of light — as if something off-frame is lit. Sits
+     behind content, never over it. */
+  .glow-pool {
+    position: relative;
+    isolation: isolate;
+    /* The pool is deliberately wider than its section; clip it here or it
+       pushes the document sideways and the whole page scrolls horizontally. */
+    overflow: clip;
+  }
+
+  .glow-pool::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -20% -10% auto -10%;
+    height: 70%;
+    background: radial-gradient(
+      60% 60% at 50% 0%,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.03) 38%,
+      transparent 72%
+    );
+    pointer-events: none;
+  }
+
+  /* Light catching a top edge, brightest in the middle and falling away —
+     the single most useful detail for making a dark card look machined. */
+  .glow-edge {
+    position: relative;
+  }
+
+  .glow-edge::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.28) 50%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  /* A hairline that brightens as the cursor arrives. Used on cards.
+     Matches the media radius so the ring follows the corner rather than
+     cutting across it. */
+  .glow-ring {
+    border-radius: var(--radius-card);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    transition: box-shadow 0.6s var(--ease-editorial);
+  }
+
+  .glow-ring:hover,
+  .group:hover .glow-ring {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+      0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Gallery tiles arriving — used on first paint and again whenever the
+     filter changes, so a new selection assembles rather than snapping in.
+     Index-driven delay is capped so a 64-frame set never crawls. */
+  .tile-in {
+    animation: cc-tile-in 0.85s var(--ease-editorial) both;
+    animation-delay: var(--tile-delay, 0ms);
+  }
+
+  @keyframes cc-tile-in {
     from {
-      transform: translateX(0);
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
     }
     to {
-      transform: translateX(-50%);
+      opacity: 1;
+      transform: none;
     }
+  }
+
+  /* Darkens the corners of a photograph so display type holds against it. */
+  .vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      78% 78% at 50% 45%,
+      transparent 40%,
+      rgba(6, 6, 7, 0.5) 100%
+    );
+    pointer-events: none;
   }
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+
+  /*
+    Nothing on this site is meant to scroll the page sideways — full-bleed
+    sections are clipped at their own edges, and the only horizontal scrolling
+    is inside the gallery tracks and the filter row, which carry their own
+    `overflow-x: auto`. `clip` rather than `hidden` so this never creates a
+    scroll container and breaks `position: sticky` further down the page.
+  */
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100%;
   }
 
   /* Anchored sections clear the fixed navigation */
@@ -308,7 +527,14 @@
     animation: none !important;
   }
 
-  .marquee-track {
+  /* Hover and scroll-linked movement is opt-out too, not just entrances. */
+  .media-zoom > *,
+  .tile-lift {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .tile-in {
     animation: none !important;
   }
 }

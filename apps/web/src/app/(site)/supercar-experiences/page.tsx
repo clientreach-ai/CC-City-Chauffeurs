@@ -69,18 +69,18 @@ export default function SupercarExperiencesPage() {
       <Section tone="dark" className="pt-16 lg:pt-24">
         <Statement
           heading={["Chauffeur", "first —", "always"]}
-          body="Supercars are part of what we do, not the whole of it. The same standards apply: a vetted chauffeur, a car presented immaculately, and a journey planned before it starts."
+          body="Supercars are part of what we do, not the whole of it. The same standards apply: a chauffeur presented formally, a car presented immaculately, and a journey planned before it starts."
         />
         <VehicleStrip ids={["urus", "huracan", "revuelto"]} label="Experience vehicles" />
       </Section>
 
-      <Section tone="light" className="pt-16 lg:pt-24">
+      <Section tone="dark" className="pt-16 lg:pt-24">
         <SectionHead
           label="What people book this for"
           note="Pre-arranged, London and UK-wide"
-          tone="light"
+          tone="dark"
         />
-        <IndexRows rows={occasions} tone="light" columns={2} />
+        <IndexRows rows={occasions} tone="dark" columns={2} />
       </Section>
 
       <StatementBand

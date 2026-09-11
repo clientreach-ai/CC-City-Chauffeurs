@@ -71,13 +71,15 @@ export function PageHero({
           aria-hidden
           className="absolute inset-0 hidden sm:block sm:bg-[linear-gradient(90deg,rgba(6,6,7,0.62)_0%,rgba(6,6,7,0.18)_40%,rgba(6,6,7,0)_66%)]"
         />
+        {/* Corners fall away so the headline holds against the photograph */}
+        <div aria-hidden className="vignette absolute inset-0" />
       </div>
 
       <div className="relative flex flex-1 flex-col justify-end pt-28 sm:pt-32">
         <div className={`${shell} pb-9 sm:pb-12`}>
           {crumbs?.length ? (
             <Enter delay={80}>
-              <nav aria-label="Breadcrumb" className="label-xs flex flex-wrap gap-x-3 gap-y-1 text-white/40">
+              <nav aria-label="Breadcrumb" className="label-xs flex flex-wrap gap-x-3 gap-y-1 text-white/55">
                 {crumbs.map((crumb, i) => (
                   <span key={crumb.label} className="flex items-center gap-3">
                     {crumb.href ? (
@@ -144,7 +146,7 @@ export function PageHero({
                     key={fact.label}
                     className="flex items-baseline gap-4 py-3 sm:flex-col sm:gap-2 sm:py-5 sm:first:pr-8 sm:not-first:pl-8"
                   >
-                    <span className="label-xs w-24 shrink-0 text-white/35 sm:w-auto">
+                    <span className="label-xs w-24 shrink-0 text-white/50 sm:w-auto">
                       {fact.label}
                     </span>
                     <span className="label-sm text-white/85">{fact.value}</span>

@@ -1,20 +1,28 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 
 import "../index.css";
 import Providers from "@/components/providers";
 
-/** Display face — light weight, high contrast, set uppercase at large sizes. */
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
+/**
+ * Display face — an editorial serif set in sentence case.
+ *
+ * Newsreader is a broadsheet face: it reads considered and trustworthy rather
+ * than decorative, which is what the brief asks for ("easiest to read",
+ * "corporate and reliable", never "intimidating"). Optical sizing is on, so
+ * large settings thin naturally without us shipping a second weight.
+ */
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
   weight: ["300", "400"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
-/** UI face — navigation, labels and body copy. */
-const manrope = Manrope({
-  variable: "--font-manrope",
+/** UI face — navigation, labels and body copy. Neutral by design. */
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
@@ -35,7 +43,7 @@ export default function RootLayout({
     <html
       lang="en-GB"
       suppressHydrationWarning
-      className={`${cormorant.variable} ${manrope.variable}`}
+      className={`${newsreader.variable} ${inter.variable}`}
     >
       <head>
         {/*
