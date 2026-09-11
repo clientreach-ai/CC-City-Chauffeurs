@@ -128,7 +128,7 @@ export default function ContactPage() {
             <div className="lg:col-span-6 lg:col-start-7">
               <SectionHead label="Or set out the details" note="Sends via WhatsApp or email" />
               <Reveal>
-                <EnquiryForm variant="short" submitLabel="Send enquiry" />
+                <EnquiryForm variant="short" />
               </Reveal>
 
               <Reveal delay={120} className="mt-12">

@@ -4,6 +4,7 @@ import { EnquiryForm } from "@/components/site/enquiry-form";
 import { PageHero } from "@/components/site/page-hero";
 import { QuietLink, SectionHead, shell } from "@/components/site/primitives";
 import { Reveal } from "@/components/site/reveal";
+import { fleetVehicles } from "@/content/fleet";
 import { media } from "@/content/media";
 import {
   contact,
@@ -19,21 +20,24 @@ export const metadata: Metadata = {
   alternates: { canonical: "/request-a-quote" },
 };
 
+/** Names only reach the client form — never the fleet model or its images. */
+const vehicleNames = fleetVehicles.map((vehicle) => vehicle.name);
+
 const steps = [
   {
     index: "01",
-    title: "Send the details",
-    copy: "The more you tell us up front — date, route, passengers, luggage — the closer the first answer will be to the final one.",
+    title: "Set out the journey",
+    copy: "Date, route, passengers and luggage. The more we know up front, the closer the first answer is to the final one — and the fewer questions come back.",
   },
   {
     index: "02",
-    title: "We confirm availability",
-    copy: "We check the vehicle and the chauffeur against the date before quoting, so a price from us is a price you can hold.",
+    title: "Send it your way",
+    copy: "The form writes your details out as a message and opens WhatsApp, or email if you prefer. You press send; nothing leaves this page on its own.",
   },
   {
     index: "03",
-    title: "You get a written quote",
-    copy: "Costs are set out clearly, including waiting time and anything that would change the figure.",
+    title: "We come back with a price",
+    copy: "We check the vehicle and chauffeur against the date, then reply with availability and cost — by WhatsApp, phone or email, whichever you chose.",
   },
 ];
 
@@ -44,7 +48,7 @@ export default function RequestAQuotePage() {
         height="short"
         eyebrow="Request a quote"
         display={["Tell us", "the journey"]}
-        standfirst="Set out the booking below and we will come back with availability and a price. There is no obligation and nothing is charged for quoting."
+        standfirst="Set out the booking below and we will come back with availability and a price. There is no obligation."
         image={media.cullinanO2Front}
         imageAlt="Rolls-Royce Cullinan photographed in London at night"
         facts={[
@@ -102,7 +106,7 @@ export default function RequestAQuotePage() {
             <div className="lg:col-span-7 lg:col-start-6">
               <SectionHead label="Your booking" note="Three short sections" />
               <Reveal>
-                <EnquiryForm variant="full" submitLabel="Send quote request" />
+                <EnquiryForm variant="full" vehicles={vehicleNames} />
               </Reveal>
 
               <Reveal delay={120} className="mt-14">
