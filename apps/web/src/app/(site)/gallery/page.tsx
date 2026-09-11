@@ -24,7 +24,7 @@ export default function GalleryPage() {
         display={["The cars,", "photographed"]}
         standfirst="From our own shoots — at hotel entrances across London, at Canary Wharf and North Greenwich, and in the workshop. Some of the cars pictured are from shoots rather than the current fleet list; the fleet page shows what can be booked today."
         image={media.collectionCanaryWharf}
-        imageAlt="City Chauffeurs vehicles against the Canary Wharf skyline at night"
+        imageAlt="A Rolls-Royce Cullinan and a Ferrari SF90 against the Canary Wharf skyline at night"
         objectPosition="object-[center_45%]"
         facts={[
           { label: "Frames", value: `${gallery.length} photographs` },
