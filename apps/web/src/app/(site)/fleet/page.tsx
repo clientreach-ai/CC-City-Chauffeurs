@@ -80,7 +80,10 @@ function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
         </p>
 
         <div className="mt-8">
-          <GhostLink href={routes.quote} className="!px-6 !py-3">
+          <GhostLink
+            href={`${routes.quote}?vehicle=${encodeURIComponent(vehicle.name)}`}
+            className="!px-6 !py-3"
+          >
             Enquire about this vehicle
           </GhostLink>
         </div>

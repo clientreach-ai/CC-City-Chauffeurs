@@ -47,6 +47,8 @@ export type Service = {
   };
   /** Vehicles typically used, by id. */
   vehicles: readonly VehicleId[];
+  /** What we need to quote this service, and one practical note. */
+  booking: { needs: readonly string[]; note: string };
   /** Closing line above the enquiry band. */
   closing: string;
   seo: { title: string; description: string };
@@ -99,6 +101,15 @@ export const services: readonly Service[] = [
       imageAlt: "The rear cabin of a Rolls-Royce Cullinan",
     },
     vehicles: ["cullinan", "ghost", "s-class", "range-rover"],
+    booking: {
+      needs: [
+        "The date and a start time",
+        "Where the day begins, and roughly where it goes",
+        "How many hours, or a full day",
+        "How many are travelling",
+      ],
+      note: "Hourly bookings have a four-hour minimum. Day rates start from £500.",
+    },
     closing: "Tell us the shape of the day and we will put a chauffeur against it.",
     seo: {
       title: "Private Chauffeur Hire London | CC City Chauffeurs",
@@ -155,6 +166,15 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan from the rear, photographed in the workshop",
     },
     vehicles: ["s-class", "range-rover", "cullinan", "v-class"],
+    booking: {
+      needs: [
+        "Flight number and arrival or departure time",
+        "The airport and terminal",
+        "The collection or drop-off address",
+        "Passengers, and how many large cases",
+      ],
+      note: "Waiting is complimentary for 60 minutes after landing. Airport parking and drop-off fees are added to the quote.",
+    },
     closing: "Send the flight number and we will do the rest.",
     seo: {
       title: "Airport Transfers London | Chauffeur Meet & Greet | CC City Chauffeurs",
@@ -211,6 +231,15 @@ export const services: readonly Service[] = [
       imageAlt: "The rear cabin of a Rolls-Royce Cullinan",
     },
     vehicles: ["s-class", "cullinan", "flying-spur", "v-class-jet"],
+    booking: {
+      needs: [
+        "Who is travelling, and who is booking",
+        "The dates — a single day or a regular pattern",
+        "Addresses and the meeting schedule",
+        "Any vehicle preference",
+      ],
+      note: "Regular travel is arranged around your pattern of bookings rather than priced journey by journey.",
+    },
     closing: "Tell us the pattern of travel and we will put together the arrangement.",
     seo: {
       title: "Corporate Chauffeur Service London | CC City Chauffeurs",
@@ -267,6 +296,15 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan in profile at a hotel entrance",
     },
     vehicles: ["cullinan", "ghost", "flying-spur", "v-class"],
+    booking: {
+      needs: [
+        "The date",
+        "Ceremony and reception venues",
+        "How many cars, and who travels in each",
+        "The timings for the day",
+      ],
+      note: "Wedding pricing is bespoke to the day — send the venues and timings and we will come back with a figure.",
+    },
     closing: "Send us the date and the venues and we will build the day around them.",
     seo: {
       title: "Wedding Car Hire London | Chauffeur-Driven | CC City Chauffeurs",
@@ -319,6 +357,15 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan waiting at a London hotel entrance at night",
     },
     vehicles: ["cullinan", "g-wagon", "v-class", "ghost"],
+    booking: {
+      needs: [
+        "The date and the venue",
+        "Arrival and finish times",
+        "How many guests, and how many vehicles",
+        "Whether cars should be held on site",
+      ],
+      note: "Late finishes are agreed when the booking is made, not on the night.",
+    },
     closing: "Give us the venue and the running order and we will cover the movements.",
     seo: {
       title: "Event Chauffeur Service London | CC City Chauffeurs",
@@ -371,6 +418,15 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan in profile",
     },
     vehicles: ["flying-spur", "s-class", "cullinan", "v-class-jet"],
+    booking: {
+      needs: [
+        "Both addresses",
+        "The date and departure time",
+        "One way or return",
+        "Passengers and luggage",
+      ],
+      note: "Continental journeys are arranged on request, with the route and crossing agreed before the booking is confirmed.",
+    },
     closing: "Tell us the two cities and the date.",
     seo: {
       title: "City to City Chauffeur | Long Distance UK & Europe | CC City Chauffeurs",
@@ -427,6 +483,15 @@ export const services: readonly Service[] = [
       imageAlt: "The front cabin of a Rolls-Royce Cullinan",
     },
     vehicles: ["v-class-jet", "s-class", "flying-spur", "cullinan"],
+    booking: {
+      needs: [
+        "The draft itinerary — cities, dates and meeting addresses",
+        "How many are in the party, and the luggage",
+        "Any vehicle preference",
+        "Who is coordinating the programme",
+      ],
+      note: "Send the itinerary as it stands; changes can follow as the programme settles.",
+    },
     closing: "Send the draft itinerary and we will price the programme.",
     seo: {
       title: "Corporate Roadshow Chauffeur | Multi-Day Travel | CC City Chauffeurs",
@@ -479,6 +544,15 @@ export const services: readonly Service[] = [
       imageAlt: "Rolls-Royce Cullinan photographed in London",
     },
     vehicles: ["cullinan", "range-rover", "v-class", "ghost"],
+    booking: {
+      needs: [
+        "The date, and a half or full day",
+        "Where to start from",
+        "What you would like to see — or ask us to suggest",
+        "How many are travelling",
+      ],
+      note: "Hourly bookings have a four-hour minimum. Day rates start from £500.",
+    },
     closing: "Tell us the day and roughly what you would like to see.",
     seo: {
       title: "Private London Tours by Chauffeur | CC City Chauffeurs",
@@ -531,6 +605,15 @@ export const services: readonly Service[] = [
       imageAlt: "Mercedes-AMG G-Wagon in profile",
     },
     vehicles: ["range-rover", "v-class", "s-class", "g-wagon"],
+    booking: {
+      needs: [
+        "The schedule — days, times and term dates",
+        "Home and school addresses",
+        "Children's ages, if booster seats are needed",
+        "Regular arrangement or one-off",
+      ],
+      note: "Isofix booster seats are available on request — the one type of child seat currently offered.",
+    },
     closing: "Tell us the schedule and we will set it up.",
     seo: {
       title: "School Run & Family Chauffeur London | CC City Chauffeurs",

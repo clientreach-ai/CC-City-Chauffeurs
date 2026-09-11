@@ -60,7 +60,7 @@ export default function SupercarExperiencesPage() {
         ]}
         actions={
           <>
-            <GhostLink href={routes.quote}>Request a quote</GhostLink>
+            <GhostLink href={routes.quoteFor("supercar-experience")}>Request a quote</GhostLink>
             <QuietLink href={routes.supercarHire}>Or drive it yourself</QuietLink>
           </>
         }

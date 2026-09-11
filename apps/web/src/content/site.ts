@@ -58,6 +58,8 @@ export const routes = {
   about: "/about" as Route,
   contact: "/contact" as Route,
   quote: "/request-a-quote" as Route,
+  /** The quote form with a service already chosen. */
+  quoteFor: (service: string) => `/request-a-quote?service=${service}` as Route,
 } as const;
 
 export type NavItem = { label: string; href: Route; note?: string };
@@ -161,4 +163,14 @@ export const principles = [
     title: "Discretion",
     copy: "Absolute confidentiality for every client, every journey. Names, destinations and schedules stay between us.",
   },
+] as const;
+
+/**
+ * Terms that apply across chauffeur bookings, as given on the client intake
+ * (PRD Appendix A). Cancellation wording is still being confirmed (PRD §17
+ * Q6), so it is deliberately not published.
+ */
+export const bookingTerms = [
+  "We ask for 48 hours' notice wherever possible.",
+  "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
 ] as const;
