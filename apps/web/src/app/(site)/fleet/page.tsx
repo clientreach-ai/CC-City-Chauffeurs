@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
-import Image from "next/image";
-
 import { PageHero } from "@/components/site/page-hero";
-import { Reveal } from "@/components/site/reveal";
-import { GhostLink, QuietLink, Rule, SectionHead, SectionLabel, shell, Unbroken } from "@/components/site/primitives";
-import { EnquiryBand, Section, StatementBand, VehiclePlate } from "@/components/site/sections";
+import { GhostLink, QuietLink, Rule, SectionHead, SectionLabel, shell } from "@/components/site/primitives";
+import { EnquiryBand, Section, StatementBand } from "@/components/site/sections";
+import { VehicleEntry, type VehicleEntryData } from "@/components/site/vehicle-entry";
 import { fleetCategories, passengersLabel, type Vehicle, UNCONFIRMED, vehicles } from "@/content/fleet";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
@@ -17,75 +14,23 @@ export const metadata = pageMetadata({
   path: "/fleet",
 });
 
-function VehicleEntry({ vehicle, index }: { vehicle: Vehicle; index: number }) {
-  const wide = index % 3 === 0;
-
-  return (
-    <Reveal
-      className={`grid grid-cols-1 gap-8 border-t border-hairline pt-10 lg:grid-cols-12 lg:gap-16 ${
-        wide ? "" : ""
-      }`}
-    >
-      <div className={wide ? "lg:col-span-7" : "lg:col-span-5"}>
-        <div className="media-zoom relative aspect-4/3 w-full overflow-hidden bg-graphite">
-          {vehicle.image ? (
-            <Image
-              src={vehicle.image}
-              alt={vehicle.imageAlt ?? vehicle.name}
-              fill
-              quality={85}
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              placeholder="blur"
-              className="object-cover transition-transform duration-[1600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] hover:scale-[1.02]"
-            />
-          ) : (
-            <VehiclePlate name={vehicle.name} marque={vehicle.marque} />
-          )}
-        </div>
-      </div>
-
-      <div className={wide ? "lg:col-span-4 lg:col-start-9" : "lg:col-span-6 lg:col-start-7"}>
-        <p className="label-xs text-white/55">{vehicle.marque}</p>
-        <h3 className="display-md mt-4 text-white">
-          <Unbroken text={vehicle.name} />
-        </h3>
-        <p className="copy mt-5 max-w-[46ch] text-white/60">{vehicle.line}</p>
-
-        <dl className="mt-8">
-          {[
-            { label: "Passengers", value: vehicle.passengers ?? UNCONFIRMED },
-            { label: "Luggage", value: vehicle.luggage ?? UNCONFIRMED },
-            { label: "Availability", value: vehicle.availability },
-            { label: "Indicative rate", value: vehicle.rate },
-          ].map((spec) => (
-            <div
-              key={spec.label}
-              className="flex items-baseline justify-between gap-6 border-b border-hairline py-3.5 first:border-t"
-            >
-              <dt className="label-xs text-white/55">{spec.label}</dt>
-              <dd className="label-xs text-white">{spec.value}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <p className="label-xs mt-6 flex flex-wrap gap-x-4 gap-y-2 text-white/55">
-          <span className="text-white/45">Suited to</span>
-          {vehicle.suited.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
-        </p>
-
-        <div className="mt-8">
-          <GhostLink
-            href={`${routes.quote}?vehicle=${encodeURIComponent(vehicle.name)}`}
-            className="!px-6 !py-3"
-          >
-            Enquire about this vehicle
-          </GhostLink>
-        </div>
-      </div>
-    </Reveal>
-  );
+/** A fleet record as the shared entry component takes it. */
+function entryData(vehicle: Vehicle): VehicleEntryData {
+  return {
+    name: vehicle.name,
+    marque: vehicle.marque,
+    line: vehicle.line,
+    image: vehicle.image,
+    imageAlt: vehicle.imageAlt,
+    specs: [
+      { label: "Passengers", value: vehicle.passengers ?? UNCONFIRMED },
+      { label: "Luggage", value: vehicle.luggage ?? UNCONFIRMED },
+      { label: "Availability", value: vehicle.availability },
+      { label: "Indicative rate", value: vehicle.rate },
+    ],
+    suited: vehicle.suited,
+    enquireHref: `${routes.quote}?vehicle=${encodeURIComponent(vehicle.name)}`,
+  };
 }
 
 export default function FleetPage() {
@@ -154,8 +99,8 @@ export default function FleetPage() {
               {category.vehicles.map((id, i) => (
                 <VehicleEntry
                   key={`${category.id}-${id}`}
-                  vehicle={vehicles[id]}
-                  index={categoryIndex + i}
+                  vehicle={entryData(vehicles[id])}
+                  wide={(categoryIndex + i) % 3 === 0}
                 />
               ))}
             </div>
