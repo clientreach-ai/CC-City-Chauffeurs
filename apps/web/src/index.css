@@ -32,6 +32,10 @@
   /* Secondary copy on the light canvas. Holds AA at label sizes. */
   --color-ink-muted: #4a4e53;
 
+  /* Errors and destructive actions in the admin only. Muted, never a
+     brand colour — the public site does not use it. */
+  --color-alert: #e8a29b;
+
   /* Hairlines */
   --color-hairline: rgba(255, 255, 255, 0.14);
   --color-hairline-strong: rgba(255, 255, 255, 0.28);
@@ -377,6 +381,21 @@
      routes (login, dashboard) follow the app theme and keep the default. */
   html:has([data-site]) {
     @apply scrollbar-brand;
+  }
+
+  /* The admin is always on the brand's black ground, whatever the system
+     theme — including behind overscroll and native controls. */
+  html:has([data-admin]) {
+    @apply scrollbar-brand;
+    color-scheme: dark;
+    background-color: var(--color-ink);
+  }
+
+  /* One visible focus ring across the admin. Text fields draw their own
+     ring on the border instead. */
+  [data-admin] :focus-visible:not(input, textarea, select) {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
   }
 
   /*
