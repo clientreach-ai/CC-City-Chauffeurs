@@ -30,7 +30,8 @@ export function PageHero({
   crumbs?: readonly Crumb[];
   display: readonly string[];
   standfirst?: string;
-  image: StaticImageData;
+  /** A static import on the site; a plain image reference in the admin preview. */
+  image: StaticImageData | { src: string; width: number; height: number };
   imageAlt: string;
   facts?: readonly HeroFact[];
   actions?: React.ReactNode;
@@ -55,7 +56,8 @@ export function PageHero({
           priority
           quality={85}
           sizes="100vw"
-          placeholder="blur"
+          placeholder={"blurDataURL" in image && image.blurDataURL ? "blur" : "empty"}
+          unoptimized={image.src.startsWith("data:")}
           className={`object-cover ${objectPosition}`}
         />
         <div

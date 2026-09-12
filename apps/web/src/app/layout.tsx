@@ -48,6 +48,8 @@ export default function RootLayout({
   return (
     <html
       lang="en-GB"
+      // Smooth scrolling is for in-page anchors; page changes jump to the top.
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${cormorant.variable} ${manrope.variable}`}
     >

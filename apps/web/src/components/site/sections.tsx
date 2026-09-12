@@ -1,12 +1,15 @@
 import Image, { type StaticImageData } from "next/image";
-import Link from "next/link";
-import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import { getVehicle, passengersLabel, type VehicleId } from "@/content/fleet";
 import { contact, routes, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
-import { GhostLink, Rule, SectionHead, shell, Unbroken } from "./primitives";
+import { GhostLink, Rule, SectionHead, shell } from "./primitives";
 import { Reveal } from "./reveal";
+import { VehiclePlate } from "./vehicle-plate";
+
+// Lives in its own module so the admin preview can use it; re-exported so
+// the service pages keep importing it from here.
+export { IndexRows } from "./index-rows";
 
 type Tone = "dark" | "light";
 
@@ -174,66 +177,6 @@ export function EditorialSplit({
   );
 }
 
-/** Numbered hairline rows — the site's alternative to a grid of cards. */
-export function IndexRows({
-  rows,
-  tone = "dark",
-  columns = 1,
-}: {
-  rows: readonly { title: string; copy: string; index?: string; href?: string }[];
-  tone?: Tone;
-  columns?: 1 | 2;
-}) {
-  return (
-    <ul className={columns === 2 ? "grid grid-cols-1 gap-x-16 md:grid-cols-2" : ""}>
-      {rows.map((row, i) => {
-        const inner = (
-          <>
-            <div className="flex items-baseline justify-between gap-4">
-              <h3
-                className={`display-sm transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5 ${
-                  tone === "dark" ? "text-white" : "text-ink"
-                }`}
-              >
-                {row.title}
-              </h3>
-              {row.index ? (
-                <span
-                  className={`label-xs shrink-0 ${
-                    tone === "dark" ? "text-white/50" : "text-slate/60"
-                  }`}
-                >
-                  {row.index}
-                </span>
-              ) : null}
-            </div>
-            <p className={`copy mt-3 max-w-[56ch] ${bodyTone[tone]}`}>{row.copy}</p>
-          </>
-        );
-
-        return (
-          <Reveal
-            as="li"
-            key={row.title}
-            delay={Math.min(i * 50, 250)}
-            className={`group border-t last:border-b ${
-              tone === "dark" ? "border-hairline" : "border-hairline-ink"
-            }`}
-          >
-            {row.href ? (
-              <Link href={row.href as Route} className="block py-7 sm:py-9">
-                {inner}
-              </Link>
-            ) : (
-              <div className="py-7 sm:py-9">{inner}</div>
-            )}
-          </Reveal>
-        );
-      })}
-    </ul>
-  );
-}
-
 /** Full-bleed photograph with a pull quote — the atmospheric break. */
 export function StatementBand({
   image,
@@ -329,28 +272,6 @@ export function VehicleStrip({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-/**
- * Stand-in for vehicles the client has not photographed yet. Deliberately
- * typographic rather than a broken image or a stock photograph.
- */
-export function VehiclePlate({
-  name,
-  marque,
-}: {
-  name: string;
-  marque: string;
-}) {
-  return (
-    <div className="absolute inset-0 flex flex-col justify-between border border-hairline bg-graphite p-6">
-      <span className="label-xs text-white/50">{marque}</span>
-      <span className="display-sm text-white/70">
-        <Unbroken text={name} />
-      </span>
-      <span className="label-xs text-white/45">Photography to follow</span>
     </div>
   );
 }
