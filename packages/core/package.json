@@ -1,0 +1,20 @@
+{
+  "name": "@CC-City-Chauffeurs/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@CC-City-Chauffeurs/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "@CC-City-Chauffeurs/config/tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["ESNext", "DOM"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}
