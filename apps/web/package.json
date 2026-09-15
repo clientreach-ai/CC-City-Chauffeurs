@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@CC-City-Chauffeurs/core": "workspace:*",
     "@CC-City-Chauffeurs/env": "workspace:*",
     "@CC-City-Chauffeurs/ui": "workspace:*",
     "@swc/helpers": "^0.5.23",
@@ -21,6 +22,7 @@
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "server-only": "^0.0.1",
     "sonner": "catalog:",
     "zod": "catalog:"
   },

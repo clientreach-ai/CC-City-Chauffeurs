@@ -1,18 +1,14 @@
-import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { EnquiryForm } from "@/components/site/enquiry-form";
-import { PageHero } from "@/components/site/page-hero";
-import { QuietLink, SectionHead, shell } from "@/components/site/primitives";
-import { Reveal } from "@/components/site/reveal";
-import { fleetVehicles } from "@/content/fleet";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { QuietLink, SectionHead, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
+import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import { media } from "@/content/media";
 import { pageMetadata } from "@/content/seo";
-import {
-  contact,
-  routes,
-  WHATSAPP_INTRO,
-  whatsappUrl,
-} from "@/content/site";
+import { routes } from "@/content/site";
+import { contactDetails, mailLink, telLink, whatsappLink } from "@/lib/contact";
+import { getFleet, getSite } from "@/lib/site-data";
 
 export const metadata = pageMetadata({
   title: "Request a Quote | CC City Chauffeurs",
@@ -20,9 +16,6 @@ export const metadata = pageMetadata({
     "Request a chauffeur quote from CC City Chauffeurs. Send the journey — date, route, passengers and vehicle — and we will confirm availability and cost.",
   path: "/request-a-quote",
 });
-
-/** Names only reach the client form — never the fleet model or its images. */
-const vehicleNames = fleetVehicles.map((vehicle) => vehicle.name);
 
 const steps = [
   {
@@ -42,7 +35,13 @@ const steps = [
   },
 ];
 
-export default function RequestAQuotePage() {
+export default async function RequestAQuotePage() {
+  const [site, fleet] = await Promise.all([getSite(), getFleet()]);
+  if (!site) notFound();
+  const { settings } = site;
+  /** Names only — the form is a client component. */
+  const vehicleNames = (fleet?.vehicles ?? []).map((vehicle) => vehicle.name);
+
   return (
     <>
       <PageHero
@@ -85,18 +84,18 @@ export default function RequestAQuotePage() {
                   <p className="label-xs text-white/55">Would rather just message?</p>
                   <div className="mt-5 flex flex-col gap-3">
                     <a
-                      href={whatsappUrl(WHATSAPP_INTRO)}
+                      href={whatsappLink(settings)}
                       target="_blank"
                       rel="noreferrer"
                       className="label-sm link-quiet text-white"
                     >
-                      WhatsApp {contact.mobileDisplay}
+                      WhatsApp {settings.contact.whatsappDisplay}
                     </a>
-                    <a href={contact.phoneHref} className="label-sm link-quiet text-white/70">
-                      {contact.phoneDisplay}
+                    <a href={telLink(settings)} className="label-sm link-quiet text-white/70">
+                      {settings.contact.phoneDisplay}
                     </a>
-                    <a href={contact.emailHref} className="label-sm link-quiet break-all text-white/70">
-                      {contact.email}
+                    <a href={mailLink(settings)} className="label-sm link-quiet break-all text-white/70">
+                      {settings.contact.email}
                     </a>
                   </div>
                 </Reveal>
@@ -107,7 +106,12 @@ export default function RequestAQuotePage() {
             <div className="lg:col-span-7 lg:col-start-6">
               <SectionHead label="Your booking" note="Three short sections" />
               <Reveal>
-                <EnquiryForm variant="full" vehicles={vehicleNames} />
+                <EnquiryForm
+                  variant="full"
+                  vehicles={vehicleNames}
+                  contact={contactDetails(settings)}
+                  services={site.enquiryServices}
+                />
               </Reveal>
 
               <Reveal delay={120} className="mt-14">

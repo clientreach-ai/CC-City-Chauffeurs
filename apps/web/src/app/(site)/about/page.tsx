@@ -1,9 +1,8 @@
-import type { Metadata } from "next";
 import Image from "next/image";
 
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, Rule, SectionHead } from "@/components/site/primitives";
-import { Reveal } from "@/components/site/reveal";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, Rule, SectionHead } from "@CC-City-Chauffeurs/ui/site/primitives";
+import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import {
   EditorialSplit,
   EnquiryBand,

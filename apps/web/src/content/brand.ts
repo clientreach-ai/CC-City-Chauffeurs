@@ -6,7 +6,7 @@
  * whole photography manifest — every image's metadata and blur placeholder —
  * into that bundle just to draw one wordmark.
  */
-import logoLockup from "@/media/logo-lockup.png";
+import logoLockup from "@/../public/media/logo-lockup.png";
 
 export const brand = {
   /** Client's logo lockup, keyed off its black background — use on dark. */

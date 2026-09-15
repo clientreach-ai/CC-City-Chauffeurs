@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { Enquire } from "@/components/site/enquire";
 import { Fleet } from "@/components/site/fleet";
@@ -8,7 +8,7 @@ import { Principles } from "@/components/site/principles";
 import { Services } from "@/components/site/services";
 import { Statement } from "@/components/site/statement";
 import { Testimonials } from "@/components/site/testimonials";
-import { testimonials } from "@/content/testimonials";
+import { getFleet, getHomepage, getSite, type HomepageBand } from "@/lib/site-data";
 import { pageMetadata } from "@/content/seo";
 
 export const metadata = pageMetadata({
@@ -20,39 +20,72 @@ export const metadata = pageMetadata({
 
 /**
  * The homepage is a first impression, not the whole site. Each band says one
- * thing and hands off to the page that says the rest:
+ * thing and hands off to the page that says the rest.
  *
- *   Hero       — the vehicle first, the positioning second.
- *   Statement  — a chauffeur company first, in one paragraph.        → /about
- *   Services   — the six services most people come for.              → /chauffeur-services
- *   Fleet      — three photographed vehicles, supercars signposted.  → /fleet
- *   Principles — professionalism, comfort, discretion.
- *   Occasions  — weddings and corporate, side by side.               → service pages
- *   Enquire    — the ask.
+ * Which bands appear, in what order, and every word in them, is set in the
+ * admin. The hero opens the page and is always shown; the rest are numbered
+ * in the order they are actually rendered, so hiding a band renumbers the
+ * page rather than leaving a gap.
  */
-export default function Home() {
-  // Order and numbering in one place — reordering the array renumbers the
-  // page, so the two can never drift apart.
-  const bands = [
-    Statement,
-    Services,
-    Fleet,
-    Principles,
-    Occasions,
-    // Only takes a number once there are real quotes to show, so the
-    // numbering never skips a band the visitor cannot see.
-    ...(testimonials.length > 0 ? [Testimonials] : []),
-    Enquire,
-  ];
+export default async function Home() {
+  const [home, site, fleet] = await Promise.all([getHomepage(), getSite(), getFleet()]);
+  if (!home || !site) notFound();
+
+  const hero = home.sections.find((section) => section.kind === "hero");
+  const bands = home.sections.filter((section) => section.kind !== "hero");
+  const marquee = (fleet?.vehicles ?? []).map((vehicle) => vehicle.name);
+
+  let printed = 0;
+  /** Only a band that renders takes a number. */
+  const nextIndex = () => String(++printed).padStart(2, "0");
 
   return (
     <>
-      <Hero />
-      {bands.map((Band, i) => {
-        // Position is the identity here: the list is static and never
-        // reordered at runtime, and function names do not survive minification.
-        const index = String(i + 1).padStart(2, "0");
-        return <Band key={index} index={index} />;
+      {hero ? <Hero section={hero} settings={site.settings} /> : null}
+
+      {bands.map((band: HomepageBand) => {
+        switch (band.kind) {
+          case "statement":
+            return <Statement key={band.id} index={nextIndex()} section={band} />;
+          case "services":
+            return (
+              <Services
+                key={band.id}
+                index={nextIndex()}
+                section={band}
+                all={site.navigation}
+              />
+            );
+          case "fleet":
+            return <Fleet key={band.id} index={nextIndex()} section={band} marquee={marquee} />;
+          case "principles":
+            return <Principles key={band.id} index={nextIndex()} section={band} />;
+          case "occasions":
+            return <Occasions key={band.id} index={nextIndex()} section={band} />;
+          case "testimonials":
+            // Takes a number only when there is something to show, so the
+            // numbering never skips a band the visitor cannot see.
+            return home.testimonials.length ? (
+              <Testimonials
+                key={band.id}
+                index={nextIndex()}
+                section={band}
+                items={home.testimonials}
+              />
+            ) : null;
+          case "enquire":
+            return (
+              <Enquire
+                key={band.id}
+                index={nextIndex()}
+                section={band}
+                settings={site.settings}
+                services={site.enquiryServices}
+              />
+            );
+          default:
+            return null;
+        }
       })}
     </>
   );

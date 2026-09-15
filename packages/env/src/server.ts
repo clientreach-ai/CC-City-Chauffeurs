@@ -2,12 +2,35 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+/**
+ * A comma-separated list of origins: the website and the admin run on
+ * different ports in development and different subdomains in production, and
+ * both need to reach the API with credentials.
+ */
+const originList = z
+  .string()
+  .min(1)
+  .transform((value) =>
+    value
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/+$/, ""))
+      .filter(Boolean),
+  )
+  .refine((origins) => origins.length > 0 && origins.every((origin) => URL.canParse(origin)), {
+    message: "Each origin must be a full URL, e.g. https://admin.example.com",
+  });
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
-    CORS_ORIGIN: z.url(),
+    /** Origins allowed to call the API. */
+    CORS_ORIGIN: originList,
+    /** Where the website serves its own photography from. */
+    SITE_URL: z.url().default("http://localhost:3001"),
+    /** This API's own public address — uploads are served back from it. */
+    API_URL: z.url().default("http://localhost:3000"),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   },
   runtimeEnv: process.env,

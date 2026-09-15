@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
 
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, SectionHead } from "@/components/site/primitives";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, SectionHead } from "@CC-City-Chauffeurs/ui/site/primitives";
 import {
   EditorialSplit,
   EnquiryBand,
@@ -14,6 +13,7 @@ import {
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/content/seo";
+import { getFleet } from "@/lib/site-data";
 
 export const metadata = pageMetadata({
   title: "Supercar Experiences London | Chauffeur-Driven | CC City Chauffeurs",
@@ -45,7 +45,18 @@ const occasions = [
   },
 ];
 
-export default function SupercarExperiencesPage() {
+/** Published every minute from the admin's own records. */
+export const revalidate = 60;
+
+/** The supercars, as the fleet currently lists them. */
+const SUPERCAR_IDS = ["urus", "huracan", "revuelto"];
+
+export default async function SupercarExperiencesPage() {
+  const fleet = await getFleet();
+  const supercars = SUPERCAR_IDS.map((id) =>
+    fleet?.vehicles.find((vehicle) => vehicle.id === id),
+  ).filter((vehicle) => vehicle != null);
+
   return (
     <>
       <PageHero
@@ -72,7 +83,7 @@ export default function SupercarExperiencesPage() {
           heading={["Chauffeur", "first —", "always"]}
           body="Supercars are part of what we do, not the whole of it. The same standards apply: a chauffeur presented formally, a car presented immaculately, and a journey planned before it starts."
         />
-        <VehicleStrip ids={["urus", "huracan", "revuelto"]} label="Experience vehicles" />
+        <VehicleStrip vehicles={supercars} label="Experience vehicles" />
       </Section>
 
       <Section tone="dark" className="pt-16 lg:pt-24">

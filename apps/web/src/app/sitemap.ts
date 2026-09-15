@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
 
-import { serviceSlugs } from "@/content/services";
 import { site } from "@/content/site";
+import { getServices, getSite } from "@/lib/site-data";
 
-const base = site.url;
+/** Rebuilt every hour, so a newly published service page gets listed. */
+export const revalidate = 3600;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [settings, services] = await Promise.all([getSite(), getServices()]);
+  const base = (settings?.settings.seo.siteUrl ?? site.url).replace(/\/+$/, "");
   const now = new Date();
 
   const staticPaths = [
@@ -27,9 +30,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority,
     })),
-    ...serviceSlugs.map((slug) => ({
-      url: `${base}/chauffeur-services/${slug}`,
-      lastModified: now,
+    // Only published services — a draft must not be advertised to a crawler.
+    ...(services ?? []).map((service) => ({
+      url: `${base}/chauffeur-services/${service.slug}`,
+      lastModified: new Date(service.updatedAt),
       changeFrequency: "monthly" as const,
       priority: 0.8,
     })),

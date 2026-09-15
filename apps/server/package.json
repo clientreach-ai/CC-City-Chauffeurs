@@ -16,7 +16,9 @@
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "hono": "^4.12.32",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@CC-City-Chauffeurs/core": "workspace:*",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@CC-City-Chauffeurs/config": "workspace:*",

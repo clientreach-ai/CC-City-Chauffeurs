@@ -1,39 +1,46 @@
 import Image from "next/image";
 
-import { media } from "@/content/media";
-import { contact, site } from "@/content/site";
-import { Enter } from "./enter";
-import { shell } from "./primitives";
-
-const heroFacts = [
-  { label: "Based", value: "London · UK & Europe" },
-  { label: "Airports", value: "Meet & greet · Flight tracking" },
-  { label: "Enquiries", value: contact.phoneDisplay, href: contact.phoneHref },
-];
+import type { HeroSection, SiteSettings } from "@CC-City-Chauffeurs/core";
+import { Enter } from "@CC-City-Chauffeurs/ui/site/enter";
+import { shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 
 /**
  * The vehicle is the hero object, so display type never crosses its
  * silhouette. Two deliberate compositions rather than one shrunk down:
  *   · small screens — full-bleed photograph above a black type band
  *   · sm and up     — cinematic full-screen photograph with a baseline band
+ *
+ * Every word and both links come from the homepage's hero band; the
+ * photograph is whichever one the editors chose.
  */
-export function Hero() {
+export function Hero({ section, settings }: { section: HeroSection; settings: SiteSettings }) {
+  const facts = [
+    { label: "Based", value: settings.business.coverage },
+    { label: "Airports", value: "Meet & greet · Flight tracking" },
+    {
+      label: "Enquiries",
+      value: settings.contact.phoneDisplay,
+      href: `tel:${settings.contact.phoneE164}`,
+    },
+  ];
+
   return (
     <section
       id="top"
       className="relative isolate flex min-h-svh w-full flex-col overflow-hidden bg-obsidian"
     >
       <div className="relative h-[54svh] w-full shrink-0 sm:absolute sm:inset-0 sm:h-full">
-        <Image
-          src={media.hero}
-          alt="Rolls-Royce Cullinan waiting at a London hotel entrance at night"
-          fill
-          priority
-          quality={90}
-          sizes="100vw"
-          placeholder="blur"
-          className="object-cover object-[34%_center] sm:object-[center_38%]"
-        />
+        {section.image ? (
+          <Image
+            src={section.image.src}
+            alt={section.image.alt}
+            fill
+            priority
+            quality={90}
+            sizes="100vw"
+            className="object-cover object-[34%_center] sm:object-[center_38%]"
+          />
+        ) : null}
         {/* Scrims: navigation legibility, the type band, and — on wider
             screens — a gentle draw from the left so the display face holds. */}
         <div
@@ -55,41 +62,43 @@ export function Hero() {
           <div className="grid grid-cols-1 gap-x-16 gap-y-9 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-7">
               <Enter delay={120}>
-                <p className="label-xs text-silver">{site.tagline}</p>
+                <p className="label-xs text-silver">{section.eyebrow}</p>
               </Enter>
 
               <Enter delay={220} className="mt-4 sm:mt-6">
                 <h1 className="display-hero text-white">
-                  The quiet
-                  <br />
-                  luxury of
-                  <br />
-                  being driven
+                  {section.headingLines.map((line, i) => (
+                    <span key={line}>
+                      {i > 0 ? <br /> : null}
+                      {line}
+                    </span>
+                  ))}
                 </h1>
               </Enter>
             </div>
 
             <div className="lg:col-span-5 lg:pb-3">
               <Enter delay={420}>
-                <p className="copy-lg max-w-[40ch] text-white/75">
-                  {site.positioning} Chauffeur-driven travel across London, the
-                  UK and Europe.
-                </p>
+                <p className="copy-lg max-w-[40ch] text-white/75">{section.body}</p>
               </Enter>
 
               <Enter
                 delay={520}
                 className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 sm:mt-7"
               >
-                <a href="#enquire" className="btn-ghost btn-on-dark">
-                  Book a chauffeur
-                </a>
-                <a
-                  href="#fleet"
-                  className="label-xs link-quiet text-white/70 hover:text-white"
-                >
-                  Explore the fleet
-                </a>
+                {section.primaryCta.label ? (
+                  <a href={section.primaryCta.href} className="btn-ghost btn-on-dark">
+                    {section.primaryCta.label}
+                  </a>
+                ) : null}
+                {section.secondaryCta.label ? (
+                  <a
+                    href={section.secondaryCta.href}
+                    className="label-xs link-quiet text-white/70 hover:text-white"
+                  >
+                    {section.secondaryCta.label}
+                  </a>
+                ) : null}
               </Enter>
             </div>
           </div>
@@ -101,7 +110,7 @@ export function Hero() {
             <div
               className={`${shell} grid grid-cols-1 divide-y divide-hairline sm:grid-cols-3 sm:divide-x sm:divide-y-0`}
             >
-              {heroFacts.map((fact) => (
+              {facts.map((fact) => (
                 <div
                   key={fact.label}
                   className="flex items-baseline gap-4 py-3 sm:flex-col sm:gap-2 sm:py-5 sm:first:pr-8 sm:not-first:pl-8"

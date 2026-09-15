@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { GalleryGrid } from "@/components/site/gallery-grid";
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, shell } from "@/components/site/primitives";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { EnquiryBand } from "@/components/site/sections";
-import { gallery } from "@/content/gallery";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/content/seo";
+import { getGallery } from "@/lib/site-data";
 
 export const metadata = pageMetadata({
   title: "Gallery | The Fleet, Photographed | CC City Chauffeurs",
@@ -16,7 +16,23 @@ export const metadata = pageMetadata({
   path: "/gallery",
 });
 
-export default function GalleryPage() {
+/** Published every minute from the admin's own records. */
+export const revalidate = 60;
+
+export default async function GalleryPage() {
+  const gallery = await getGallery();
+  if (!gallery) notFound();
+
+  // The grid is presentational; map the records into what it draws.
+  const images = gallery.items.map((item) => ({
+    src: item.image.src,
+    width: item.image.width,
+    height: item.image.height,
+    alt: item.image.alt,
+    subject: item.row,
+    place: item.location,
+  }));
+
   return (
     <>
       <PageHero
@@ -28,7 +44,7 @@ export default function GalleryPage() {
         imageAlt="A Rolls-Royce Cullinan and a Ferrari SF90 against the Canary Wharf skyline at night"
         objectPosition="object-[center_45%]"
         facts={[
-          { label: "Frames", value: `${gallery.length} photographs` },
+          { label: "Frames", value: `${images.length} photographs` },
           { label: "Shot in", value: "London and the workshop" },
           { label: "Vehicles", value: "Filter by car below" },
         ]}
@@ -42,7 +58,7 @@ export default function GalleryPage() {
 
       <section className="bg-ink text-white">
         <div className={`${shell} pt-16 pb-24 lg:pt-24 lg:pb-32`}>
-          <GalleryGrid />
+          <GalleryGrid images={images} rows={gallery.rows} />
         </div>
       </section>
 

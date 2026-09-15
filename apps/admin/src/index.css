@@ -1,0 +1,7 @@
+@import "@CC-City-Chauffeurs/ui/globals.css";
+@import "@CC-City-Chauffeurs/ui/styles/brand.css";
+
+/* `@source` globs resolve relative to the file that declares them, so each app
+   declares its own — otherwise utilities used only here are missed while the
+   dev server is watching. */
+@source "./**/*.{ts,tsx}";
