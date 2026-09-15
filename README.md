@@ -2,6 +2,19 @@
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, and more.
 
+Three applications — a website, an admin and the API behind both — sharing one
+typed contract. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for how
+they fit together.
+
+| | | |
+|---|---|---|
+| `apps/web` | The public website | http://localhost:3001 |
+| `apps/admin` | The admin | http://localhost:3002 |
+| `apps/server` | The API | http://localhost:3000 |
+| `packages/core` | Types, validation and publishing rules, shared by all three | |
+| `packages/db` | Drizzle schema, migrations and the seed | |
+| `packages/ui` | Design tokens and the components the site and its previews share | |
+
 ## Features
 
 - **TypeScript** - For type safety and improved developer experience
@@ -30,11 +43,16 @@ This project uses PostgreSQL with Drizzle ORM.
 1. Make sure you have a PostgreSQL database set up.
 2. Update your `apps/server/.env` file with your PostgreSQL connection details.
 
-3. Apply the schema to your database:
+3. Apply the schema, then seed it from the website's own content:
 
 ```bash
-pnpm run db:push
+pnpm run db:migrate
+pnpm run db:seed -- --samples   # --samples adds example enquiries and bookings
 ```
+
+Seeding is destructive for content and idempotent: it rewrites every content
+table from `apps/web/src/content/*`. It leaves enquiries, bookings and
+customers alone unless you ask it not to.
 
 Then, run the development server:
 
