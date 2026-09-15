@@ -13,9 +13,24 @@ export function createAuth() {
 
       schema: schema,
     }),
-    trustedOrigins: [env.CORS_ORIGIN],
+    trustedOrigins: env.CORS_ORIGIN,
     emailAndPassword: {
       enabled: true,
+    },
+    user: {
+      additionalFields: {
+        /**
+         * What this user may do in the admin. Carried on the session so a
+         * request can be authorised without a second query, and enforced by
+         * the API on every write.
+         */
+        role: {
+          type: "string",
+          required: false,
+          defaultValue: "editor",
+          input: false,
+        },
+      },
     },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
