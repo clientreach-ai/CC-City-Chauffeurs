@@ -1,7 +1,8 @@
 import Link from "next/link";
-import type { Route } from "next";
-
 import { Reveal } from "./reveal";
+
+/** Whatever `next/link` accepts in this app — typed routes included. */
+type LinkHref = React.ComponentProps<typeof Link>["href"];
 
 type Tone = "dark" | "light";
 
@@ -62,7 +63,7 @@ export function IndexRows({
             }`}
           >
             {row.href ? (
-              <Link href={row.href as Route} className="block py-7 sm:py-9">
+              <Link href={row.href as LinkHref} className="block py-7 sm:py-9">
                 {inner}
               </Link>
             ) : (
