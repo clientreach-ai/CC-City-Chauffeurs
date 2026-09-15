@@ -1,55 +1,66 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import type { SiteSettings } from "@CC-City-Chauffeurs/core";
 import { brand } from "@/content/brand";
-import { services } from "@/content/services";
-import {
-  contact,
-  routes,
-  serviceAreas,
-  site,
-  WHATSAPP_INTRO,
-  whatsappUrl,
-} from "@/content/site";
-import { Rule, shell } from "./primitives";
+import { routes } from "@/content/site";
+import { mailLink, telLink, whatsappLink } from "@/lib/contact";
+import { Rule, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 
-const columns = [
-  {
-    title: "Chauffeur services",
-    items: services
-      .slice(0, 6)
-      .map((service) => ({ label: service.label, href: routes.service(service.slug) })),
-  },
-  {
-    title: "More",
-    items: [
-      ...services
-        .slice(6)
-        .map((service) => ({ label: service.label, href: routes.service(service.slug) })),
-      { label: "Supercar Hire", href: routes.supercarHire },
-      { label: "Supercar Experiences", href: routes.supercarExperiences },
-      { label: "Fleet", href: routes.fleet },
-      { label: "Gallery", href: routes.gallery },
-    ],
-  },
-];
+type ServiceLink = { slug: string; name: string };
 
-export function Footer() {
+/**
+ * The site footer. Which service links it shows, the areas it lists and the
+ * contact details it prints all come from the admin — including the switches
+ * that turn each block off.
+ */
+export function Footer({
+  settings,
+  services,
+}: {
+  settings: SiteSettings;
+  services: ServiceLink[];
+}) {
+  const { business, contact, footer } = settings;
+
+  const columns = footer.showServiceLinks
+    ? [
+        {
+          title: "Chauffeur services",
+          items: services
+            .slice(0, 6)
+            .map((service) => ({ label: service.name, href: routes.service(service.slug) })),
+        },
+        {
+          title: "More",
+          items: [
+            ...services
+              .slice(6)
+              .map((service) => ({ label: service.name, href: routes.service(service.slug) })),
+            { label: "Supercar Hire", href: routes.supercarHire },
+            { label: "Supercar Experiences", href: routes.supercarExperiences },
+            { label: "Fleet", href: routes.fleet },
+            { label: "Gallery", href: routes.gallery },
+          ],
+        },
+      ]
+    : [];
+
   return (
     <footer className="bg-obsidian text-white">
       <div className={shell}>
         <Rule />
 
         <div className="flex flex-wrap items-end justify-between gap-8 pt-14 lg:pt-16">
-          <Link href={routes.home} aria-label={`${site.legalName} — home`}>
+          <Link href={routes.home} aria-label={`${business.legalName} — home`}>
             <Image
               src={brand.logo}
-              alt={site.legalName}
+              alt={business.legalName}
               sizes="320px"
               className="h-9 w-auto lg:h-10"
             />
           </Link>
-          <p className="label-xs max-w-[36ch] text-white/55">{site.positioning}</p>
+          <p className="label-xs max-w-[36ch] text-white/55">{footer.text}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-x-8 gap-y-12 py-14 lg:grid-cols-4 lg:py-16">
@@ -71,10 +82,11 @@ export function Footer() {
             </div>
           ))}
 
+          {footer.showServiceAreas ? (
           <div>
             <p className="label-xs text-white/50">Where we work</p>
             <ul className="mt-6 flex flex-col gap-3.5">
-              {serviceAreas.map((area) => (
+              {business.serviceAreas.map((area) => (
                 <li key={area} className="label-xs text-white/70">
                   {area}
                 </li>
@@ -82,13 +94,15 @@ export function Footer() {
               <li className="label-xs text-white/70">Gatwick & all London airports</li>
             </ul>
           </div>
+          ) : null}
 
+          {footer.showContact ? (
           <div>
             <p className="label-xs text-white/50">Contact</p>
             <ul className="mt-6 flex flex-col gap-3.5">
               <li>
                 <a
-                  href={contact.phoneHref}
+                  href={telLink(settings)}
                   className="label-xs link-quiet text-white/70 hover:text-white"
                 >
                   {contact.phoneDisplay}
@@ -96,17 +110,17 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href={whatsappUrl(WHATSAPP_INTRO)}
+                  href={whatsappLink(settings)}
                   target="_blank"
                   rel="noreferrer"
                   className="label-xs link-quiet text-white/70 hover:text-white"
                 >
-                  WhatsApp {contact.mobileDisplay}
+                  WhatsApp {contact.whatsappDisplay}
                 </a>
               </li>
               <li>
                 <a
-                  href={contact.emailHref}
+                  href={mailLink(settings)}
                   className="label-xs link-quiet break-all text-white/70 hover:text-white"
                 >
                   {contact.email}
@@ -128,9 +142,10 @@ export function Footer() {
                   About
                 </Link>
               </li>
-              <li className="label-xs text-white/50">{site.base}</li>
+              <li className="label-xs text-white/50">{business.base}</li>
             </ul>
           </div>
+          ) : null}
         </div>
 
         <Rule />
@@ -138,9 +153,9 @@ export function Footer() {
         {/* Extra room on small screens for the fixed contact bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-8 pb-20 sm:pb-8">
           <p className="label-xs text-white/50">
-            © {new Date().getFullYear()} {site.name}. All rights reserved.
+            © {new Date().getFullYear()} {business.companyName}. All rights reserved.
           </p>
-          <p className="label-xs text-white/50">{site.tagline}</p>
+          <p className="label-xs text-white/50">{business.tagline}</p>
         </div>
       </div>
     </footer>
