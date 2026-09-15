@@ -31,18 +31,30 @@ const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/public`;
 /** How long a published page may serve content the admin has since changed. */
 const REVALIDATE = 60;
 
+/**
+ * Reads one published resource.
+ *
+ * `null` means one thing only: the API said this record does not exist, and
+ * the caller should render a 404. Every other failure throws.
+ *
+ * That distinction matters more than it looks. These pages are generated
+ * ahead of time, so an error swallowed here does not degrade a page — it
+ * bakes a 404 into it and serves that as the website until something
+ * rebuilds it. Throwing instead gives the two behaviours actually wanted:
+ * a build against an unreachable API fails, leaving the previous deployment
+ * serving; and a failed revalidation of a live page keeps the last good copy
+ * rather than replacing it with a 404.
+ */
 async function read<T>(path: string, tag: string): Promise<T | null> {
-  try {
-    const response = await fetch(`${BASE}${path}`, {
-      next: { revalidate: REVALIDATE, tags: [tag, "site"] },
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as T;
-  } catch {
-    // The website must not go down because the API is having a moment. The
-    // caller decides what an absent section looks like — usually nothing.
-    return null;
+  const response = await fetch(`${BASE}${path}`, {
+    next: { revalidate: REVALIDATE, tags: [tag, "site"] },
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`The API answered ${response.status} for ${path}.`);
   }
+  return (await response.json()) as T;
 }
 
 // ---------------------------------------------------------------- settings
