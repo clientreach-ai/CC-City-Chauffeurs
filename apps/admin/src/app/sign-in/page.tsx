@@ -8,6 +8,25 @@ import { brand } from "@/content/brand";
 import { signIn, useAuthSession } from "@/lib/auth-client";
 
 /**
+ * What to say about a failed sign-in.
+ *
+ * A wrong password and an unknown address get the same words on purpose —
+ * saying which half was wrong tells someone probing which addresses are
+ * real. Everything else is a problem the person can actually act on, so it
+ * says what it is: hiding a rate limit behind "wrong password" sends people
+ * round in circles.
+ */
+function signInError(status: number | undefined, code: string | undefined) {
+  if (status === 429) return "Too many attempts. Wait a minute and try again.";
+  if (code === "INVALID_EMAIL") return "That does not look like an email address.";
+  if (status === 401 || code === "INVALID_EMAIL_OR_PASSWORD") {
+    return "That email address and password do not match an account.";
+  }
+  if (!status) return "Could not reach the server. Check your connection and try again.";
+  return "Could not sign you in. Try again.";
+}
+
+/**
  * Signing in.
  *
  * Outside the admin shell deliberately: the shell assumes a session, and
@@ -16,8 +35,6 @@ import { signIn, useAuthSession } from "@/lib/auth-client";
 export default function SignInPage() {
   const router = useRouter();
   const { data, isPending } = useAuthSession();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -26,16 +43,33 @@ export default function SignInPage() {
     if (!isPending && data?.user) router.replace("/dashboard");
   }, [data, isPending, router]);
 
-  async function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    /*
+     * Read the fields from the form rather than from React state.
+     *
+     * A password manager filling the form on load sets the inputs directly
+     * and does not always fire the events React listens for, so controlled
+     * state can still be empty while the browser shows — and validates — a
+     * filled field. The form element is what the browser actually has.
+     */
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+
+    if (!email || !password) {
+      setError("Enter your email address and password.");
+      return;
+    }
+
     setBusy(true);
-    const result = await signIn.email({ email: email.trim(), password });
+    const result = await signIn.email({ email, password });
+    setBusy(false);
+
     if (result.error) {
-      // Never say which half was wrong — that tells an attacker which
-      // addresses are real.
-      setError("That email address and password do not match an account.");
-      setBusy(false);
+      setError(signInError(result.error.status, result.error.code));
       return;
     }
     router.replace("/dashboard");
@@ -61,11 +95,10 @@ export default function SignInPage() {
           </label>
           <input
             id="email"
+            name="email"
             type="email"
             autoComplete="username"
             required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
             className="mt-2 h-11 w-full border border-white/15 bg-obsidian px-3 text-[0.9375rem] text-white outline-none focus:border-white"
           />
 
@@ -74,11 +107,10 @@ export default function SignInPage() {
           </label>
           <input
             id="password"
+            name="password"
             type="password"
             autoComplete="current-password"
             required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
             className="mt-2 h-11 w-full border border-white/15 bg-obsidian px-3 text-[0.9375rem] text-white outline-none focus:border-white"
           />
 
