@@ -107,5 +107,21 @@ export function assertValid(errors: FieldErrors) {
   if (hasErrors(errors)) throw new CmsValidationError(errors);
 }
 
-/** Search-result lengths: Google truncates past roughly these. */
+/**
+ * Where a search result stops showing the words. Advisory: the editors write
+ * against a live counter set to these, and aiming for them is good practice.
+ *
+ * Deliberately not what is enforced. A title of 63 characters is not wrong —
+ * it is merely truncated in one place it might appear — and refusing to save
+ * it would mean an editor changing a photograph on a page cannot save until
+ * they have also rewritten a title they did not touch. The client's own
+ * wedding page arrived at 63.
+ */
 export const SEO_LIMITS = { title: 60, description: 160 } as const;
+
+/**
+ * What is actually refused. Far enough above the advisory limits to leave
+ * editorial judgement alone, close enough to catch a paragraph pasted into a
+ * title by accident.
+ */
+export const SEO_MAX = { title: 120, description: 320 } as const;

@@ -1,6 +1,6 @@
 /** What may be saved, and what may be published, for a service page. */
 import type { Service, ServiceInput } from "../types";
-import { SEO_LIMITS, validator, type FieldErrors } from "../validation";
+import { SEO_MAX, validator, type FieldErrors } from "../validation";
 
 
 export function validateService(input: ServiceInput, others: Service[]): FieldErrors {
@@ -11,8 +11,8 @@ export function validateService(input: ServiceInput, others: Service[]): FieldEr
     .slug("slug", input.slug)
     .custom("slug", others.some((other) => other.slug === input.slug), "Another service already uses this slug.")
     .maxLength("summary", input.summary, 200)
-    .maxLength("seo.title", input.seo.title, SEO_LIMITS.title)
-    .maxLength("seo.description", input.seo.description, SEO_LIMITS.description)
+    .maxLength("seo.title", input.seo.title, SEO_MAX.title)
+    .maxLength("seo.description", input.seo.description, SEO_MAX.description)
     .custom(
       "headline",
       input.headline.some((line) => line.length > 24),
