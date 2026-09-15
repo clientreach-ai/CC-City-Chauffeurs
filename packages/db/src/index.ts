@@ -8,3 +8,5 @@ export function createDb() {
 }
 
 export const db = createDb();
+export { schema };
+export type Database = ReturnType<typeof createDb>;
