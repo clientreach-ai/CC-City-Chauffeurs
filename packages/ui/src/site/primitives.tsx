@@ -1,6 +1,9 @@
 import Link from "next/link";
-import type { Route } from "next";
+
 import { Fragment, type ReactNode } from "react";
+
+/** Whatever `next/link` accepts in this app — typed routes included. */
+type LinkHref = React.ComponentProps<typeof Link>["href"];
 
 /** Page gutter. One shared value so every section aligns to the same column. */
 export const shell = "mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16";
@@ -111,7 +114,7 @@ export function GhostLink({
   }
 
   return (
-    <Link href={href as Route} className={classes}>
+    <Link href={href as LinkHref} className={classes}>
       {children}
     </Link>
   );
@@ -142,7 +145,7 @@ export function QuietLink({
   }
 
   return (
-    <Link href={href as Route} className={classes}>
+    <Link href={href as LinkHref} className={classes}>
       {children}
     </Link>
   );

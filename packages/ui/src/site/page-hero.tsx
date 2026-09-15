@@ -1,9 +1,11 @@
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
-import type { Route } from "next";
 
 import { Enter } from "./enter";
 import { shell } from "./primitives";
+
+/** Whatever `next/link` accepts in this app — typed routes included. */
+type LinkHref = React.ComponentProps<typeof Link>["href"];
 
 export type HeroFact = { label: string; value: string };
 
@@ -83,7 +85,7 @@ export function PageHero({
                   <span key={crumb.label} className="flex items-center gap-3">
                     {crumb.href ? (
                       <Link
-                        href={crumb.href as Route}
+                        href={crumb.href as LinkHref}
                         className="link-quiet transition-colors duration-500 hover:text-white"
                       >
                         {crumb.label}

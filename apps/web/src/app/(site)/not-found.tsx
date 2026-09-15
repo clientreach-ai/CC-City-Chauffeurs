@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { GhostLink, QuietLink, shell } from "@/components/site/primitives";
+import { GhostLink, QuietLink, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
 
