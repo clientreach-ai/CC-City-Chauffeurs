@@ -1,18 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { fleetCategories, getVehicle, homepageVehicles, vehicles } from "@/content/fleet";
+import { rateLabel, type FeaturedFleetSection, type Vehicle } from "@CC-City-Chauffeurs/core";
 import { routes } from "@/content/site";
-import { GhostLink, QuietLink, SectionLabel, shell, Unbroken } from "./primitives";
-import { Reveal } from "./reveal";
-
-const marqueeNames = Array.from(
-  new Set(fleetCategories.flatMap((c) => c.vehicles.map((id) => vehicles[id].name))),
-);
+import { GhostLink, QuietLink, SectionLabel, shell, Unbroken } from "@CC-City-Chauffeurs/ui/site/primitives";
+import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 
 /** The one piece of continuous motion on the page — slow, and factual. */
-function FleetMarquee() {
-  const sequence = [...marqueeNames, ...marqueeNames];
+function FleetMarquee({ names }: { names: string[] }) {
+  if (!names.length) return null;
+  const sequence = [...names, ...names];
   return (
     <div className="overflow-hidden border-y border-hairline py-7 sm:py-9" aria-hidden>
       <div className="marquee-track flex w-max items-center">
@@ -28,39 +25,46 @@ function FleetMarquee() {
 }
 
 /**
- * A showcase, not a catalogue: three photographed vehicles and a way into the
- * rest. Capacities, groupings and the full specification index are on /fleet.
+ * A showcase, not a catalogue: the vehicles the editors chose to feature, and
+ * a way into the rest. Capacities, groupings and the full specification index
+ * are on /fleet. The marquee names every published vehicle.
  */
-export function Fleet({ index }: { index: string }) {
-  const shown = homepageVehicles.map(getVehicle);
+export function Fleet({
+  index,
+  section,
+  marquee,
+}: {
+  index: string;
+  section: FeaturedFleetSection & { vehicles?: Vehicle[] };
+  /** Every published vehicle's name, for the marquee. */
+  marquee: string[];
+}) {
+  const shown = section.vehicles ?? [];
 
   return (
     <section id="fleet" className="bg-obsidian text-white">
-      <FleetMarquee />
+      <FleetMarquee names={marquee} />
 
       <div className={`${shell} pt-14 pb-20 lg:pt-20 lg:pb-28`}>
         <div className="flex flex-wrap items-baseline justify-between gap-4 pb-10">
-          <SectionLabel index={index}>The Fleet</SectionLabel>
-          <p className="label-xs text-white/55">Indicative rates · Confirmed on enquiry</p>
+          <SectionLabel index={index}>{section.label}</SectionLabel>
+          <p className="label-xs text-white/55">{section.note}</p>
         </div>
 
         <div className="grid grid-cols-1 gap-8 pb-12 lg:grid-cols-12 lg:items-end lg:pb-16">
           <Reveal className="lg:col-span-7">
             <h2 className="display-xl text-white">
-              One fleet.
-              <br />
-              One standard.
+              <Unbroken text={section.heading} />
             </h2>
           </Reveal>
           <Reveal
             delay={120}
             className="flex flex-col items-start gap-7 lg:col-span-4 lg:col-start-9"
           >
-            <p className="copy max-w-[42ch] text-white/65">
-              Selected for rear-seat comfort, presence and discretion, and presented
-              immaculately for every journey.
-            </p>
-            <GhostLink href={routes.fleet}>View the full fleet</GhostLink>
+            <p className="copy max-w-[42ch] text-white/65">{section.body}</p>
+            {section.cta.label ? (
+              <GhostLink href={section.cta.href}>{section.cta.label}</GhostLink>
+            ) : null}
           </Reveal>
         </div>
 
@@ -74,21 +78,20 @@ export function Fleet({ index }: { index: string }) {
             >
               <Link href={routes.fleet} className="group block">
                 <div className="media-zoom relative aspect-4/3 w-full bg-graphite">
-                  {vehicle.image ? (
+                  {vehicle.images.main ? (
                     <Image
-                      src={vehicle.image}
-                      alt={vehicle.imageAlt ?? vehicle.name}
+                      src={vehicle.images.main.src}
+                      alt={vehicle.images.main.alt || vehicle.name}
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 32vw"
-                      placeholder="blur"
                       className="object-cover"
                     />
                   ) : null}
                 </div>
                 <div className="mt-5 border-t border-hairline pt-4">
                   <p className="label-xs flex items-baseline justify-between gap-4">
-                    <span className="text-white/55">{vehicle.marque}</span>
-                    <span className="text-white/75">{vehicle.rate}</span>
+                    <span className="text-white/55">{vehicle.make}</span>
+                    <span className="text-white/75">{rateLabel(vehicle)}</span>
                   </p>
                   <h3 className="display-sm mt-3 text-white">
                     <Unbroken text={vehicle.name} />

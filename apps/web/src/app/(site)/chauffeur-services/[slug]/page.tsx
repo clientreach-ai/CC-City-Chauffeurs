@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, SectionHead } from "@/components/site/primitives";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, SectionHead } from "@CC-City-Chauffeurs/ui/site/primitives";
 import {
   EditorialSplit,
   EnquiryBand,
@@ -13,13 +13,17 @@ import {
   StatementBand,
   VehicleStrip,
 } from "@/components/site/sections";
-import { media } from "@/content/media";
-import { getService, services, type Service } from "@/content/services";
+import type { Service } from "@CC-City-Chauffeurs/core";
 import { pageMetadata } from "@/content/seo";
-import { bookingTerms, routes, site } from "@/content/site";
+import { routes } from "@/content/site";
+import { getService, getServices, getSite } from "@/lib/site-data";
 
-export function generateStaticParams() {
-  return services.map((service) => ({ slug: service.slug }));
+/** Published every minute from the admin's own records. */
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  const services = await getServices();
+  return (services ?? []).map((service) => ({ slug: service.slug }));
 }
 
 export async function generateMetadata({
@@ -28,7 +32,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const service = getService(slug);
+  const service = await getService(slug);
   if (!service) return {};
 
   return pageMetadata({
@@ -38,17 +42,18 @@ export async function generateMetadata({
   });
 }
 
-function OtherServices({ current }: { current: Service }) {
+async function OtherServices({ current }: { current: Service }) {
+  const services = (await getServices()) ?? [];
   const others = services.filter((s) => s.slug !== current.slug).slice(0, 4);
   return (
     <Section tone="dark">
       <SectionHead label="Other chauffeur services" note="All chauffeur-led" />
       <IndexRows
         columns={2}
-        rows={others.map((service) => ({
-          title: service.label,
+        rows={others.map((service, i) => ({
+          title: service.name,
           copy: service.summary,
-          index: service.index,
+          index: String(i + 1).padStart(2, "0"),
           href: routes.service(service.slug),
         }))}
       />
@@ -65,38 +70,40 @@ export default async function ServicePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const service = getService(slug);
+  const [service, site] = await Promise.all([getService(slug), getSite()]);
   if (!service) notFound();
 
   const quoteHref = routes.quoteFor(service.slug);
+  const siteUrl = site?.settings.seo.siteUrl ?? "";
+  const bookingTerms = site?.settings.booking.terms ?? [];
 
   // Service and breadcrumb schema, both mirroring what the page shows.
-  const pageUrl = `${site.url}/chauffeur-services/${service.slug}`;
+  const pageUrl = `${siteUrl}/chauffeur-services/${service.slug}`;
   const schema = [
     {
       "@context": "https://schema.org",
       "@type": "Service",
-      name: service.label,
-      serviceType: `${service.label} chauffeur service`,
+      name: service.name,
+      serviceType: `${service.name} chauffeur service`,
       description: service.seo.description,
       url: pageUrl,
-      provider: { "@id": `${site.url}/#business` },
+      provider: { "@id": `${siteUrl}/#business` },
       areaServed: ["London", "United Kingdom", "Europe"],
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: site.url },
-        { "@type": "ListItem", position: 2, name: "Chauffeur services", item: `${site.url}/chauffeur-services` },
-        { "@type": "ListItem", position: 3, name: service.label, item: pageUrl },
+        { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+        { "@type": "ListItem", position: 2, name: "Chauffeur services", item: `${siteUrl}/chauffeur-services` },
+        { "@type": "ListItem", position: 3, name: service.name, item: pageUrl },
       ],
     },
   ];
   const jsonLd = (
     <script
       type="application/ld+json"
-      // Static, author-controlled content — no user input reaches this string.
+      // Editor-controlled content only — no visitor input reaches this string.
       dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
     />
   );
@@ -105,12 +112,12 @@ export default async function ServicePage({
     <PageHero
       crumbs={[
         { label: "Chauffeur services", href: routes.services },
-        { label: service.label },
+        { label: service.name },
       ]}
-      display={service.display}
+      display={service.headline}
       standfirst={service.standfirst}
-      image={media[service.hero]}
-      imageAlt={service.heroAlt}
+      image={service.heroImage ?? { src: "", width: 0, height: 0 }}
+      imageAlt={service.heroImage?.alt ?? service.name}
       facts={service.facts}
       actions={
         <>
@@ -121,7 +128,7 @@ export default async function ServicePage({
     />
   );
 
-  const included = service.included.map((item, i) => ({
+  const included = service.benefits.map((item, i) => ({
     title: item.title,
     copy: item.copy,
     index: String(i + 1).padStart(2, "0"),
@@ -131,9 +138,9 @@ export default async function ServicePage({
     <EditorialSplit
       tone={tone}
       flip={flip}
-      image={media[service.detail.image]}
-      imageAlt={service.detail.imageAlt}
-      eyebrow={service.label}
+      image={service.detail.image ?? { src: "", width: 0, height: 0 }}
+      imageAlt={service.detail.image?.alt ?? service.detail.heading}
+      eyebrow={service.name}
       heading={service.detail.heading}
       paragraphs={service.detail.paragraphs}
       action={
@@ -157,7 +164,7 @@ export default async function ServicePage({
 
   const closing = (
     <EnquiryBand
-      heading={service.closing}
+      heading={service.enquiry.heading}
       body="Send the details however suits you — most of our clients simply message us — and we will confirm availability and cost."
       tone="dark"
       primaryHref={quoteHref}
@@ -177,13 +184,13 @@ export default async function ServicePage({
           <IndexRows rows={included} />
         </Section>
         <StatementBand
-          image={media[service.detail.image]}
-          imageAlt={service.detail.imageAlt}
+          image={service.detail.image ?? { src: "", width: 0, height: 0 }}
+          imageAlt={service.detail.image?.alt ?? service.detail.heading}
           eyebrow={service.detail.heading}
-          quote={service.detail.paragraphs[0]}
+          quote={service.detail.paragraphs[0] ?? ""}
         />
         <Section tone="dark" className="pt-16 lg:pt-24">
-          <VehicleStrip ids={service.vehicles} tone="dark" />
+          <VehicleStrip vehicles={service.vehicles} tone="dark" />
         </Section>
         {brief}
         <OtherServices current={service} />
@@ -209,7 +216,7 @@ export default async function ServicePage({
           {detailSplit("dark", false)}
         </Section>
         <Section tone="dark">
-          <VehicleStrip ids={service.vehicles} />
+          <VehicleStrip vehicles={service.vehicles} />
         </Section>
         {brief}
         <OtherServices current={service} />
@@ -234,7 +241,7 @@ export default async function ServicePage({
         <IndexRows rows={included} tone="dark" />
       </Section>
       <Section tone="dark">
-        <VehicleStrip ids={service.vehicles} tone="dark" />
+        <VehicleStrip vehicles={service.vehicles} tone="dark" />
       </Section>
       {brief}
       <OtherServices current={service} />

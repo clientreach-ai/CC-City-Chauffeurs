@@ -1,15 +1,15 @@
-import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, SectionHead } from "@/components/site/primitives";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, SectionHead } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { EnquiryBand, Section, Statement, StatementBand } from "@/components/site/sections";
-import { Reveal } from "@/components/site/reveal";
+import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import { media } from "@/content/media";
-import { services } from "@/content/services";
 import { chauffeurStandards, routes } from "@/content/site";
 import { pageMetadata } from "@/content/seo";
+import { getServices } from "@/lib/site-data";
 
 export const metadata = pageMetadata({
   title: "Chauffeur Services London | CC City Chauffeurs",
@@ -18,14 +18,21 @@ export const metadata = pageMetadata({
   path: "/chauffeur-services",
 });
 
-export default function ChauffeurServicesPage() {
-  const [feature, ...rest] = services;
+/** Published every minute from the admin's own records. */
+export const revalidate = 60;
+
+const numeral = (i: number) => `0${i + 1}`.slice(-2);
+
+export default async function ChauffeurServicesPage() {
+  const services = await getServices();
+  const [feature, ...rest] = services ?? [];
+  if (!feature) notFound();
 
   return (
     <>
       <PageHero
         eyebrow="Chauffeur services"
-        display={["Nine ways", "to be", "driven"]}
+        display={[`${services!.length} ways`, "to be", "driven"]}
         standfirst="From a single airport collection to a week-long corporate programme. Every service below is chauffeur-led, planned in advance and run to your schedule."
         image={media.cullinanPeninsulaNight}
         imageAlt="Rolls-Royce Cullinan waiting outside The Peninsula in London"
@@ -53,15 +60,16 @@ export default function ChauffeurServicesPage() {
           <Reveal variant="image" className="lg:col-span-7">
             <Link href={routes.service(feature.slug)} className="group block">
               <div className="media-zoom relative aspect-4/3 w-full overflow-hidden bg-graphite sm:aspect-16/10">
-                <Image
-                  src={media[feature.hero]}
-                  alt={feature.heroAlt}
-                  fill
-                  quality={85}
-                  sizes="(max-width: 1024px) 100vw, 58vw"
-                  placeholder="blur"
-                  className="object-cover transition-transform duration-[1600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-[1.02]"
-                />
+                {feature.heroImage ? (
+                  <Image
+                    src={feature.heroImage.src}
+                    alt={feature.heroImage.alt}
+                    fill
+                    quality={85}
+                    sizes="(max-width: 1024px) 100vw, 58vw"
+                    className="object-cover transition-transform duration-[1600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-[1.02]"
+                  />
+                ) : null}
               </div>
             </Link>
           </Reveal>
@@ -69,9 +77,9 @@ export default function ChauffeurServicesPage() {
           <div className="lg:col-span-5">
             <Reveal delay={80}>
               <p className="label-xs text-white/55">
-                ({feature.index}) Most requested
+                ({numeral(0)}) Most requested
               </p>
-              <h3 className="display-md mt-4 text-white">{feature.label}</h3>
+              <h3 className="display-md mt-4 text-white">{feature.name}</h3>
               <p className="copy-lg mt-6 max-w-[44ch] text-white/65">
                 {feature.standfirst}
               </p>
@@ -79,7 +87,7 @@ export default function ChauffeurServicesPage() {
 
             <Reveal delay={160} className="mt-9">
               <GhostLink href={routes.service(feature.slug)}>
-                {feature.label}
+                {feature.name}
               </GhostLink>
             </Reveal>
           </div>
@@ -107,10 +115,10 @@ export default function ChauffeurServicesPage() {
                 className="grid grid-cols-1 gap-x-12 gap-y-4 py-8 sm:py-10 lg:grid-cols-12"
               >
                 <span className="label-xs text-white/55 lg:col-span-1">
-                  {service.index}
+                  {numeral(i + 1)}
                 </span>
                 <h3 className="display-md text-white transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:translate-x-1.5 lg:col-span-5">
-                  {service.label}
+                  {service.name}
                 </h3>
                 <p className="copy max-w-[56ch] text-white/60 lg:col-span-5">
                   {service.summary}

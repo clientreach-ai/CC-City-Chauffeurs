@@ -1,15 +1,27 @@
 import Image, { type StaticImageData } from "next/image";
 import type { ReactNode } from "react";
 
-import { getVehicle, passengersLabel, type VehicleId } from "@/content/fleet";
-import { contact, routes, WHATSAPP_INTRO, whatsappUrl } from "@/content/site";
-import { GhostLink, Rule, SectionHead, shell } from "./primitives";
-import { Reveal } from "./reveal";
-import { VehiclePlate } from "./vehicle-plate";
+import { passengersLine, rateLabel, type Vehicle } from "@CC-City-Chauffeurs/core";
+import { routes } from "@/content/site";
+import { mailLink, telLink, whatsappLink } from "@/lib/contact";
+import { getSite } from "@/lib/site-data";
+import { GhostLink, Rule, SectionHead, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
+import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
+
+/**
+ * A photograph, from either source: a static import the site ships with, or a
+ * record the editors chose. Only a static import carries a blur placeholder,
+ * so `blurOf` asks for one exactly when there is one to use.
+ */
+type SiteImage = StaticImageData | { src: string; width: number; height: number };
+
+const blurOf = (image: SiteImage) =>
+  "blurDataURL" in image && image.blurDataURL ? ("blur" as const) : ("empty" as const);
+import { VehiclePlate } from "@CC-City-Chauffeurs/ui/site/vehicle-plate";
 
 // Lives in its own module so the admin preview can use it; re-exported so
 // the service pages keep importing it from here.
-export { IndexRows } from "./index-rows";
+export { IndexRows } from "@CC-City-Chauffeurs/ui/site/index-rows";
 
 type Tone = "dark" | "light";
 
@@ -92,7 +104,7 @@ export function EditorialSplit({
   flip = false,
   aspect = "aspect-4/5",
 }: {
-  image: StaticImageData;
+  image: SiteImage;
   imageAlt: string;
   eyebrow?: string;
   heading: string;
@@ -116,7 +128,7 @@ export function EditorialSplit({
             fill
             quality={85}
             sizes="(max-width: 1024px) 100vw, 48vw"
-            placeholder="blur"
+            placeholder={blurOf(image)}
             className="object-cover"
           />
         </div>
@@ -185,7 +197,7 @@ export function StatementBand({
   quote,
   objectPosition = "object-center",
 }: {
-  image: StaticImageData;
+  image: SiteImage;
   imageAlt: string;
   eyebrow?: string;
   quote: string;
@@ -201,7 +213,7 @@ export function StatementBand({
             fill
             quality={85}
             sizes="100vw"
-            placeholder="blur"
+            placeholder={blurOf(image)}
             className={`object-cover ${objectPosition}`}
           />
           <div
@@ -222,38 +234,38 @@ export function StatementBand({
 
 /** A compact vehicle row used on service pages: photo where we have one. */
 export function VehicleStrip({
-  ids,
+  vehicles,
   tone = "dark",
   label = "Vehicles typically used",
 }: {
-  ids: readonly VehicleId[];
+  /** The published vehicles, in the order the service lists them. */
+  vehicles: readonly Vehicle[];
   tone?: Tone;
   label?: string;
 }) {
+  if (!vehicles.length) return null;
   return (
     <div>
       <SectionHead label={label} note="Confirmed on enquiry" tone={tone} />
       <div className="grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-        {ids.map((id, i) => {
-          const vehicle = getVehicle(id);
+        {vehicles.map((vehicle, i) => {
           return (
-            <Reveal key={id} delay={Math.min(i * 70, 210)}>
+            <Reveal key={vehicle.id} delay={Math.min(i * 70, 210)}>
               <div
                 className={`relative aspect-4/3 w-full overflow-hidden ${
                   tone === "dark" ? "bg-graphite" : "bg-ink"
                 }`}
               >
-                {vehicle.image ? (
+                {vehicle.images.main ? (
                   <Image
-                    src={vehicle.image}
-                    alt={vehicle.imageAlt ?? vehicle.name}
+                    src={vehicle.images.main.src}
+                    alt={vehicle.images.main.alt || vehicle.name}
                     fill
                     sizes="(max-width: 640px) 100vw, 24vw"
-                    placeholder="blur"
                     className="object-cover"
                   />
                 ) : (
-                  <VehiclePlate name={vehicle.name} marque={vehicle.marque} />
+                  <VehiclePlate name={vehicle.name} marque={vehicle.make} />
                 )}
               </div>
               <p
@@ -266,7 +278,7 @@ export function VehicleStrip({
                   tone === "dark" ? "text-white/55" : "text-slate"
                 }`}
               >
-                {passengersLabel(vehicle)} · {vehicle.rate}
+                {passengersLine(vehicle)} · {rateLabel(vehicle)}
               </p>
             </Reveal>
           );
@@ -277,7 +289,15 @@ export function VehicleStrip({
 }
 
 /** Closing conversion band. Confident, not desperate. */
-export function EnquiryBand({
+/**
+ * The closing conversion band.
+ *
+ * It reads the site's contact details itself rather than having every page
+ * that renders it pass them down. The read is the same cached request the
+ * page already made, so this costs nothing and cannot go stale against the
+ * rest of the page.
+ */
+export async function EnquiryBand({
   heading,
   body,
   tone = "dark",
@@ -290,6 +310,9 @@ export function EnquiryBand({
   primaryHref?: string;
   primaryLabel?: string;
 }) {
+  const site = await getSite();
+  const settings = site?.settings;
+
   return (
     <section className={surface[tone]}>
       <div className={`${shell} py-20 lg:py-28`}>
@@ -315,37 +338,41 @@ export function EnquiryBand({
             <GhostLink href={primaryHref} tone={tone}>
               {primaryLabel}
             </GhostLink>
-            <a
-              href={whatsappUrl(WHATSAPP_INTRO)}
-              target="_blank"
-              rel="noreferrer"
-              className={`label-xs link-quiet ${
-                tone === "dark" ? "text-white/70 hover:text-white" : "text-ink"
-              }`}
-            >
-              Or message us on WhatsApp
-            </a>
+            {settings ? (
+              <a
+                href={whatsappLink(settings)}
+                target="_blank"
+                rel="noreferrer"
+                className={`label-xs link-quiet ${
+                  tone === "dark" ? "text-white/70 hover:text-white" : "text-ink"
+                }`}
+              >
+                Or message us on WhatsApp
+              </a>
+            ) : null}
           </Reveal>
         </div>
 
-        <Reveal delay={200} className="mt-10 flex flex-wrap gap-x-10 gap-y-3">
-          <a
-            href={contact.phoneHref}
-            className={`label-xs link-quiet ${
-              tone === "dark" ? "text-white/50 hover:text-white" : "text-slate"
-            }`}
-          >
-            {contact.phoneDisplay}
-          </a>
-          <a
-            href={contact.emailHref}
-            className={`label-xs link-quiet ${
-              tone === "dark" ? "text-white/50 hover:text-white" : "text-slate"
-            }`}
-          >
-            {contact.email}
-          </a>
-        </Reveal>
+        {settings ? (
+          <Reveal delay={200} className="mt-10 flex flex-wrap gap-x-10 gap-y-3">
+            <a
+              href={telLink(settings)}
+              className={`label-xs link-quiet ${
+                tone === "dark" ? "text-white/50 hover:text-white" : "text-slate"
+              }`}
+            >
+              {settings.contact.phoneDisplay}
+            </a>
+            <a
+              href={mailLink(settings)}
+              className={`label-xs link-quiet ${
+                tone === "dark" ? "text-white/50 hover:text-white" : "text-slate"
+              }`}
+            >
+              {settings.contact.email}
+            </a>
+          </Reveal>
+        ) : null}
       </div>
     </section>
   );
@@ -356,7 +383,7 @@ export function EnquiryBand({
  * practical terms. It answers the questions the client otherwise has to go
  * back and ask, which is where enquiries go cold.
  */
-export function QuoteBrief({
+export async function QuoteBrief({
   needs,
   note,
   terms,
@@ -367,6 +394,8 @@ export function QuoteBrief({
   terms: readonly string[];
   quoteHref: string;
 }) {
+  const site = await getSite();
+
   return (
     <>
       <SectionHead label="To quote, we need" note="Send it in one message" />
@@ -399,14 +428,16 @@ export function QuoteBrief({
           </ul>
           <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
             <GhostLink href={quoteHref}>Request a quote</GhostLink>
-            <a
-              href={whatsappUrl(WHATSAPP_INTRO)}
-              target="_blank"
-              rel="noreferrer"
-              className="label-xs link-quiet text-white/70 hover:text-white"
-            >
-              Or send it on WhatsApp
-            </a>
+            {site ? (
+              <a
+                href={whatsappLink(site.settings)}
+                target="_blank"
+                rel="noreferrer"
+                className="label-xs link-quiet text-white/70 hover:text-white"
+              >
+                Or send it on WhatsApp
+              </a>
+            ) : null}
           </div>
         </Reveal>
       </div>

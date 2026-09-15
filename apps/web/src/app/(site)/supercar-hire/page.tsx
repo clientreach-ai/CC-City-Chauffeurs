@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
 
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, SectionHead } from "@/components/site/primitives";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, SectionHead } from "@CC-City-Chauffeurs/ui/site/primitives";
 import {
   EditorialSplit,
   EnquiryBand,
@@ -13,6 +12,7 @@ import {
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/content/seo";
+import { getFleet } from "@/lib/site-data";
 
 export const metadata = pageMetadata({
   title: "Supercar Hire London | Self-Drive | CC City Chauffeurs",
@@ -49,7 +49,18 @@ const conditions = [
   },
 ];
 
-export default function SupercarHirePage() {
+/** Published every minute from the admin's own records. */
+export const revalidate = 60;
+
+/** The supercars, as the fleet currently lists them. */
+const SUPERCAR_IDS = ["urus", "huracan", "revuelto"];
+
+export default async function SupercarHirePage() {
+  const fleet = await getFleet();
+  const supercars = SUPERCAR_IDS.map((id) =>
+    fleet?.vehicles.find((vehicle) => vehicle.id === id),
+  ).filter((vehicle) => vehicle != null);
+
   return (
     <>
       <PageHero
@@ -79,10 +90,7 @@ export default function SupercarHirePage() {
           heading={["A specific car,", "agreed in", "advance"]}
           body="You know exactly which car you are booking before anything is agreed, and every condition that comes with it is set out before the booking is confirmed — not discovered at the handover."
         />
-        <VehicleStrip
-          ids={["urus", "huracan", "revuelto"]}
-          label="Available for self-drive hire"
-        />
+        <VehicleStrip vehicles={supercars} label="Available for self-drive hire" />
       </Section>
 
       <Section tone="dark" className="pt-16 lg:pt-24">

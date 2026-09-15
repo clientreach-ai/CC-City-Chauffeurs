@@ -3,7 +3,22 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { gallery, galleryFilters, type GalleryImage } from "@/content/gallery";
+/**
+ * A photograph as this grid draws it. The page maps the CMS's records into
+ * this shape, so the grid stays a presentation component that knows nothing
+ * about where the gallery is stored.
+ */
+export type GalleryImage = {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+  /** The row the photograph belongs to. */
+  subject: string;
+  place: string;
+};
+
+export type GalleryRow = { id: string; label: string };
 
 /**
  * The gallery, organised as one slide track per vehicle.
@@ -158,7 +173,13 @@ function GalleryRow({
   );
 }
 
-export function GalleryGrid() {
+export function GalleryGrid({
+  images: gallery,
+  rows,
+}: {
+  images: readonly GalleryImage[];
+  rows: readonly GalleryRow[];
+}) {
   const [filter, setFilter] = useState<string>("all");
   const [lightbox, setLightbox] = useState<{
     images: readonly GalleryImage[];
@@ -168,16 +189,17 @@ export function GalleryGrid() {
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   /** One group per vehicle, in the order the filters declare. */
-  const groups: Group[] = useMemo(() => {
-    return galleryFilters
-      .filter((f) => f.id !== "all")
-      .map((f) => ({
-        id: f.id,
-        label: f.label,
-        images: gallery.filter((image) => image.subject === f.id),
-      }))
-      .filter((group) => group.images.length > 0);
-  }, []);
+  const groups: Group[] = useMemo(
+    () =>
+      rows
+        .map((row) => ({
+          id: row.id,
+          label: row.label,
+          images: gallery.filter((image) => image.subject === row.id),
+        }))
+        .filter((group) => group.images.length > 0),
+    [gallery, rows],
+  );
 
   const visible = filter === "all" ? groups : groups.filter((g) => g.id === filter);
   const total = visible.reduce((sum, g) => sum + g.images.length, 0);
@@ -188,7 +210,7 @@ export function GalleryGrid() {
     // "next" means to someone who opened it from a vehicle's track.
     const images = gallery.filter((i) => i.subject === image.subject);
     setLightbox({ images, index: images.findIndex((i) => i.src === image.src) });
-  }, []);
+  }, [gallery]);
 
   const close = useCallback(() => setLightbox(null), []);
   const step = useCallback(
@@ -234,7 +256,7 @@ export function GalleryGrid() {
           aria-label="Filter photographs by vehicle"
           className="-mx-6 flex gap-2 overflow-x-auto px-6 py-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden"
         >
-          {galleryFilters.map((option) => {
+          {[{ id: "all", label: "Everything" }, ...rows].map((option) => {
             const isActive = filter === option.id;
             const count =
               option.id === "all"
