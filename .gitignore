@@ -60,3 +60,4 @@ temp
 # Local working notes and QA tooling (handoff, design references, test
 # scripts). Deliberately kept on the machine and out of the repository.
 projects/
+uploads/

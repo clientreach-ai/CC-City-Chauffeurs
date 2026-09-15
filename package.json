@@ -15,7 +15,9 @@
     "db:push": "turbo run db:push -F @CC-City-Chauffeurs/db --",
     "db:studio": "turbo run db:studio -F @CC-City-Chauffeurs/db --",
     "db:generate": "turbo run db:generate -F @CC-City-Chauffeurs/db --",
-    "db:migrate": "turbo run db:migrate -F @CC-City-Chauffeurs/db --"
+    "db:migrate": "turbo run db:migrate -F @CC-City-Chauffeurs/db --",
+    "dev:admin": "turbo run dev -F admin --",
+    "db:seed": "turbo run db:seed -F @CC-City-Chauffeurs/db --"
   },
   "dependencies": {
     "@CC-City-Chauffeurs/env": "workspace:*",
