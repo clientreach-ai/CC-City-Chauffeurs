@@ -1,33 +1,36 @@
 /**
  * Image slots for the site.
  *
- * Every file lives in `src/media/` and is statically imported so Next can
- * optimise it and generate a blur placeholder. To swap a photograph, drop a
- * replacement into `src/media/` with the same filename — no component changes
- * required. To point a slot at a different photograph, change it here only.
+ * Every file lives in `public/media/` and is statically imported here so Next
+ * can optimise it and generate a blur placeholder for the slots that use one.
+ * The same files are served directly at `/media/…`, which is what the database
+ * stores for a photograph — so there is one copy, reachable both ways.
+ *
+ * To swap a photograph, drop a replacement into `public/media/` with the same
+ * filename. To point a slot at a different photograph, change it here only.
  *
  * Source: photography from the client's own shoots, taken from their existing
  * site at city-chauffeurs.com. No stock, no fabricated client imagery.
  */
-import collectionCanaryWharf from "@/media/collection-canary-wharf.jpg";
-import cullinanCanaryWharf from "@/media/cullinan-canary-wharf.jpg";
-import cullinanForecourt from "@/media/cullinan-forecourt.jpg";
-import cullinanFrontCabin from "@/media/cullinan-front-cabin.jpg";
-import cullinanHotelSide from "@/media/cullinan-hotel-side.jpg";
-import cullinanO2Front from "@/media/cullinan-o2-front.jpg";
-import cullinanPeninsulaNight from "@/media/cullinan-peninsula-night.jpg";
-import cullinanRearCabin from "@/media/cullinan-rear-cabin.jpg";
-import cullinanWorkshopRear from "@/media/cullinan-workshop-rear.jpg";
-import cullinanWorkshopSide from "@/media/cullinan-workshop-side.jpg";
-import detailLamborghiniDoor from "@/media/detail-lamborghini-door.jpg";
-import detailSpiritOfEcstasy from "@/media/detail-spirit-of-ecstasy.jpg";
-import fleetCullinan from "@/media/fleet-cullinan.jpg";
-import fleetGWagon from "@/media/fleet-g-wagon.jpg";
-import fleetUrus from "@/media/fleet-urus.jpg";
-import gWagonSide from "@/media/g-wagon-side.jpg";
-import heroCullinanEntrance from "@/media/hero-cullinan-entrance.jpg";
-import urusCockpit from "@/media/urus-cockpit.jpg";
-import urusSide from "@/media/urus-side.jpg";
+import collectionCanaryWharf from "@/../public/media/collection-canary-wharf.jpg";
+import cullinanCanaryWharf from "@/../public/media/cullinan-canary-wharf.jpg";
+import cullinanForecourt from "@/../public/media/cullinan-forecourt.jpg";
+import cullinanFrontCabin from "@/../public/media/cullinan-front-cabin.jpg";
+import cullinanHotelSide from "@/../public/media/cullinan-hotel-side.jpg";
+import cullinanO2Front from "@/../public/media/cullinan-o2-front.jpg";
+import cullinanPeninsulaNight from "@/../public/media/cullinan-peninsula-night.jpg";
+import cullinanRearCabin from "@/../public/media/cullinan-rear-cabin.jpg";
+import cullinanWorkshopRear from "@/../public/media/cullinan-workshop-rear.jpg";
+import cullinanWorkshopSide from "@/../public/media/cullinan-workshop-side.jpg";
+import detailLamborghiniDoor from "@/../public/media/detail-lamborghini-door.jpg";
+import detailSpiritOfEcstasy from "@/../public/media/detail-spirit-of-ecstasy.jpg";
+import fleetCullinan from "@/../public/media/fleet-cullinan.jpg";
+import fleetGWagon from "@/../public/media/fleet-g-wagon.jpg";
+import fleetUrus from "@/../public/media/fleet-urus.jpg";
+import gWagonSide from "@/../public/media/g-wagon-side.jpg";
+import heroCullinanEntrance from "@/../public/media/hero-cullinan-entrance.jpg";
+import urusCockpit from "@/../public/media/urus-cockpit.jpg";
+import urusSide from "@/../public/media/urus-side.jpg";
 
 /*
  * Only photographs of vehicles on the confirmed fleet are used as

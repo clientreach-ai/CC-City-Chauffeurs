@@ -6,30 +6,34 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { brand } from "@/content/brand";
-import {
-  contact,
-  navLinks,
-  routes,
-  site,
-  WHATSAPP_INTRO,
-  whatsappUrl,
-  type NavGroup,
-} from "@/content/site";
-import { PhoneIcon, WhatsAppIcon } from "./icons";
-import { shell } from "./primitives";
+import { navLinks, routes, type NavGroup } from "@/content/site";
 
-function Wordmark({ className = "" }: { className?: string }) {
+/** Everything the navigation needs about the business, from site settings. */
+export type NavBusiness = {
+  name: string;
+  legalName: string;
+  phoneDisplay: string;
+  whatsappDisplay: string;
+  email: string;
+  tel: string;
+  mailto: string;
+  whatsapp: string;
+};
+import { PhoneIcon, WhatsAppIcon } from "./icons";
+import { shell } from "@CC-City-Chauffeurs/ui/site/primitives";
+
+function Wordmark({ alt, className = "" }: { alt: string; className?: string }) {
   return (
     <Image
       src={brand.logo}
-      alt={site.legalName}
+      alt={alt}
       sizes="300px"
       className={`h-7 w-auto sm:h-9 ${className}`}
     />
   );
 }
 
-export function Nav({ groups }: { groups: readonly NavGroup[] }) {
+export function Nav({ groups, business }: { groups: readonly NavGroup[]; business: NavBusiness }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -103,8 +107,8 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
             scrolled || openGroup ? "py-4" : "py-5 lg:py-6"
           }`}
         >
-          <Link href={routes.home} aria-label={`${site.legalName} — home`} className="shrink-0">
-            <Wordmark />
+          <Link href={routes.home} aria-label={`${business.legalName} — home`} className="shrink-0">
+            <Wordmark alt={business.legalName} />
           </Link>
 
           <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
@@ -188,18 +192,18 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
                 recognisable marks, drawn in the site's own white and silver. */}
             <div className="flex items-center gap-2">
               <a
-                href={contact.phoneHref}
-                aria-label={`Call ${site.name} on ${contact.phoneDisplay}`}
-                title={`Call ${contact.phoneDisplay}`}
+                href={business.tel}
+                aria-label={`Call ${business.name} on ${business.phoneDisplay}`}
+                title={`Call ${business.phoneDisplay}`}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
               >
                 <PhoneIcon className="h-[19px] w-[19px]" />
               </a>
               <a
-                href={whatsappUrl(WHATSAPP_INTRO)}
+                href={business.whatsapp}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`WhatsApp ${site.name} on ${contact.mobileDisplay}`}
+                aria-label={`WhatsApp ${business.name} on ${business.whatsappDisplay}`}
                 title="Message us on WhatsApp"
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] border border-white/25 text-white/75 transition-colors duration-500 hover:border-white hover:text-white focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
               >
@@ -290,7 +294,7 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
         inert={!open}
       >
         <div className={`${shell} flex items-center justify-between py-6`}>
-          <Wordmark />
+          <Wordmark alt={business.legalName} />
           <button
             ref={closeButtonRef}
             type="button"
@@ -370,21 +374,21 @@ export function Nav({ groups }: { groups: readonly NavGroup[] }) {
           </Link>
 
           <div className="mt-10 flex flex-col gap-3">
-            <a href={contact.phoneHref} className="label-sm flex items-center gap-3 text-silver">
+            <a href={business.tel} className="label-sm flex items-center gap-3 text-silver">
               <PhoneIcon className="h-4 w-4" />
-              {contact.phoneDisplay}
+              {business.phoneDisplay}
             </a>
             <a
-              href={whatsappUrl(WHATSAPP_INTRO)}
+              href={business.whatsapp}
               target="_blank"
               rel="noreferrer"
               className="label-sm flex items-center gap-3 text-silver"
             >
               <WhatsAppIcon className="h-4 w-4" />
-              WhatsApp {contact.mobileDisplay}
+              WhatsApp {business.whatsappDisplay}
             </a>
-            <a href={contact.emailHref} className="label-sm text-silver">
-              {contact.email}
+            <a href={business.mailto} className="label-sm text-silver">
+              {business.email}
             </a>
           </div>
         </nav>

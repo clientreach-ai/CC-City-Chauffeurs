@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import type { Role } from "@CC-City-Chauffeurs/core/permissions";
 import { pgTable, text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -7,6 +8,11 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  /**
+   * What this user may do in the admin. Enforced on the server for every
+   * write; the admin UI reads the same value to hide what it cannot do.
+   */
+  role: text("role").$type<Role>().default("editor").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

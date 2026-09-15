@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
     // A year — the filenames are content-hashed by the optimiser, so a
     // changed photograph produces a new URL rather than a stale cache.
     minimumCacheTTL: 31_536_000,
+    /**
+     * The site's own photography is served from `public/`, but a photograph
+     * uploaded through the admin is served by the API, which is another
+     * origin.
+     */
+    remotePatterns: [
+      { protocol: "http", hostname: "localhost" },
+      { protocol: "https", hostname: "**" },
+    ],
   },
 };
 

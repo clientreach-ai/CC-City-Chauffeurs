@@ -9,22 +9,33 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  NO_VEHICLE_PREFERENCE,
-  replyOptions,
-  serviceOptions,
-  type ServiceOption,
-} from "@/content/enquiry";
-import { contact, whatsappUrl } from "@/content/site";
+import { NO_VEHICLE_PREFERENCE, replyOptions } from "@/content/enquiry";
+import { recordEnquiry } from "@/lib/enquiries";
+
+/** The contact details the site is configured with, from the admin. */
+export type ContactDetails = {
+  phoneDisplay: string;
+  phoneE164: string;
+  email: string;
+  whatsappNumber: string;
+  whatsappIntro: string;
+};
+
+/** The service list the form offers, from the admin. */
+export type ServiceOptionItem = { value: string; label: string };
 
 /*
  * The enquiry form.
  *
- * There is no booking backend yet, and this form does not pretend otherwise:
- * it validates the brief, writes it out as a message, and hands it to
- * WhatsApp (how enquiries arrive today) or to email. Nothing is stored or
- * submitted from this page. When the backend lands, `handOff` is the single
- * place that changes — the fields, validation and states stay as they are.
+ * It validates the brief, records it against the business's own inbox, and
+ * then hands the same message to WhatsApp or email — which is how enquiries
+ * actually arrive. Recording first matters: an enquiry that exists only in a
+ * chat window is one that can be missed, and the admin's pipeline is built on
+ * having the record.
+ *
+ * If recording fails the visitor is never told about it. Their message still
+ * goes; losing a customer over our database being unreachable would be the
+ * worse outcome.
  *
  * `variant="short"` is the homepage and contact band; `variant="full"` is the
  * quote page, which asks for everything a quote needs in one pass (PRD §10.1).
@@ -33,7 +44,7 @@ import { contact, whatsappUrl } from "@/content/site";
 type Variant = "short" | "full";
 
 type FormState = {
-  service: ServiceOption;
+  service: string;
   date: string;
   time: string;
   pickup: string;
@@ -66,15 +77,15 @@ function todayISO() {
   return local.toISOString().slice(0, 10);
 }
 
-function serviceLabel(value: ServiceOption) {
-  return serviceOptions.find((option) => option.value === value)?.label ?? value;
+function serviceLabel(value: string, services: ServiceOptionItem[]) {
+  return services.find((option) => option.value === value)?.label ?? value;
 }
 
 /** Accepts a slug ("airport-transfers") or a label ("Airport transfer"). */
-function matchService(raw: string | null): ServiceOption | undefined {
+function matchService(raw: string | null, services: ServiceOptionItem[]): string | undefined {
   if (!raw) return undefined;
   const needle = raw.trim().toLowerCase();
-  return serviceOptions.find(
+  return services.find(
     (option) =>
       option.value === needle ||
       option.label.toLowerCase() === needle ||
@@ -174,13 +185,19 @@ export function EnquiryForm({
   variant = "short",
   defaultService,
   vehicles = [],
+  contact,
+  services,
 }: {
   variant?: Variant;
   /** Service to preselect, as a slug or a label. */
   defaultService?: string;
   /** Vehicle names for the preference list — passed in so the fleet model
-   *  (and its image manifest) never reaches the client bundle. */
+   *  never reaches the client bundle. */
   vehicles?: readonly string[];
+  /** Where enquiries go, as configured in the admin. */
+  contact: ContactDetails;
+  /** What the service dropdown offers, as configured in the admin. */
+  services: ServiceOptionItem[];
 }) {
   const full = variant === "full";
   const uid = useId();
@@ -188,7 +205,7 @@ export function EnquiryForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const [form, setForm] = useState<FormState>({
-    service: matchService(defaultService ?? null) ?? serviceOptions[0].value,
+    service: matchService(defaultService ?? null, services) ?? services[0]?.value ?? "",
     date: "",
     time: "",
     pickup: "",
@@ -215,7 +232,7 @@ export function EnquiryForm({
    */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const service = matchService(params.get("service"));
+    const service = matchService(params.get("service"), services);
     const vehicleParam = params.get("vehicle")?.toLowerCase();
     const vehicle = vehicles.find((name) => name.toLowerCase() === vehicleParam);
     const date = params.get("date");
@@ -242,7 +259,7 @@ export function EnquiryForm({
 
   const composeMessage = () => {
     const journey = [
-      `Service: ${serviceLabel(form.service)}`,
+      `Service: ${serviceLabel(form.service, services)}`,
       form.date && `Date: ${form.date}${form.time ? ` at ${form.time}` : ""}`,
       form.pickup && `Pick-up: ${form.pickup}`,
       form.destination && `Destination: ${form.destination}`,
@@ -267,8 +284,8 @@ export function EnquiryForm({
   };
 
   const mailtoHref = () =>
-    `${contact.emailHref}?subject=${encodeURIComponent(
-      full ? `Quote request — ${serviceLabel(form.service)}` : "Chauffeur enquiry",
+    `mailto:${contact.email}?subject=${encodeURIComponent(
+      full ? `Quote request — ${serviceLabel(form.service, services)}` : "Chauffeur enquiry",
     )}&body=${encodeURIComponent(composeMessage())}`;
 
   /** Validates, and on failure moves focus to the first problem. */
@@ -287,12 +304,47 @@ export function EnquiryForm({
     return true;
   };
 
-  /** The one place that changes when a real submission endpoint exists. */
+  /** What the API stores. The message itself is what the customer wrote. */
+  const payload = () => ({
+    name: form.name,
+    phone: form.phone,
+    email: form.email,
+    replyBy: (form.reply === "Phone call" ? "phone" : form.reply.toLowerCase()) as
+      | "whatsapp"
+      | "phone"
+      | "email",
+    service: form.service,
+    vehicleId: null,
+    pickup: form.pickup,
+    dropoff: form.destination,
+    date: form.date,
+    time: form.time,
+    passengers: form.passengers ? Number(form.passengers) : null,
+    luggage: form.luggage,
+    flight: form.flight,
+    message: [form.notes, form.vehicle !== NO_VEHICLE_PREFERENCE ? `Vehicle preference: ${form.vehicle}` : ""]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+
+  /**
+   * Records the enquiry, then opens the channel the visitor chose.
+   *
+   * The window is opened from the click that started this — not after the
+   * request resolves — or a pop-up blocker would swallow it. Recording
+   * happens alongside, and its failure is ours to notice, not theirs.
+   */
   const handOff = (channel: "whatsapp" | "email") => {
+    void recordEnquiry(payload());
     if (channel === "email") {
       window.location.href = mailtoHref();
     } else {
-      window.open(whatsappUrl(composeMessage()), "_blank", "noopener,noreferrer");
+      const text = encodeURIComponent(composeMessage());
+      window.open(
+        `https://wa.me/${contact.whatsappNumber}?text=${text}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
     }
   };
 
@@ -339,10 +391,10 @@ export function EnquiryForm({
         {...aria("service")}
         required={req("service")}
         value={form.service}
-        onChange={(e) => set("service")(e.target.value as ServiceOption)}
+        onChange={(e) => set("service")(e.target.value)}
         className={`${fieldClass} cursor-pointer`}
       >
-        {serviceOptions.map((option) => (
+        {services.map((option) => (
           <option key={option.value} value={option.value} className="bg-ink text-white">
             {option.label}
           </option>
@@ -624,7 +676,7 @@ export function EnquiryForm({
 
         <p className="label-xs mt-8 max-w-[60ch] text-white/55">
           Prefer to talk? Call{" "}
-          <a href={contact.phoneHref} className="link-quiet text-white">
+          <a href={`tel:${contact.phoneE164}`} className="link-quiet text-white">
             {contact.phoneDisplay}
           </a>
           .{" "}

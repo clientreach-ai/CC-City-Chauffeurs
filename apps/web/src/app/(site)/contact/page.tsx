@@ -1,19 +1,14 @@
-import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { EnquiryForm } from "@/components/site/enquiry-form";
-import { PageHero } from "@/components/site/page-hero";
-import { GhostLink, QuietLink, SectionHead, shell } from "@/components/site/primitives";
-import { Reveal } from "@/components/site/reveal";
+import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
+import { GhostLink, QuietLink, SectionHead, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
+import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import { media } from "@/content/media";
 import { pageMetadata } from "@/content/seo";
-import {
-  contact,
-  routes,
-  serviceAreas,
-  site,
-  WHATSAPP_INTRO,
-  whatsappUrl,
-} from "@/content/site";
+import { routes } from "@/content/site";
+import { contactChannels, contactDetails, whatsappLink } from "@/lib/contact";
+import { getSite } from "@/lib/site-data";
 
 export const metadata = pageMetadata({
   title: "Contact | CC City Chauffeurs, London",
@@ -22,29 +17,17 @@ export const metadata = pageMetadata({
   path: "/contact",
 });
 
-const channels = [
-  {
-    label: "WhatsApp",
-    value: contact.mobileDisplay,
-    note: "The fastest way to reach us — most enquiries arrive this way.",
-    href: whatsappUrl(WHATSAPP_INTRO),
-    external: true,
-  },
-  {
-    label: "Telephone",
-    value: contact.phoneDisplay,
-    note: "Speak to the office about a booking or an account.",
-    href: contact.phoneHref,
-  },
-  {
-    label: "Email",
-    value: contact.email,
-    note: "For detailed, corporate or wedding enquiries.",
-    href: contact.emailHref,
-  },
-];
+export default async function ContactPage() {
+  const site = await getSite();
+  if (!site) notFound();
+  const { settings } = site;
 
-export default function ContactPage() {
+  const channels = contactChannels(settings, {
+    whatsapp: "The fastest way to reach us — most enquiries arrive this way.",
+    phone: "Speak to the office about a booking or an account.",
+    email: "For detailed, corporate or wedding enquiries.",
+  });
+
   return (
     <>
       <PageHero
@@ -55,13 +38,13 @@ export default function ContactPage() {
         image={media.cullinanHotelSide}
         imageAlt="Rolls-Royce Cullinan waiting at a London hotel entrance"
         facts={[
-          { label: "Based", value: site.base },
+          { label: "Based", value: settings.business.base },
           { label: "Covering", value: "United Kingdom and Europe" },
           { label: "Preferred", value: "WhatsApp" },
         ]}
         actions={
           <>
-            <GhostLink href={whatsappUrl(WHATSAPP_INTRO)} external>
+            <GhostLink href={whatsappLink(settings)} external>
               Message on WhatsApp
             </GhostLink>
             <QuietLink href={routes.quote}>Request a full quote</QuietLink>
@@ -107,7 +90,7 @@ export default function ContactPage() {
               <Reveal delay={120} className="mt-12">
                 <p className="label-xs text-white/55">Where we work</p>
                 <ul className="mt-5 grid grid-cols-2">
-                  {serviceAreas.map((area) => (
+                  {settings.business.serviceAreas.map((area) => (
                     <li
                       key={area}
                       className="label-xs border-b border-hairline py-3.5 text-white/60 first:border-t even:border-t-0 sm:[&:nth-child(2)]:border-t"
@@ -133,7 +116,11 @@ export default function ContactPage() {
             <div className="lg:col-span-6 lg:col-start-7">
               <SectionHead label="Or set out the details" note="Sends via WhatsApp or email" />
               <Reveal>
-                <EnquiryForm variant="short" />
+                <EnquiryForm
+                  variant="short"
+                  contact={contactDetails(settings)}
+                  services={site.enquiryServices}
+                />
               </Reveal>
 
               <Reveal delay={120} className="mt-12">
