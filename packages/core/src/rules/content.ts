@@ -1,6 +1,6 @@
 /** What may be saved for the homepage bands and the site settings. */
 import type { CtaLink, HomepageSection, SiteSettings } from "../types";
-import { SEO_LIMITS, validator, type FieldErrors } from "../validation";
+import { SEO_MAX, validator, type FieldErrors } from "../validation";
 
 
 function checkCta(v: ReturnType<typeof validator>, field: string, cta: CtaLink, required: boolean) {
@@ -89,9 +89,9 @@ export function validateSettings(settings: SiteSettings): FieldErrors {
     .email("contact.email", settings.contact.email)
     .maxLength("contact.responseNote", settings.contact.responseNote, 160)
     .required("seo.siteTitle", settings.seo.siteTitle, "Add the default page title.")
-    .maxLength("seo.siteTitle", settings.seo.siteTitle, SEO_LIMITS.title)
+    .maxLength("seo.siteTitle", settings.seo.siteTitle, SEO_MAX.title)
     .required("seo.defaultDescription", settings.seo.defaultDescription, "Add the default description.")
-    .maxLength("seo.defaultDescription", settings.seo.defaultDescription, SEO_LIMITS.description)
+    .maxLength("seo.defaultDescription", settings.seo.defaultDescription, SEO_MAX.description)
     .url("seo.siteUrl", settings.seo.siteUrl);
 
   settings.social.forEach((link, i) => {

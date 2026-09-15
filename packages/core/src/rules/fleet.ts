@@ -6,7 +6,7 @@
  * API directly.
  */
 import type { FleetCategory, FleetCategoryInput, Vehicle, VehicleInput } from "../types";
-import { SEO_LIMITS, validator, type FieldErrors } from "../validation";
+import { SEO_MAX, validator, type FieldErrors } from "../validation";
 
 
 /** The next free slug in a family, for "Name (copy)". */
@@ -33,8 +33,8 @@ export function validateVehicle(input: VehicleInput, others: Vehicle[]): FieldEr
     .integer("specs.year", input.specs.year, 1950, new Date().getFullYear() + 1)
     .amount("pricing.hourlyRate", input.pricing.hourlyRate)
     .amount("pricing.dayRate", input.pricing.dayRate)
-    .maxLength("seo.title", input.seo.title, SEO_LIMITS.title)
-    .maxLength("seo.description", input.seo.description, SEO_LIMITS.description);
+    .maxLength("seo.title", input.seo.title, SEO_MAX.title)
+    .maxLength("seo.description", input.seo.description, SEO_MAX.description);
 
   if (input.status === "published") {
     v.required("make", input.make, "Add the make before publishing.")
