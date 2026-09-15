@@ -1,0 +1,17 @@
+[Unit]
+Description=City Chauffeurs API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dave
+WorkingDirectory=/opt/cc-city-chauffeurs/apps/server
+ExecStart=/home/dave/.bun/bin/bun run --env-file .env.production dist/index.mjs
+Restart=always
+RestartSec=3
+Environment=PORT=3300
+MemoryMax=500M
+
+[Install]
+WantedBy=multi-user.target
