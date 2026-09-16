@@ -14,7 +14,7 @@ import type { Route } from "next";
 export const site = {
   name: "City Chauffeurs",
   legalName: "CC City Chauffeurs",
-  director: "Faheem Fareed",
+  director: "Mr F. Fareed",
   tagline: "Your city. Your chauffeur.",
   positioning: "A luxury, discreet way of travelling — without the hassle.",
   base: "London, United Kingdom",
