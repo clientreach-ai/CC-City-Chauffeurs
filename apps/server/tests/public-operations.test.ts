@@ -58,11 +58,6 @@ const enquiry = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const booking = (over: Record<string, unknown> = {}) => ({
-  ...enquiry(),
-  ...over,
-});
-
 async function rows(sql: string) {
   const result = await database.client.query(sql);
   return result.rows as Record<string, unknown>[];
@@ -194,39 +189,13 @@ describe("what the form is not allowed to send", () => {
   });
 });
 
-describe("a booking request from the website", () => {
-  test("lands as a pending booking with its own reference", async () => {
-    const response = await post("/bookings", booking());
-    expect(response.status).toBe(201);
-
-    const { reference } = (await response.json()) as { reference: string };
-    expect(reference).toMatch(/^BKG-\d+$/);
-
-    const record = only(await rows(`select * from booking where reference = '${reference}'`));
-    expect(record.status).toBe("pending");
-    expect(record.date).toBe("2027-02-14");
-    expect(record.pickup).toBe("Heathrow Terminal 5");
-    expect(record.destination).toBe("Mayfair");
-
-    const customer = only(await rows(`select * from customer where id = '${record.customer_id}'`));
-    expect(customer.name).toBe("Eleanor Hart");
-  });
-
-  test("insists on a date, because a booking without one is not a booking", async () => {
-    const response = await post("/bookings", booking({ date: "" }));
-    expect(response.status).toBe(422);
+describe("the website's write surface", () => {
+  test("offers exactly one way in, and no way to create a booking", async () => {
+    // A booking is something the office agrees to, not something a visitor
+    // can put in the diary. The only public write is the enquiry.
+    const response = await post("/bookings", enquiry());
+    expect(response.status).toBe(404);
     expect(await rows("select id from booking")).toHaveLength(0);
-  });
-
-  test("does not record the same request twice", async () => {
-    const submissionId = "b6f1c2de-0000-4000-8000-000000000002";
-    const first = await post("/bookings", booking({ submissionId }));
-    const second = await post("/bookings", booking({ submissionId }));
-
-    expect(((await second.json()) as { reference: string }).reference).toBe(
-      ((await first.json()) as { reference: string }).reference,
-    );
-    expect(await rows("select id from booking")).toHaveLength(1);
   });
 });
 

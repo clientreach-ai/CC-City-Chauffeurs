@@ -1,4 +1,4 @@
-import { publicBookingSchema, publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
+import { publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
 import type { FleetCategory, Service, Vehicle } from "@CC-City-Chauffeurs/core";
 import { Hono } from "hono";
 
@@ -171,16 +171,4 @@ export const publicRoutes = new Hono()
     if (trapped(input)) return c.json({ reference: "" }, 201);
     const enquiry = await operations.createPublicEnquiry(input);
     return c.json({ reference: enquiry.reference }, 201);
-  })
-
-  /**
-   * A booking *request* from the website — a date the visitor would like,
-   * not a date they have been given. It lands as a pending booking for the
-   * office to confirm, and, like an enquiry, nothing is sent to anybody.
-   */
-  .post("/bookings", publicWriteGuard, async (c) => {
-    const input = publicBookingSchema.parse(await c.req.json());
-    if (trapped(input)) return c.json({ reference: "" }, 201);
-    const booking = await operations.createPublicBooking(input);
-    return c.json({ reference: booking.reference }, 201);
   });

@@ -422,21 +422,6 @@ export const publicEnquirySchema = z.object({
   date: calendarDate.default(""),
 });
 
-/**
- * The website's booking request. Not a reservation: it lands as a `pending`
- * booking for the office to confirm, exactly as one raised from a won enquiry
- * does — there is one set of booking statuses and this uses it.
- *
- * The date is required, because a booking is a row in the diary and the diary
- * has a column for it. An enquiry is where "sometime in June" belongs.
- */
-export const publicBookingSchema = z.object({
-  ...publicJourney,
-  date: z
-    .string({ error: "Choose the date of the journey." })
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date of the journey."),
-});
-
 // ---------------------------------------------------------------- shared
 
 export const reorderSchema = z.object({ ids: z.array(z.string()) });
@@ -455,4 +440,3 @@ export const mediaInputSchema = z.object({
 });
 
 export type PublicEnquiryInput = z.infer<typeof publicEnquirySchema>;
-export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
