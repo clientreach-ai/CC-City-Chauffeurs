@@ -16,6 +16,22 @@ export function createAuth() {
     trustedOrigins: env.CORS_ORIGIN,
     emailAndPassword: {
       enabled: true,
+      /**
+       * Nobody may register themselves.
+       *
+       * The API is reachable from the internet, and an open `/sign-up/email`
+       * meant anyone who found it could make an account — which defaults to
+       * `editor`, and an editor may edit the client's live content. Closing
+       * it only refuses new registrations: existing accounts sign in exactly
+       * as before, and sessions already issued are untouched.
+       *
+       * A new account is made by hand against the database, which is how the
+       * current one exists — insert the `user` row with its `role`, and the
+       * matching `account` row carrying better-auth's password hash. There is
+       * no other way in now, and that is deliberate: this admin has one
+       * client and a handful of staff, not a sign-up funnel.
+       */
+      disableSignUp: true,
     },
     user: {
       additionalFields: {
