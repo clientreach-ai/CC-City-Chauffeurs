@@ -45,7 +45,7 @@ export default function AboutPage() {
         ]}
         actions={
           <>
-            <GhostLink href={routes.quote}>Request a quote</GhostLink>
+            <GhostLink href={routes.request}>Request a chauffeur</GhostLink>
             <QuietLink href={routes.services}>Chauffeur services</QuietLink>
           </>
         }

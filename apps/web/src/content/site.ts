@@ -60,18 +60,16 @@ export const routes = {
   gallery: "/gallery" as Route,
   about: "/about" as Route,
   contact: "/contact" as Route,
-  quote: "/request-a-quote" as Route,
-  /** The quote form with a service already chosen. */
-  quoteFor: (service: string) => `/request-a-quote?service=${service}` as Route,
-  /*
-   * A booking *request*, for someone who already knows the date. It is not a
-   * reservation — there is no availability to check against and nothing is
-   * held until the office confirms it — so it is deliberately a separate
-   * route from the quote, which is where an unsettled date belongs.
+  /**
+   * The one way in. There were two — a quote request and a booking request —
+   * and a visitor had to decide which of the two they were doing before they
+   * could ask us anything. Both did the same thing: asked, and waited for a
+   * person to reply. The office turns an enquiry into a booking once it is
+   * agreed, which is where that distinction belongs.
    */
-  book: "/book" as Route,
-  /** The booking form with a service already chosen. */
-  bookFor: (service: string) => `/book?service=${service}` as Route,
+  request: "/request-a-chauffeur" as Route,
+  /** The form with a service already chosen. */
+  requestFor: (service: string) => `/request-a-chauffeur?service=${service}` as Route,
 } as const;
 
 export type NavItem = { label: string; href: Route; note?: string };
@@ -81,7 +79,7 @@ export const navLinks: readonly NavItem[] = [
   { label: "Fleet", href: routes.fleet },
   { label: "Gallery", href: routes.gallery },
   { label: "About", href: routes.about },
-  { label: "Book", href: routes.book },
+  { label: "Request", href: routes.request },
   { label: "Contact", href: routes.contact },
 ];
 

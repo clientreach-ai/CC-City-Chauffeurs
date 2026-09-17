@@ -301,8 +301,8 @@ export async function EnquiryBand({
   heading,
   body,
   tone = "dark",
-  primaryHref = routes.quote,
-  primaryLabel = "Request a quote",
+  primaryHref = routes.request,
+  primaryLabel = "Request a chauffeur",
 }: {
   heading: string;
   body?: string;
@@ -387,12 +387,12 @@ export async function QuoteBrief({
   needs,
   note,
   terms,
-  quoteHref,
+  requestHref,
 }: {
   needs: readonly string[];
   note: string;
   terms: readonly string[];
-  quoteHref: string;
+  requestHref: string;
 }) {
   const site = await getSite();
 
@@ -427,7 +427,7 @@ export async function QuoteBrief({
             ))}
           </ul>
           <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
-            <GhostLink href={quoteHref}>Request a quote</GhostLink>
+            <GhostLink href={requestHref}>Request a chauffeur</GhostLink>
             {site ? (
               <a
                 href={whatsappLink(site.settings)}
