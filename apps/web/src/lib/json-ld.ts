@@ -14,6 +14,6 @@ export function jsonLd(schema: unknown) {
     .replace(/>/g, "\\u003e")
     .replace(/&/g, "\\u0026")
     // U+2028 and U+2029 are valid in JSON but not in a JavaScript string.
-    .replace(/ /g, "\\u2028")
-    .replace(/ /g, "\\u2029");
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 }
