@@ -6,6 +6,7 @@ import { Nav } from "@/components/site/nav";
 import { brand } from "@/content/brand";
 import { routes, type NavGroup } from "@/content/site";
 import { mailLink, telLink, whatsappLink } from "@/lib/contact";
+import { jsonLd } from "@/lib/json-ld";
 import { getServices, getSite } from "@/lib/site-data";
 
 /**
@@ -101,8 +102,8 @@ export default async function SiteLayout({
     <div data-site className="bg-ink font-[family-name:var(--font-ui)] antialiased">
       <script
         type="application/ld+json"
-        // Editor-controlled content only — no visitor input reaches this string.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(businessSchema) }}
+        // Escaped so a CMS value can never close this tag — see lib/json-ld.
+        dangerouslySetInnerHTML={{ __html: jsonLd(businessSchema) }}
       />
       <a
         href="#content"

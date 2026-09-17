@@ -16,6 +16,7 @@ import {
 import type { Service } from "@CC-City-Chauffeurs/core";
 import { pageMetadata } from "@/content/seo";
 import { routes } from "@/content/site";
+import { jsonLd } from "@/lib/json-ld";
 import { getService, getServices, getSite } from "@/lib/site-data";
 
 /** Published every minute from the admin's own records. */
@@ -100,11 +101,11 @@ export default async function ServicePage({
       ],
     },
   ];
-  const jsonLd = (
+  const structuredData = (
     <script
       type="application/ld+json"
-      // Editor-controlled content only — no visitor input reaches this string.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      // Escaped so a CMS value can never close this tag — see lib/json-ld.
+      dangerouslySetInnerHTML={{ __html: jsonLd(schema) }}
     />
   );
 
@@ -175,7 +176,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
-        {jsonLd}
+        {structuredData}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             heading={["What the", "service", "involves"]}
@@ -203,7 +204,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
-        {jsonLd}
+        {structuredData}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             tone="dark"
@@ -228,7 +229,7 @@ export default async function ServicePage({
   return (
     <>
       {hero}
-      {jsonLd}
+      {structuredData}
       <Section tone="dark" className="pt-20 lg:pt-28">
         {detailSplit("dark", true)}
       </Section>
