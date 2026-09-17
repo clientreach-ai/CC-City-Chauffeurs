@@ -1,4 +1,4 @@
-import { publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
+import { publicBookingSchema, publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
 import type { FleetCategory, Service, Vehicle } from "@CC-City-Chauffeurs/core";
 import { Hono } from "hono";
 
@@ -9,6 +9,7 @@ import * as gallery from "../repositories/gallery";
 import * as operations from "../repositories/operations";
 import * as services from "../repositories/services";
 import * as testimonials from "../repositories/testimonials";
+import { publicWriteGuard } from "../lib/rate-limit";
 
 /**
  * What the website reads.
@@ -23,6 +24,15 @@ import * as testimonials from "../repositories/testimonials";
 
 const published = <T extends { status: string }>(rows: T[]) =>
   rows.filter((row) => row.status === "published");
+
+/**
+ * The honeypot. `website` is a field no person can see — the form renders it
+ * hidden, off the tab order and with autocomplete off — so anything arriving
+ * with it filled in was filled in by a machine. It is answered exactly as a
+ * real submission is, minus the record: telling a bot it has been caught only
+ * teaches whoever wrote it to stop filling the field in.
+ */
+const trapped = (input: { website: string }) => input.website.trim().length > 0;
 
 /** A grouping with only the vehicles that are actually live, in order. */
 function liveGroupings(categories: FleetCategory[], vehicles: Vehicle[]) {
@@ -152,12 +162,25 @@ export const publicRoutes = new Hono()
   .get("/testimonials", async (c) => c.json(published(await testimonials.getTestimonials())))
 
   /**
-   * The enquiry form. This is the one public write: it records an enquiry and
-   * does nothing else — no email is sent, no message is dispatched. The
-   * response carries the reference so the visitor has something to quote.
+   * The enquiry form. It records an enquiry and does nothing else — no email
+   * is sent, no message is dispatched. The response carries the reference so
+   * the visitor has something to quote.
    */
-  .post("/enquiries", async (c) => {
+  .post("/enquiries", publicWriteGuard, async (c) => {
     const input = publicEnquirySchema.parse(await c.req.json());
+    if (trapped(input)) return c.json({ reference: "" }, 201);
     const enquiry = await operations.createPublicEnquiry(input);
     return c.json({ reference: enquiry.reference }, 201);
+  })
+
+  /**
+   * A booking *request* from the website — a date the visitor would like,
+   * not a date they have been given. It lands as a pending booking for the
+   * office to confirm, and, like an enquiry, nothing is sent to anybody.
+   */
+  .post("/bookings", publicWriteGuard, async (c) => {
+    const input = publicBookingSchema.parse(await c.req.json());
+    if (trapped(input)) return c.json({ reference: "" }, 201);
+    const booking = await operations.createPublicBooking(input);
+    return c.json({ reference: booking.reference }, 201);
   });

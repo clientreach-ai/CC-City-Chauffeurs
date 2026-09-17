@@ -24,7 +24,7 @@ import { asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
-import type { PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
+import type { PublicBookingInput, PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
 
 /**
  * Operations — enquiries, the bookings they become, and the customers behind
@@ -290,15 +290,21 @@ export async function addEnquiryNote(id: string, body: string, author: string): 
   return getEnquiry(id);
 }
 
-/** The next free reference in a series, e.g. BKG-2001. */
-async function nextReference(tx: Tx, prefix: string, floor: number) {
-  const table = prefix === "BKG" ? schema.booking : schema.enquiry;
-  const rows = await tx.select({ reference: table.reference }).from(table);
-  const highest = rows.reduce((top, row) => {
-    const digits = Number(row.reference.replace(/\D/g, ""));
-    return Number.isFinite(digits) && digits > top ? digits : top;
-  }, floor);
-  return `${prefix}-${highest + 1}`;
+/**
+ * The next reference in a series, e.g. BKG-2101.
+ *
+ * Postgres hands these out, not us. Reading the highest reference and adding
+ * one is a race against a UNIQUE column: two people sending the form in the
+ * same second read the same maximum and the second insert is refused — a 500
+ * for someone who did nothing wrong. A sequence gives each caller a number
+ * nobody else will get, and neither transaction waits on the other.
+ */
+async function nextReference(tx: Tx, prefix: "ENQ" | "BKG") {
+  const sequence = prefix === "BKG" ? "booking_reference_seq" : "enquiry_reference_seq";
+  const result = await tx.execute<{ value: string }>(
+    sql`select nextval(${sequence}::regclass)::text as value`,
+  );
+  return `${prefix}-${result.rows[0]!.value}`;
 }
 
 /** Turns a won enquiry into a pending booking carrying the same journey. */
@@ -314,7 +320,7 @@ export async function createBookingFromEnquiry(id: string): Promise<Booking> {
     }
 
     bookingId = newId("bkg");
-    const reference = await nextReference(tx, "BKG", 2000);
+    const reference = await nextReference(tx, "BKG");
 
     await tx.insert(schema.booking).values({
       id: bookingId,
@@ -351,69 +357,215 @@ export async function createBookingFromEnquiry(id: string): Promise<Booking> {
   return getBooking(bookingId);
 }
 
+// -------------------------------------------------------- the public forms
+
+/**
+ * A returning customer, matched on their email address and then on their
+ * telephone number.
+ *
+ * Both comparisons are written exactly as the functional indexes behind them
+ * are — `lower(trim(email))` and the digits of the phone — because an index
+ * is only used when the expression matches to the letter. This used to read
+ * every customer into the API and compare in JavaScript, which worked while
+ * there were forty of them.
+ */
+async function findCustomerId(tx: Tx, email: string, phone: string) {
+  if (email) {
+    const [match] = await tx
+      .select({ id: schema.customer.id })
+      .from(schema.customer)
+      .where(sql`lower(trim(${schema.customer.email})) = ${email}`)
+      .limit(1);
+    if (match) return match.id;
+  }
+  if (phone) {
+    const [match] = await tx
+      .select({ id: schema.customer.id })
+      .from(schema.customer)
+      // '\\D' and not '\D': the template literal is JavaScript first, and
+      // Postgres has to receive the backslash for the class to mean anything.
+      .where(sql`regexp_replace(${schema.customer.phone}, '\\D', '', 'g') = ${phone}`)
+      .limit(1);
+    if (match) return match.id;
+  }
+  return null;
+}
+
+/**
+ * The customer behind a public submission — matched if we have met them
+ * before, created if not. A submission with neither an email address nor a
+ * telephone number gets no customer record at all: there would be nothing to
+ * match it to next time, and a wall of nameless duplicates helps nobody.
+ */
+async function customerFor(tx: Tx, input: PublicEnquiryInput | PublicBookingInput) {
+  const email = input.email.trim().toLowerCase();
+  const phone = input.phone.replace(/\D/g, "");
+  if (!email && !phone) return null;
+
+  const existing = await findCustomerId(tx, email, phone);
+  if (existing) return existing;
+
+  const id = newId("cus");
+  await tx.insert(schema.customer).values({
+    id,
+    name: input.name,
+    type: "private",
+    company: "",
+    phone: input.phone,
+    email: input.email,
+    notes: "",
+  });
+  return id;
+}
+
+/** "" means the browser sent no id; the column stays null so the unique index ignores it. */
+const submissionIdOf = (input: { submissionId: string }) => input.submissionId.trim() || null;
+
+/** Postgres refusing a duplicate key — here, a second attempt at one submission. */
+function isDuplicateKey(error: unknown) {
+  return typeof error === "object" && error != null && (error as { code?: string }).code === "23505";
+}
+
 /**
  * Records an enquiry sent from the public website.
  *
- * The customer is matched on email, then phone, so a returning client builds
- * one history rather than a new record each time.
+ * Sending it twice records it once. A visitor who presses "Open WhatsApp
+ * again", loses signal mid-send or double-taps the button sends the same
+ * `submissionId` each time, and gets the same reference back rather than
+ * leaving the office two identical enquiries to reconcile. The unique index
+ * is what enforces it — the read below is only the quick way there, and the
+ * duplicate-key catch is what covers two requests arriving at once.
  */
 export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<Enquiry> {
+  const submissionId = submissionIdOf(input);
+
+  const alreadyRecorded = async () => {
+    if (!submissionId) return null;
+    const [row] = await db
+      .select({ id: schema.enquiry.id })
+      .from(schema.enquiry)
+      .where(eq(schema.enquiry.submissionId, submissionId))
+      .limit(1);
+    return row ? getEnquiry(row.id) : null;
+  };
+
+  const existing = await alreadyRecorded();
+  if (existing) return existing;
+
   const id = newId("enq");
+  try {
+    await db.transaction(async (tx) => {
+      const customerId = await customerFor(tx, input);
+      const reference = await nextReference(tx, "ENQ");
 
-  await db.transaction(async (tx) => {
-    let customerId: string | null = null;
-    const email = input.email.trim().toLowerCase();
-    const phone = input.phone.replace(/\D/g, "");
-
-    if (email || phone) {
-      const candidates = await tx.select().from(schema.customer);
-      const match = candidates.find(
-        (row) =>
-          (email && row.email.trim().toLowerCase() === email) ||
-          (phone && row.phone.replace(/\D/g, "") === phone),
-      );
-      if (match) {
-        customerId = match.id;
-      } else {
-        customerId = newId("cus");
-        await tx.insert(schema.customer).values({
-          id: customerId,
-          name: input.name,
-          type: "private",
-          company: "",
-          phone: input.phone,
-          email: input.email,
-          notes: "",
-        });
-      }
-    }
-
-    const reference = await nextReference(tx, "ENQ", 1000);
-    await tx.insert(schema.enquiry).values({
-      id,
-      reference,
-      customerId,
-      contact: { name: input.name, phone: input.phone, email: input.email },
-      source: "website",
-      replyBy: input.replyBy,
-      journey: {
-        service: input.service,
-        vehicleId: input.vehicleId,
-        pickup: input.pickup,
-        dropoff: input.dropoff,
-        date: input.date,
-        time: input.time,
-        passengers: input.passengers,
-        luggage: input.luggage,
-        flight: input.flight,
-      },
-      message: input.message,
-      status: "new",
+      await tx.insert(schema.enquiry).values({
+        id,
+        reference,
+        submissionId,
+        customerId,
+        contact: { name: input.name, phone: input.phone, email: input.email },
+        source: "website",
+        replyBy: input.replyBy,
+        journey: {
+          service: input.service,
+          vehicleId: input.vehicleId,
+          pickup: input.pickup,
+          dropoff: input.dropoff,
+          date: input.date,
+          time: input.time,
+          passengers: input.passengers,
+          luggage: input.luggage,
+          flight: input.flight,
+        },
+        message: input.message,
+        status: "new",
+      });
+      await log(tx, { enquiryId: id }, "created", `Enquiry ${reference} received from the website`);
     });
-    await log(tx, { enquiryId: id }, "created", `Enquiry ${reference} received from the website`);
-  });
+  } catch (error) {
+    if (!isDuplicateKey(error)) throw error;
+    const recorded = await alreadyRecorded();
+    if (!recorded) throw error;
+    return recorded;
+  }
 
   return getEnquiry(id);
+}
+
+/**
+ * Records a booking *request* sent from the public website.
+ *
+ * It is a request, not a reservation. It lands as `pending` — the same status
+ * a booking raised from a won enquiry starts in, because there is one set of
+ * booking statuses and this is not a place to invent another — and nothing is
+ * sent to anybody: no confirmation reaches the customer and no chauffeur is
+ * dispatched until the office says so.
+ *
+ * A booking has no `source` column the way an enquiry does, so where it came
+ * from is recorded where a booking's history is kept: the activity trail.
+ */
+export async function createPublicBooking(input: PublicBookingInput): Promise<Booking> {
+  const submissionId = submissionIdOf(input);
+
+  const alreadyRecorded = async () => {
+    if (!submissionId) return null;
+    const [row] = await db
+      .select({ id: schema.booking.id })
+      .from(schema.booking)
+      .where(eq(schema.booking.submissionId, submissionId))
+      .limit(1);
+    return row ? getBooking(row.id) : null;
+  };
+
+  const existing = await alreadyRecorded();
+  if (existing) return existing;
+
+  const id = newId("bkg");
+  try {
+    await db.transaction(async (tx) => {
+      const customerId = await customerFor(tx, input);
+      const reference = await nextReference(tx, "BKG");
+
+      await tx.insert(schema.booking).values({
+        id,
+        reference,
+        submissionId,
+        customerId,
+        enquiryId: null,
+        service: input.service,
+        vehicleId: input.vehicleId,
+        date: input.date,
+        time: input.time,
+        pickup: input.pickup,
+        destination: input.dropoff,
+        passengers: input.passengers,
+        // A booking has one free-text field, so the luggage and the flight go
+        // in beside the message rather than being dropped on the floor — a
+        // flight number is the difference between meeting someone and not.
+        notes: [
+          input.message,
+          input.luggage && `Luggage: ${input.luggage}`,
+          input.flight && `Flight: ${input.flight}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        status: "pending",
+      });
+      await log(
+        tx,
+        { bookingId: id },
+        "created",
+        `Booking ${reference} requested from the website — not yet confirmed`,
+      );
+    });
+  } catch (error) {
+    if (!isDuplicateKey(error)) throw error;
+    const recorded = await alreadyRecorded();
+    if (!recorded) throw error;
+    return recorded;
+  }
+
+  return getBooking(id);
 }
 
 // ------------------------------------------------------------------ bookings

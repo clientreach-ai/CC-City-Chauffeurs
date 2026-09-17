@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PUBLIC_FORM_LIMITS } from "./validation";
+
 /**
  * Shape validation for every request body the API accepts.
  *
@@ -334,22 +336,87 @@ export const customerInputSchema = z.object({
 export const bookingStatusUpdateSchema = z.object({ status: bookingStatusSchema });
 export const bookingNotesSchema = z.object({ notes: z.string() });
 
+// ---------------------------------------------------------------- the public forms
+
+/**
+ * The website's forms and these schemas share `PUBLIC_FORM_LIMITS`, so a
+ * field the form lets someone fill is never one the API then refuses.
+ *
+ * The public path validates the *shape* of an email address and a telephone
+ * number as well as the length. `updateCustomer` has always done so on the
+ * admin side; a visitor typing "sarah@gmail" into the one form that matters
+ * deserves the same courtesy, because a contact detail that cannot be replied
+ * to is an enquiry lost.
+ */
+
+const publicEmail = trimmed
+  .max(PUBLIC_FORM_LIMITS.email)
+  .default("")
+  .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value), {
+    message: "That email address does not look complete.",
+  });
+
+const publicPhone = trimmed
+  .max(PUBLIC_FORM_LIMITS.phone)
+  .default("")
+  .refine((value) => !value || value.replace(/[^\d]/g, "").length >= 7, {
+    message: "That number looks too short — include the area code.",
+  });
+
+/**
+ * The browser's own id for this submission, sent back unchanged on a retry.
+ * A visitor who presses "Open WhatsApp again" or loses signal mid-send would
+ * otherwise leave the office two identical records to untangle; the API
+ * returns the first reference instead of recording a second enquiry.
+ */
+const submissionId = trimmed.max(64).default("");
+
+/**
+ * A field no person can see and every crude bot fills in. Anything arriving
+ * with it set is dropped without a record; the form renders it hidden, off
+ * the tab order and with autocomplete off.
+ */
+const honeypot = trimmed.max(200).default("");
+
+/** What both public forms ask for: who is asking, and about what journey. */
+const publicJourney = {
+  name: trimmed.min(1).max(PUBLIC_FORM_LIMITS.name),
+  phone: publicPhone,
+  email: publicEmail,
+  service: trimmed.max(PUBLIC_FORM_LIMITS.service).default(""),
+  vehicleId: z.string().nullable().default(null),
+  pickup: trimmed.max(PUBLIC_FORM_LIMITS.pickup).default(""),
+  dropoff: trimmed.max(PUBLIC_FORM_LIMITS.dropoff).default(""),
+  time: trimmed.max(PUBLIC_FORM_LIMITS.time).default(""),
+  passengers: nullableInt.default(null),
+  luggage: trimmed.max(PUBLIC_FORM_LIMITS.luggage).default(""),
+  flight: trimmed.max(PUBLIC_FORM_LIMITS.flight).default(""),
+  message: trimmed.max(PUBLIC_FORM_LIMITS.message).default(""),
+  submissionId,
+  website: honeypot,
+};
+
 /** The public enquiry form on the website. */
 export const publicEnquirySchema = z.object({
-  name: trimmed.min(1).max(80),
-  phone: trimmed.max(40).default(""),
-  email: trimmed.max(120).default(""),
+  ...publicJourney,
   replyBy: z.enum(["whatsapp", "phone", "email"]).default("whatsapp"),
-  service: trimmed.max(80).default(""),
-  vehicleId: z.string().nullable().default(null),
-  pickup: trimmed.max(160).default(""),
-  dropoff: trimmed.max(160).default(""),
+  /** An enquiry may be about a date the visitor has not settled on yet. */
   date: calendarDate.default(""),
-  time: trimmed.max(20).default(""),
-  passengers: nullableInt.default(null),
-  luggage: trimmed.max(120).default(""),
-  flight: trimmed.max(40).default(""),
-  message: trimmed.max(2000).default(""),
+});
+
+/**
+ * The website's booking request. Not a reservation: it lands as a `pending`
+ * booking for the office to confirm, exactly as one raised from a won enquiry
+ * does — there is one set of booking statuses and this uses it.
+ *
+ * The date is required, because a booking is a row in the diary and the diary
+ * has a column for it. An enquiry is where "sometime in June" belongs.
+ */
+export const publicBookingSchema = z.object({
+  ...publicJourney,
+  date: z
+    .string({ error: "Choose the date of the journey." })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date of the journey."),
 });
 
 // ---------------------------------------------------------------- shared
@@ -370,3 +437,4 @@ export const mediaInputSchema = z.object({
 });
 
 export type PublicEnquiryInput = z.infer<typeof publicEnquirySchema>;
+export type PublicBookingInput = z.infer<typeof publicBookingSchema>;
