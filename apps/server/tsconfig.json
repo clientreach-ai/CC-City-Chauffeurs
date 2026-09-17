@@ -8,5 +8,9 @@
     },
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
-  }
+  },
+  /* The build ships src. The tests are type-checked by tests/tsconfig.json,
+     which emits nothing — otherwise they land in dist and the runner, which
+     matches on path, finds and runs the copies as well as the originals. */
+  "exclude": ["dist", "tests"]
 }

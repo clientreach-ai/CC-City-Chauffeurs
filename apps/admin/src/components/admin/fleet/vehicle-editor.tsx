@@ -585,7 +585,7 @@ export function VehicleEditor({ id }: { id?: string }) {
                 onChange={(gallery) => update({ images: { ...form.images, gallery } })}
               />
               <Notice>
-                New images are kept in this browser as reduced previews — they are not uploaded. Storage (e.g. Cloudflare R2) connects here without changing this screen.
+                An image you add here is uploaded straight away and is available to every editor. Uploads sit on the API’s own disk for now; object storage (e.g. Cloudflare R2) connects behind it without changing this screen.
               </Notice>
             </FormSection>
 

@@ -47,7 +47,7 @@ export default async function ContactPage() {
             <GhostLink href={whatsappLink(settings)} external>
               Message on WhatsApp
             </GhostLink>
-            <QuietLink href={routes.quote}>Request a full quote</QuietLink>
+            <QuietLink href={routes.request}>Request a chauffeur</QuietLink>
           </>
         }
       />
@@ -114,7 +114,7 @@ export default async function ContactPage() {
             </div>
 
             <div className="lg:col-span-6 lg:col-start-7">
-              <SectionHead label="Or set out the details" note="Sends via WhatsApp or email" />
+              <SectionHead label="Or set out the details" note="Recorded with the office" />
               <Reveal>
                 <EnquiryForm
                   variant="short"
@@ -123,9 +123,9 @@ export default async function ContactPage() {
                 />
               </Reveal>
 
-              <Reveal delay={120} className="mt-12">
-                <GhostLink href={routes.quote}>
-                  Need a full quotation? Use the quote form
+              <Reveal delay={120} className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-5">
+                <GhostLink href={routes.request}>
+                  More to tell us? Use the full form
                 </GhostLink>
               </Reveal>
             </div>
