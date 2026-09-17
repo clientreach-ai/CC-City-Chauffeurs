@@ -128,10 +128,10 @@ export function Footer({
               </li>
               <li>
                 <Link
-                  href={routes.quote}
+                  href={routes.request}
                   className="label-xs link-quiet text-white/70 hover:text-white"
                 >
-                  Request a quote
+                  Request a chauffeur
                 </Link>
               </li>
               <li>

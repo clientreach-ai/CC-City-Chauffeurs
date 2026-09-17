@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { adminRoutes } from "@/components/admin/shell/routes";
 import { Tag } from "@/components/admin/ui/badge";
-import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader, SampleDataNotice } from "@/components/admin/ui/page";
+import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader } from "@/components/admin/ui/page";
 import { DataTable, rowLinkClass, type Column } from "@/components/admin/ui/table";
 import { FilterSelect, ResultCount, SearchField, Toolbar } from "@/components/admin/ui/toolbar";
 import { GuardedLink } from "@/components/admin/ui/unsaved";
@@ -86,7 +86,6 @@ export function CustomerList() {
         title="Customers"
         description="Everyone who has enquired or booked, with their history in one place."
       />
-      <SampleDataNotice />
 
       <Toolbar className="mt-6">
         <SearchField label="Search customers" placeholder="Name, company, email, phone" value={query} onChange={setQuery} />

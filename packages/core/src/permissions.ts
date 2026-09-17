@@ -1,11 +1,10 @@
 /**
- * Roles — prepared for, not enforced.
+ * Roles — enforced by the API.
  *
- * There is no sign-in yet, so nothing here protects anything: the role is a
- * preview setting that shows how the admin will look to each kind of user.
- * When authentication exists, the server decides the role and enforces these
- * same capabilities on every write; the UI keeps using `can()` to hide what
- * a user may not do.
+ * The role is read off the session, and `requires()` checks it on every write
+ * the API accepts. `can()` is here so the admin can avoid offering a control
+ * that would only be refused; it is not what does the refusing. A request
+ * made outside the admin altogether meets the same check.
  */
 
 export type Role = "admin" | "manager" | "editor";

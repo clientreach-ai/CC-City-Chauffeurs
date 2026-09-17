@@ -51,7 +51,7 @@ export default async function GalleryPage() {
         actions={
           <>
             <GhostLink href={routes.fleet}>See the fleet</GhostLink>
-            <QuietLink href={routes.quote}>Request a quote</QuietLink>
+            <QuietLink href={routes.request}>Request a chauffeur</QuietLink>
           </>
         }
       />

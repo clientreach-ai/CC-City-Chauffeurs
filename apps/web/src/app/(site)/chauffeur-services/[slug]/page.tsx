@@ -16,6 +16,7 @@ import {
 import type { Service } from "@CC-City-Chauffeurs/core";
 import { pageMetadata } from "@/content/seo";
 import { routes } from "@/content/site";
+import { jsonLd } from "@/lib/json-ld";
 import { getService, getServices, getSite } from "@/lib/site-data";
 
 /** Published every minute from the admin's own records. */
@@ -73,7 +74,7 @@ export default async function ServicePage({
   const [service, site] = await Promise.all([getService(slug), getSite()]);
   if (!service) notFound();
 
-  const quoteHref = routes.quoteFor(service.slug);
+  const requestHref = routes.requestFor(service.slug);
   const siteUrl = site?.settings.seo.siteUrl ?? "";
   const bookingTerms = site?.settings.booking.terms ?? [];
 
@@ -100,11 +101,11 @@ export default async function ServicePage({
       ],
     },
   ];
-  const jsonLd = (
+  const structuredData = (
     <script
       type="application/ld+json"
-      // Editor-controlled content only — no visitor input reaches this string.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      // Escaped so a CMS value can never close this tag — see lib/json-ld.
+      dangerouslySetInnerHTML={{ __html: jsonLd(schema) }}
     />
   );
 
@@ -121,7 +122,7 @@ export default async function ServicePage({
       facts={service.facts}
       actions={
         <>
-          <GhostLink href={quoteHref}>Request a quote</GhostLink>
+          <GhostLink href={requestHref}>Request a chauffeur</GhostLink>
           <QuietLink href={routes.fleet}>See the fleet</QuietLink>
         </>
       }
@@ -144,8 +145,8 @@ export default async function ServicePage({
       heading={service.detail.heading}
       paragraphs={service.detail.paragraphs}
       action={
-        <GhostLink href={quoteHref} tone={tone}>
-          Request a quote
+        <GhostLink href={requestHref} tone={tone}>
+          Request a chauffeur
         </GhostLink>
       }
     />
@@ -157,7 +158,7 @@ export default async function ServicePage({
         needs={service.booking.needs}
         note={service.booking.note}
         terms={bookingTerms}
-        quoteHref={quoteHref}
+        requestHref={requestHref}
       />
     </Section>
   );
@@ -167,7 +168,7 @@ export default async function ServicePage({
       heading={service.enquiry.heading}
       body="Send the details however suits you — most of our clients simply message us — and we will confirm availability and cost."
       tone="dark"
-      primaryHref={quoteHref}
+      primaryHref={requestHref}
     />
   );
 
@@ -175,7 +176,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
-        {jsonLd}
+        {structuredData}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             heading={["What the", "service", "involves"]}
@@ -203,7 +204,7 @@ export default async function ServicePage({
     return (
       <>
         {hero}
-        {jsonLd}
+        {structuredData}
         <Section tone="dark" className="pt-16 lg:pt-24">
           <Statement
             tone="dark"
@@ -228,7 +229,7 @@ export default async function ServicePage({
   return (
     <>
       {hero}
-      {jsonLd}
+      {structuredData}
       <Section tone="dark" className="pt-20 lg:pt-28">
         {detailSplit("dark", true)}
       </Section>

@@ -77,7 +77,7 @@ export default async function SupercarHirePage() {
         ]}
         actions={
           <>
-            <GhostLink href={routes.quoteFor("supercar-hire")}>Enquire about hire</GhostLink>
+            <GhostLink href={routes.requestFor("supercar-hire")}>Enquire about hire</GhostLink>
             <QuietLink href={routes.supercarExperiences}>
               Or be driven in one
             </QuietLink>

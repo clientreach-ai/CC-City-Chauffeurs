@@ -8,12 +8,12 @@ import { adminRoutes } from "@/components/admin/shell/routes";
 import { StatusBadge } from "@/components/admin/ui/badge";
 import { Button } from "@/components/admin/ui/button";
 import { Field, TextArea } from "@/components/admin/ui/form";
-import { DefinitionList, ErrorState, LoadingBlock, PageBody, PageHeader, Panel, SampleDataNotice } from "@/components/admin/ui/page";
+import { DefinitionList, ErrorState, LoadingBlock, PageBody, PageHeader, Panel } from "@/components/admin/ui/page";
 import { notify } from "@/components/admin/ui/toast";
 import { GuardedLink, useUnsavedChanges } from "@/components/admin/ui/unsaved";
 import { formatDate, formatDateTime } from "@CC-City-Chauffeurs/core";
 import { errorMessage, useCmsQuery } from "@/lib/query";
-import { getBooking, getCustomer, updateBookingNotes } from "@/lib/api/operations";
+import { getBooking, getCustomer, getEnquiry, updateBookingNotes } from "@/lib/api/operations";
 import { bookingStatuses } from "@CC-City-Chauffeurs/core";
 import { CmsNotFoundError } from "@CC-City-Chauffeurs/core";
 
@@ -25,8 +25,14 @@ export function BookingDetail({ id }: { id: string }) {
   const changeStatus = useBookingStatus();
   const { data, loading, error, reload } = useCmsQuery(`booking:${id}`, async () => {
     const booking = await getBooking(id);
-    const customer = booking.customerId ? (await getCustomer(booking.customerId)).customer : null;
-    return { booking, customer };
+    // The booking carries only the enquiry's id, so the enquiry itself is
+    // what the reference has to come from. A missing one must not take the
+    // whole screen down: the booking still reads without it.
+    const [customer, enquiry] = await Promise.all([
+      booking.customerId ? getCustomer(booking.customerId).then((result) => result.customer) : null,
+      booking.enquiryId ? getEnquiry(booking.enquiryId).catch(() => null) : null,
+    ]);
+    return { booking, customer, enquiry };
   });
   const [notes, setNotes] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -51,7 +57,7 @@ export function BookingDetail({ id }: { id: string }) {
     );
   }
 
-  const { booking, customer } = data;
+  const { booking, customer, enquiry } = data;
   const canEdit = can("operations.edit");
   const steps = transitions[booking.status];
 
@@ -83,7 +89,6 @@ export function BookingDetail({ id }: { id: string }) {
           </>
         }
       />
-      <SampleDataNotice />
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-12">
         <div className="order-2 flex min-w-0 flex-col gap-8 lg:order-1">
@@ -104,7 +109,7 @@ export function BookingDetail({ id }: { id: string }) {
                   label: "From enquiry",
                   value: booking.enquiryId ? (
                     <GuardedLink href={adminRoutes.enquiry(booking.enquiryId)} className="underline-offset-4 hover:underline">
-                      {booking.enquiryId.toUpperCase()}
+                      {enquiry?.reference ?? "Open the enquiry"}
                     </GuardedLink>
                   ) : (
                     "Booked directly"

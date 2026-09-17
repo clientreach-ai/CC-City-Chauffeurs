@@ -125,3 +125,29 @@ export const SEO_LIMITS = { title: 60, description: 160 } as const;
  * title by accident.
  */
 export const SEO_MAX = { title: 120, description: 320 } as const;
+
+/**
+ * How long each field on the public forms may be.
+ *
+ * The website's form and the API's schema have to agree: a visitor who is let
+ * type 300 characters into a field the API refuses at 160 loses the message
+ * they just wrote. Both read these numbers, so the two cannot drift apart.
+ *
+ * They are generous on purpose. A pickup address with a building name and a
+ * postcode, or a message explaining a wedding day, should never hit a wall —
+ * these are here to catch a paste that went wrong, not to edit anybody.
+ */
+export const PUBLIC_FORM_LIMITS = {
+  name: 80,
+  phone: 40,
+  email: 120,
+  service: 80,
+  pickup: 160,
+  dropoff: 160,
+  time: 20,
+  luggage: 120,
+  flight: 40,
+  message: 2000,
+} as const;
+
+export type PublicFormLimits = typeof PUBLIC_FORM_LIMITS;

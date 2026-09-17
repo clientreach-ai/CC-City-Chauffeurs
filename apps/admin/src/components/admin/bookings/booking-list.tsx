@@ -9,7 +9,7 @@ import { usePreferences } from "@/components/admin/shell/preferences";
 import { adminRoutes } from "@/components/admin/shell/routes";
 import { StatusBadge } from "@/components/admin/ui/badge";
 import { ActionMenu, type MenuAction } from "@/components/admin/ui/menu";
-import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader, SampleDataNotice } from "@/components/admin/ui/page";
+import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader } from "@/components/admin/ui/page";
 import { DataTable, rowLinkClass, type Column } from "@/components/admin/ui/table";
 import { FilterSelect, ResultCount, SearchField, SegmentedFilter, Toolbar } from "@/components/admin/ui/toolbar";
 import { GuardedLink } from "@/components/admin/ui/unsaved";
@@ -127,7 +127,6 @@ export function BookingList() {
         title="Bookings"
         description="Agreed journeys, from pending to completed. A foundation only — there is no calendar, dispatch or chauffeur assignment yet."
       />
-      <SampleDataNotice />
 
       <SegmentedFilter
         label="When"

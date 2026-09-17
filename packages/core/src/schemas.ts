@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PUBLIC_FORM_LIMITS } from "./validation";
+
 /**
  * Shape validation for every request body the API accepts.
  *
@@ -334,22 +336,90 @@ export const customerInputSchema = z.object({
 export const bookingStatusUpdateSchema = z.object({ status: bookingStatusSchema });
 export const bookingNotesSchema = z.object({ notes: z.string() });
 
+// ---------------------------------------------------------------- the public forms
+
+/**
+ * The website's forms and these schemas share `PUBLIC_FORM_LIMITS`, so a
+ * field the form lets someone fill is never one the API then refuses.
+ *
+ * The public path validates the *shape* of an email address and a telephone
+ * number as well as the length. `updateCustomer` has always done so on the
+ * admin side; a visitor typing "sarah@gmail" into the one form that matters
+ * deserves the same courtesy, because a contact detail that cannot be replied
+ * to is an enquiry lost.
+ */
+
+const publicEmail = capped(PUBLIC_FORM_LIMITS.email, "email address")
+  .default("")
+  .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value), {
+    message: "That email address does not look complete.",
+  });
+
+const publicPhone = capped(PUBLIC_FORM_LIMITS.phone, "telephone number")
+  .default("")
+  .refine((value) => !value || value.replace(/[^\d]/g, "").length >= 7, {
+    message: "That number looks too short — include the area code.",
+  });
+
+/**
+ * The browser's own id for this submission, sent back unchanged on a retry.
+ * A visitor who presses "Open WhatsApp again" or loses signal mid-send would
+ * otherwise leave the office two identical records to untangle; the API
+ * returns the first reference instead of recording a second enquiry.
+ */
+const submissionId = trimmed.max(64).default("");
+
+/**
+ * A field no person can see and every crude bot fills in. Anything arriving
+ * with it set is dropped without a record; the form renders it hidden, off
+ * the tab order and with autocomplete off.
+ */
+const honeypot = trimmed.max(200).default("");
+
+/**
+ * A length a customer could exceed, with a message written for them.
+ *
+ * Left to itself the library says "Too big: expected string to have <=160
+ * characters", which is addressed to whoever wrote the form rather than to
+ * the person filling it in. These are the only validation messages a customer
+ * ever reads.
+ */
+function capped(limit: number, field: string) {
+  return trimmed.max(limit, `Please keep the ${field} under ${limit} characters.`);
+}
+
+/** What both public forms ask for: who is asking, and about what journey. */
+const publicJourney = {
+  /**
+   * The messages are written out because these are the only validation
+   * messages a customer ever reads. Left to itself the library says "Too
+   * small: expected string to have >=1 characters", which is addressed to
+   * whoever wrote the form, not to the person filling it in.
+   */
+  name: trimmed
+    .min(1, "Tell us your name so we know who we are replying to.")
+    .max(PUBLIC_FORM_LIMITS.name, `Please keep the name under ${PUBLIC_FORM_LIMITS.name} characters.`),
+  phone: publicPhone,
+  email: publicEmail,
+  service: capped(PUBLIC_FORM_LIMITS.service, "service").default(""),
+  vehicleId: z.string().nullable().default(null),
+  pickup: capped(PUBLIC_FORM_LIMITS.pickup, "pick-up address").default(""),
+  dropoff: capped(PUBLIC_FORM_LIMITS.dropoff, "destination").default(""),
+  time: capped(PUBLIC_FORM_LIMITS.time, "time").default(""),
+  passengers: nullableInt.default(null),
+  luggage: capped(PUBLIC_FORM_LIMITS.luggage, "luggage note").default(""),
+  flight: capped(PUBLIC_FORM_LIMITS.flight, "flight number").default(""),
+  message: capped(PUBLIC_FORM_LIMITS.message, "message").default(""),
+  submissionId,
+  website: honeypot,
+};
+
 /** The public enquiry form on the website. */
 export const publicEnquirySchema = z.object({
-  name: trimmed.min(1).max(80),
-  phone: trimmed.max(40).default(""),
-  email: trimmed.max(120).default(""),
+  ...publicJourney,
   replyBy: z.enum(["whatsapp", "phone", "email"]).default("whatsapp"),
-  service: trimmed.max(80).default(""),
-  vehicleId: z.string().nullable().default(null),
-  pickup: trimmed.max(160).default(""),
-  dropoff: trimmed.max(160).default(""),
+  /** An enquiry may be about a date the visitor has not settled on yet. */
   date: calendarDate.default(""),
-  time: trimmed.max(20).default(""),
-  passengers: nullableInt.default(null),
-  luggage: trimmed.max(120).default(""),
-  flight: trimmed.max(40).default(""),
-  message: trimmed.max(2000).default(""),
 });
 
 // ---------------------------------------------------------------- shared

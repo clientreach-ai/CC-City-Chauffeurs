@@ -164,18 +164,23 @@ pnpm dev
 
 ### The first account
 
-Sign-up is not exposed in the admin — accounts are made deliberately.
+Sign-up is closed. `emailAndPassword.disableSignUp` refuses
+`/api/auth/sign-up/email` outright, because the API answers to the internet and
+an account made there would arrive with the `editor` role and the run of the
+client's content. Accounts are made against the database instead:
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/sign-up/email \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.com","password":"a-long-password","name":"Your Name"}'
-
-psql "$DATABASE_URL" -c "update \"user\" set role='admin' where email='you@example.com';"
+# Hash the password the way better-auth reads it back.
+bun --filter server run scripts/create-user.ts you@example.com 'a-long-password' 'Your Name' admin
 ```
 
-New accounts default to `editor` — drafts only, no publishing, no operations.
-`manager` adds operations and publishing; `admin` adds site settings.
+If that script has not been written yet, the two rows can be inserted by hand —
+a `user` row carrying the role, and an `account` row whose `password` holds
+better-auth's scrypt hash of the password. Copy the shape from the row that is
+already there; a hash written any other way will not verify.
+
+Roles: `editor` — drafts only, no publishing, no operations. `manager` adds
+operations and publishing. `admin` adds site settings.
 
 ## What is still not real
 
