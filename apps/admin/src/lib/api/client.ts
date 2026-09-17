@@ -12,7 +12,13 @@ import { invalidateAdmin } from "../query/client";
  * adapter work unchanged against a real server.
  */
 
-const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/admin`;
+/**
+ * Relative, so these go to the admin's own origin and `next.config.ts`
+ * forwards them to the API. That keeps the session cookie first-party — see
+ * the note there. Every caller is a client component, so there is no render
+ * pass that would have to resolve this against a host.
+ */
+const BASE = "/api/admin";
 
 /** The session has gone. The shell catches this and sends you to sign in. */
 export class UnauthorisedError extends Error {
@@ -29,7 +35,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${BASE}${path}`, {
       ...init,
-      // The session is a cookie on the API's origin, not this one.
+      // The session cookie rides on this origin now, but keep it explicit:
+      // better-auth's own client sends credentials too.
       credentials: "include",
       headers: {
         ...(init?.body && !(init.body instanceof FormData)
