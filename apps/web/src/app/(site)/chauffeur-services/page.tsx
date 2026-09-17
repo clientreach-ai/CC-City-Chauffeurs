@@ -43,7 +43,7 @@ export default async function ChauffeurServicesPage() {
         ]}
         actions={
           <>
-            <GhostLink href={routes.quote}>Request a quote</GhostLink>
+            <GhostLink href={routes.request}>Request a chauffeur</GhostLink>
             <QuietLink href={routes.fleet}>See the fleet</QuietLink>
           </>
         }

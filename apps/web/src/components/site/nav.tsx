@@ -211,10 +211,10 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
               </a>
             </div>
             <Link
-              href={routes.quote}
+              href={routes.request}
               className="btn-ghost btn-solid-invert hidden !min-h-11 !px-6 !py-3 sm:inline-flex"
             >
-              Request a quote
+              Request a chauffeur
             </Link>
             <button
               ref={menuButtonRef}
@@ -366,11 +366,11 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
           ))}
 
           <Link
-            href={routes.quote}
+            href={routes.request}
             onClick={() => setOpen(false)}
             className="display-md border-y border-hairline py-5 text-white"
           >
-            Request a quote
+            Request a chauffeur
           </Link>
 
           <div className="mt-10 flex flex-col gap-3">

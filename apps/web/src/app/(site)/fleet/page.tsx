@@ -48,7 +48,7 @@ function entryData(vehicle: Vehicle): VehicleEntryData {
       { label: "Indicative rate", value: rateLabel(vehicle) },
     ],
     suited: vehicle.suitedTags,
-    enquireHref: `${routes.quote}?vehicle=${encodeURIComponent(vehicle.name)}`,
+    enquireHref: `${routes.request}?vehicle=${encodeURIComponent(vehicle.name)}`,
   };
 }
 
@@ -72,7 +72,7 @@ export default async function FleetPage() {
         objectPosition="object-[center_40%]"
         actions={
           <>
-            <GhostLink href={routes.quote}>Check availability</GhostLink>
+            <GhostLink href={routes.request}>Check availability</GhostLink>
             <QuietLink href={routes.gallery}>See the gallery</QuietLink>
           </>
         }
