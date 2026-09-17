@@ -24,7 +24,7 @@ import { asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
-import type { PublicBookingInput, PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
+import type { PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
 
 /**
  * Operations — enquiries, the bookings they become, and the customers behind
@@ -407,7 +407,7 @@ async function findCustomerId(tx: Tx, email: string, phone: string) {
  * telephone number gets no customer record at all: there would be nothing to
  * match it to next time, and a wall of nameless duplicates helps nobody.
  */
-async function customerFor(tx: Tx, input: PublicEnquiryInput | PublicBookingInput) {
+async function customerFor(tx: Tx, input: PublicEnquiryInput) {
   const email = input.email.trim().toLowerCase();
   const phone = input.phone.replace(/\D/g, "");
   if (!email && !phone) return null;
@@ -500,82 +500,6 @@ export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<En
   }
 
   return getEnquiry(id);
-}
-
-/**
- * Records a booking *request* sent from the public website.
- *
- * It is a request, not a reservation. It lands as `pending` — the same status
- * a booking raised from a won enquiry starts in, because there is one set of
- * booking statuses and this is not a place to invent another — and nothing is
- * sent to anybody: no confirmation reaches the customer and no chauffeur is
- * dispatched until the office says so.
- *
- * A booking has no `source` column the way an enquiry does, so where it came
- * from is recorded where a booking's history is kept: the activity trail.
- */
-export async function createPublicBooking(input: PublicBookingInput): Promise<Booking> {
-  const submissionId = submissionIdOf(input);
-
-  const alreadyRecorded = async () => {
-    if (!submissionId) return null;
-    const [row] = await db
-      .select({ id: schema.booking.id })
-      .from(schema.booking)
-      .where(eq(schema.booking.submissionId, submissionId))
-      .limit(1);
-    return row ? getBooking(row.id) : null;
-  };
-
-  const existing = await alreadyRecorded();
-  if (existing) return existing;
-
-  const id = newId("bkg");
-  try {
-    await db.transaction(async (tx) => {
-      const customerId = await customerFor(tx, input);
-      const reference = await nextReference(tx, "BKG");
-
-      await tx.insert(schema.booking).values({
-        id,
-        reference,
-        submissionId,
-        customerId,
-        enquiryId: null,
-        service: input.service,
-        vehicleId: input.vehicleId,
-        date: input.date,
-        time: input.time,
-        pickup: input.pickup,
-        destination: input.dropoff,
-        passengers: input.passengers,
-        // A booking has one free-text field, so the luggage and the flight go
-        // in beside the message rather than being dropped on the floor — a
-        // flight number is the difference between meeting someone and not.
-        notes: [
-          input.message,
-          input.luggage && `Luggage: ${input.luggage}`,
-          input.flight && `Flight: ${input.flight}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        status: "pending",
-      });
-      await log(
-        tx,
-        { bookingId: id },
-        "created",
-        `Booking ${reference} requested from the website — not yet confirmed`,
-      );
-    });
-  } catch (error) {
-    if (!isDuplicateKey(error)) throw error;
-    const recorded = await alreadyRecorded();
-    if (!recorded) throw error;
-    return recorded;
-  }
-
-  return getBooking(id);
 }
 
 // ------------------------------------------------------------------ bookings
