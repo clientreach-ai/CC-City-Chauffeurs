@@ -382,9 +382,19 @@ async function findCustomerId(tx: Tx, email: string, phone: string) {
     const [match] = await tx
       .select({ id: schema.customer.id })
       .from(schema.customer)
-      // '\\D' and not '\D': the template literal is JavaScript first, and
-      // Postgres has to receive the backslash for the class to mean anything.
-      .where(sql`regexp_replace(${schema.customer.phone}, '\\D', '', 'g') = ${phone}`)
+      /**
+       * The last nine digits, not all of them: the same person writes
+       * 07700 900123 on one form and +44 7700 900123 on the next, and that is
+       * one telephone. Nine is what is left of a United Kingdom number once a
+       * trunk zero or a country code is off the front — enough to be the same
+       * line, long enough not to be somebody else's.
+       *
+       * '\\D' and not '\D': the template literal is JavaScript first, and
+       * Postgres has to receive the backslash for the class to mean anything.
+       */
+      .where(
+        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 9) = ${phone.slice(-9)}`,
+      )
       .limit(1);
     if (match) return match.id;
   }
