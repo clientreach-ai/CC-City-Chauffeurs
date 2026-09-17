@@ -136,6 +136,14 @@ export function Footer({
               </li>
               <li>
                 <Link
+                  href={routes.book}
+                  className="label-xs link-quiet text-white/70 hover:text-white"
+                >
+                  Book a chauffeur
+                </Link>
+              </li>
+              <li>
+                <Link
                   href={routes.about}
                   className="label-xs link-quiet text-white/70 hover:text-white"
                 >

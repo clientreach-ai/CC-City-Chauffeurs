@@ -25,8 +25,8 @@ const steps = [
   },
   {
     index: "02",
-    title: "Send it your way",
-    copy: "The form writes your details out as a message and opens WhatsApp, or email if you prefer. You press send; nothing leaves this page on its own.",
+    title: "Send it to us",
+    copy: "Sending records the enquiry with the office and hands you a reference straight away. You can then send the same details on WhatsApp, or by email, if you would like them in front of us sooner.",
   },
   {
     index: "03",
@@ -39,8 +39,12 @@ export default async function RequestAQuotePage() {
   const [site, fleet] = await Promise.all([getSite(), getFleet()]);
   if (!site) notFound();
   const { settings } = site;
-  /** Names only — the form is a client component. */
-  const vehicleNames = (fleet?.vehicles ?? []).map((vehicle) => vehicle.name);
+  /** Id and name only — the form is a client component, and the id is what
+   *  the enquiry is recorded against. */
+  const vehicleOptions = (fleet?.vehicles ?? []).map((vehicle) => ({
+    id: vehicle.id,
+    name: vehicle.name,
+  }));
 
   return (
     <>
@@ -108,7 +112,7 @@ export default async function RequestAQuotePage() {
               <Reveal>
                 <EnquiryForm
                   variant="full"
-                  vehicles={vehicleNames}
+                  vehicles={vehicleOptions}
                   contact={contactDetails(settings)}
                   services={site.enquiryServices}
                 />
@@ -121,7 +125,12 @@ export default async function RequestAQuotePage() {
                   <QuietLink href={routes.fleet} className="!text-white/70">
                     fleet page
                   </QuietLink>{" "}
-                  so you can size a booking before you ask.
+                  so you can size a booking before you ask. If the date is already
+                  settled, send a{" "}
+                  <QuietLink href={routes.book} className="!text-white/70">
+                    booking request
+                  </QuietLink>{" "}
+                  instead.
                 </p>
               </Reveal>
             </div>

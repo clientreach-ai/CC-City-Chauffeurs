@@ -19,9 +19,9 @@ import { mock } from "bun:test";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// Straight to the source rather than through the package, whose entry point
-// builds the real connection pool the moment it is imported.
-import * as schema from "../../../packages/db/src/schema/index";
+// The schema alone, not the package's entry point: that one builds the real
+// connection pool the moment it is imported.
+import * as schema from "@CC-City-Chauffeurs/db/schema/index";
 
 const MIGRATIONS = join(import.meta.dir, "../../../packages/db/src/migrations");
 
@@ -90,4 +90,16 @@ export function setTestEnvironment() {
   process.env.SITE_URL ??= "http://localhost:3001";
   process.env.API_URL ??= "http://localhost:3000";
   process.env.NODE_ENV = "test";
+}
+
+/**
+ * The first row, or a failure that says what was missing.
+ *
+ * A test asking for a record it expects to exist should fail on the missing
+ * record, not several lines later on a property of undefined.
+ */
+export function only<T>(rows: T[], what = "row"): T {
+  const [first] = rows;
+  if (!first) throw new Error(`Expected a ${what}, found none.`);
+  return first;
 }

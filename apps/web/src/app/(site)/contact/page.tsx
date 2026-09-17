@@ -114,7 +114,7 @@ export default async function ContactPage() {
             </div>
 
             <div className="lg:col-span-6 lg:col-start-7">
-              <SectionHead label="Or set out the details" note="Sends via WhatsApp or email" />
+              <SectionHead label="Or set out the details" note="Recorded with the office" />
               <Reveal>
                 <EnquiryForm
                   variant="short"
@@ -123,10 +123,11 @@ export default async function ContactPage() {
                 />
               </Reveal>
 
-              <Reveal delay={120} className="mt-12">
+              <Reveal delay={120} className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-5">
                 <GhostLink href={routes.quote}>
                   Need a full quotation? Use the quote form
                 </GhostLink>
+                <QuietLink href={routes.book}>Already have a date? Book it</QuietLink>
               </Reveal>
             </div>
           </div>

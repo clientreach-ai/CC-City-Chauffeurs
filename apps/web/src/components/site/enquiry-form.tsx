@@ -9,8 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
+import { PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core/validation";
 import { NO_VEHICLE_PREFERENCE, replyOptions } from "@/content/enquiry";
-import { recordEnquiry } from "@/lib/enquiries";
+import { recordEnquiry, requestBooking } from "@/lib/enquiries";
 
 /** The contact details the site is configured with, from the admin. */
 export type ContactDetails = {
@@ -24,24 +25,35 @@ export type ContactDetails = {
 /** The service list the form offers, from the admin. */
 export type ServiceOptionItem = { value: string; label: string };
 
+/** A vehicle the preference list offers. The id is what is recorded; the
+ *  name is what the visitor reads. */
+export type VehicleOption = { id: string; name: string };
+
 /*
- * The enquiry form.
+ * The enquiry and booking-request form.
  *
- * It validates the brief, records it against the business's own inbox, and
- * then hands the same message to WhatsApp or email — which is how enquiries
- * actually arrive. Recording first matters: an enquiry that exists only in a
- * chat window is one that can be missed, and the admin's pipeline is built on
- * having the record.
+ * It records the request against the business's own inbox and shows the
+ * visitor the reference it was given. Only then does it offer WhatsApp or
+ * email, as a continuation they choose — handing the message to a chat window
+ * before the record exists is how an enquiry gets missed, and for years this
+ * form did exactly that while telling everyone it had worked.
  *
- * If recording fails the visitor is never told about it. Their message still
- * goes; losing a customer over our database being unreachable would be the
- * worse outcome.
+ * So the submission is awaited and every outcome is shown. A failure is
+ * retryable with the form still filled in; a rule the API applied lands
+ * beside the input that broke it. `PUBLIC_FORM_LIMITS` is shared with the
+ * API's own schema, so a field this form lets someone fill is never one the
+ * API then refuses.
  *
- * `variant="short"` is the homepage and contact band; `variant="full"` is the
- * quote page, which asks for everything a quote needs in one pass (PRD §10.1).
+ * Three variants, one set of fields:
+ *
+ *   "short"   the homepage and contact bands — who you are and roughly what
+ *   "full"    the quote page: everything a quote needs in one pass (PRD §10.1)
+ *   "booking" the same, as a booking request — the date is required, because
+ *             a booking is a row in the diary and the diary has a column for
+ *             it. "Sometime in June" belongs in an enquiry.
  */
 
-type Variant = "short" | "full";
+type Variant = "short" | "full" | "booking";
 
 type FormState = {
   service: string;
@@ -52,6 +64,7 @@ type FormState = {
   flight: string;
   passengers: string;
   luggage: string;
+  /** The chosen vehicle's id, or "" for no preference. */
   vehicle: string;
   notes: string;
   name: string;
@@ -66,7 +79,49 @@ type Errors = Partial<Record<FieldKey, string>>;
 const REQUIRED: Record<Variant, readonly FieldKey[]> = {
   short: ["name", "phone"],
   full: ["service", "date", "pickup", "passengers", "name", "phone"],
+  booking: ["service", "date", "pickup", "passengers", "name", "phone"],
 };
+
+/**
+ * Which shared limit guards each field the visitor types into. The form's own
+ * names differ from the contract's in two places, which is the whole reason
+ * this mapping is written out rather than inferred.
+ */
+const LIMIT: Partial<Record<FieldKey, number>> = {
+  name: PUBLIC_FORM_LIMITS.name,
+  phone: PUBLIC_FORM_LIMITS.phone,
+  email: PUBLIC_FORM_LIMITS.email,
+  pickup: PUBLIC_FORM_LIMITS.pickup,
+  destination: PUBLIC_FORM_LIMITS.dropoff,
+  time: PUBLIC_FORM_LIMITS.time,
+  luggage: PUBLIC_FORM_LIMITS.luggage,
+  flight: PUBLIC_FORM_LIMITS.flight,
+  notes: PUBLIC_FORM_LIMITS.message,
+};
+
+/** The contract's field names, mapped back onto this form's own. */
+const FIELD_OF: Record<string, FieldKey> = {
+  name: "name",
+  phone: "phone",
+  email: "email",
+  service: "service",
+  vehicleId: "vehicle",
+  pickup: "pickup",
+  dropoff: "destination",
+  date: "date",
+  time: "time",
+  passengers: "passengers",
+  luggage: "luggage",
+  flight: "flight",
+  message: "notes",
+};
+
+/** Where the submission has got to. */
+type Submission =
+  | { state: "editing" }
+  | { state: "sending" }
+  | { state: "sent"; reference: string }
+  | { state: "failed"; message: string };
 
 const fieldClass =
   "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-ui text-[0.9375rem] text-white placeholder:text-white/45 transition-colors duration-500 focus:border-white focus:outline-none aria-invalid:border-white";
@@ -75,6 +130,20 @@ function todayISO() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+/**
+ * One id per request, compared only against itself.
+ *
+ * `crypto.randomUUID` needs a secure context, which a site served over http
+ * on a local network is not — and a form that throws there rather than
+ * falling back would be a form nobody could send.
+ */
+function newSubmissionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `sub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function serviceLabel(value: string, services: ServiceOptionItem[]) {
@@ -111,7 +180,8 @@ function validate(form: FormState, variant: Variant): Errors {
   }
 
   if (missing("date")) {
-    errors.date = "Choose the date of the booking.";
+    errors.date =
+      variant === "booking" ? "Choose the date of the journey." : "Choose the date of the booking.";
   } else if (form.date && form.date < todayISO()) {
     errors.date = "That date has passed — choose today or later.";
   }
@@ -124,6 +194,19 @@ function validate(form: FormState, variant: Variant): Errors {
     const n = Number(form.passengers);
     if (!Number.isInteger(n) || n < 1 || n > 50) {
       errors.passengers = "Enter a number of passengers between 1 and 50.";
+    }
+  }
+
+  /*
+   * `maxLength` already stops the typing and truncates a paste, so this only
+   * catches what arrives some other way — a prefilled query string, an
+   * autofill, a control with no maxLength to give. It is here so the API
+   * never has to refuse a message this form let somebody write.
+   */
+  for (const key of Object.keys(LIMIT) as FieldKey[]) {
+    const limit = LIMIT[key];
+    if (limit && !errors[key] && String(form[key]).trim().length > limit) {
+      errors[key] = `That is longer than this field takes — please shorten it to ${limit} characters.`;
     }
   }
 
@@ -191,20 +274,23 @@ export function EnquiryForm({
   variant?: Variant;
   /** Service to preselect, as a slug or a label. */
   defaultService?: string;
-  /** Vehicle names for the preference list — passed in so the fleet model
-   *  never reaches the client bundle. */
-  vehicles?: readonly string[];
+  /** The vehicles the preference list offers — id and name only, so the
+   *  fleet model never reaches the client bundle. */
+  vehicles?: readonly VehicleOption[];
   /** Where enquiries go, as configured in the admin. */
   contact: ContactDetails;
   /** What the service dropdown offers, as configured in the admin. */
   services: ServiceOptionItem[];
 }) {
-  const full = variant === "full";
+  const booking = variant === "booking";
+  /** Both long variants share the three-group layout. */
+  const full = variant !== "short";
+  const noun = booking ? "booking" : "enquiry";
   const uid = useId();
   const id = (key: string) => `${uid}-${key}`;
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [form, setForm] = useState<FormState>({
+  const blank = (): FormState => ({
     service: matchService(defaultService ?? null, services) ?? services[0]?.value ?? "",
     date: "",
     time: "",
@@ -213,17 +299,35 @@ export function EnquiryForm({
     flight: "",
     passengers: "",
     luggage: "",
-    vehicle: NO_VEHICLE_PREFERENCE,
+    vehicle: "",
     notes: "",
     name: "",
     phone: "",
     email: "",
     reply: "WhatsApp",
   });
+
+  const [form, setForm] = useState<FormState>(blank);
   const [errors, setErrors] = useState<Errors>({});
   const [attempted, setAttempted] = useState(false);
-  const [status, setStatus] = useState<"editing" | "opening" | "ready">("editing");
+  const [submission, setSubmission] = useState<Submission>({ state: "editing" });
   const [copied, setCopied] = useState(false);
+  /** The honeypot's value. Kept out of `FormState`, which is what a person fills in. */
+  const [honeypot, setHoneypot] = useState("");
+
+  /*
+   * The id this submission carries, minted when the visitor starts filling
+   * the form in rather than when they press send. Every retry sends the same
+   * value, so a send that failed on the way back and a second, impatient
+   * press both resolve to the one record — the API returns the reference it
+   * gave the first time instead of opening another. Only "Send another"
+   * mints a fresh one, because only that is a genuinely new request.
+   */
+  const submissionId = useRef("");
+  const startSubmission = () => {
+    if (!submissionId.current) submissionId.current = newSubmissionId();
+    return submissionId.current;
+  };
 
   /*
    * Links from service and fleet pages carry the answers they already know
@@ -234,7 +338,7 @@ export function EnquiryForm({
     const params = new URLSearchParams(window.location.search);
     const service = matchService(params.get("service"), services);
     const vehicleParam = params.get("vehicle")?.toLowerCase();
-    const vehicle = vehicles.find((name) => name.toLowerCase() === vehicleParam);
+    const vehicle = vehicles.find((item) => item.name.toLowerCase() === vehicleParam)?.id;
     const date = params.get("date");
     const passengers = params.get("passengers");
     if (!service && !vehicle && !date && !passengers) return;
@@ -249,15 +353,20 @@ export function EnquiryForm({
   }, []);
 
   const set = <K extends FieldKey>(key: K) => (value: FormState[K]) => {
+    startSubmission();
     const next = { ...form, [key]: value };
     setForm(next);
     // Once someone has tried to send, keep the messages honest as they fix things.
     if (attempted) setErrors(validate(next, variant));
+    // A failure they are now editing their way out of should stop shouting.
+    if (submission.state === "failed") setSubmission({ state: "editing" });
   };
 
   const isAirport = form.service === "airport-transfers";
+  const vehicleName = (vehicleId: string) =>
+    vehicles.find((item) => item.id === vehicleId)?.name ?? "";
 
-  const composeMessage = () => {
+  const composeMessage = (reference?: string) => {
     const journey = [
       `Service: ${serviceLabel(form.service, services)}`,
       form.date && `Date: ${form.date}${form.time ? ` at ${form.time}` : ""}`,
@@ -266,27 +375,48 @@ export function EnquiryForm({
       isAirport && form.flight && `Flight: ${form.flight}`,
       form.passengers && `Passengers: ${form.passengers}`,
       form.luggage && `Luggage: ${form.luggage}`,
-      full && form.vehicle !== NO_VEHICLE_PREFERENCE && `Vehicle: ${form.vehicle}`,
+      full && form.vehicle && `Vehicle: ${vehicleName(form.vehicle)}`,
       form.notes && `Notes: ${form.notes}`,
     ];
     const person = [
       `Name: ${form.name}`,
       `Phone: ${form.phone}`,
       form.email && `Email: ${form.email}`,
-      full && `Reply by: ${form.reply}`,
+      full && !booking && `Reply by: ${form.reply}`,
     ];
     const lines = (list: (string | false)[]) => list.filter(Boolean).join("\n");
     return [
-      full ? "Quote request — City Chauffeurs" : "Chauffeur enquiry — City Chauffeurs",
+      booking
+        ? "Booking request — City Chauffeurs"
+        : full
+          ? "Quote request — City Chauffeurs"
+          : "Chauffeur enquiry — City Chauffeurs",
+      // The reference is what lets the office match this message to the record
+      // it already has, rather than treating it as a second request.
+      reference && `Reference: ${reference}`,
       lines(journey),
       lines(person),
-    ].join("\n\n");
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   };
 
-  const mailtoHref = () =>
+  const mailtoHref = (reference?: string) =>
     `mailto:${contact.email}?subject=${encodeURIComponent(
-      full ? `Quote request — ${serviceLabel(form.service, services)}` : "Chauffeur enquiry",
-    )}&body=${encodeURIComponent(composeMessage())}`;
+      booking
+        ? `Booking request ${reference || ""}`.trim()
+        : full
+          ? `Quote request — ${serviceLabel(form.service, services)}`
+          : "Chauffeur enquiry",
+    )}&body=${encodeURIComponent(composeMessage(reference))}`;
+
+  /** After the errors render, focus the first flagged field in on-screen
+   *  order — not validation order, which differs between the variants. */
+  const focusFirstProblem = () => {
+    requestAnimationFrame(() => {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    });
+  };
 
   /** Validates, and on failure moves focus to the first problem. */
   const check = () => {
@@ -294,11 +424,7 @@ export function EnquiryForm({
     const found = validate(form, variant);
     setErrors(found);
     if (Object.keys(found).length) {
-      // After the errors render, focus the first flagged field in on-screen
-      // order — not validation order, which differs between the two variants.
-      requestAnimationFrame(() => {
-        formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-      });
+      focusFirstProblem();
       return false;
     }
     return true;
@@ -309,12 +435,8 @@ export function EnquiryForm({
     name: form.name,
     phone: form.phone,
     email: form.email,
-    replyBy: (form.reply === "Phone call" ? "phone" : form.reply.toLowerCase()) as
-      | "whatsapp"
-      | "phone"
-      | "email",
     service: form.service,
-    vehicleId: null,
+    vehicleId: form.vehicle || null,
     pickup: form.pickup,
     dropoff: form.destination,
     date: form.date,
@@ -322,55 +444,82 @@ export function EnquiryForm({
     passengers: form.passengers ? Number(form.passengers) : null,
     luggage: form.luggage,
     flight: form.flight,
-    message: [form.notes, form.vehicle !== NO_VEHICLE_PREFERENCE ? `Vehicle preference: ${form.vehicle}` : ""]
-      .filter(Boolean)
-      .join("\n\n"),
+    message: form.notes,
+    submissionId: startSubmission(),
+    website: honeypot,
   });
 
   /**
-   * Records the enquiry, then opens the channel the visitor chose.
+   * Records the request and waits for the answer.
    *
-   * The window is opened from the click that started this — not after the
-   * request resolves — or a pop-up blocker would swallow it. Recording
-   * happens alongside, and its failure is ours to notice, not theirs.
+   * Nothing is opened from here. A window opened after an await is one a
+   * pop-up blocker is entitled to swallow, and — more to the point — the
+   * visitor should not be sent to WhatsApp before we know whether we have
+   * their details. The continuation is a button they press.
    */
-  const handOff = (channel: "whatsapp" | "email") => {
-    void recordEnquiry(payload());
-    if (channel === "email") {
-      window.location.href = mailtoHref();
-    } else {
-      const text = encodeURIComponent(composeMessage());
-      window.open(
-        `https://wa.me/${contact.whatsappNumber}?text=${text}`,
-        "_blank",
-        "noopener,noreferrer",
-      );
-    }
-  };
-
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (status === "opening" || !check()) return;
-    setStatus("opening");
-    handOff("whatsapp");
-    // A short hold stops a double tap opening two conversations.
-    window.setTimeout(() => setStatus("ready"), 900);
-  };
+    if (submission.state === "sending" || !check()) return;
+    setSubmission({ state: "sending" });
 
-  const onEmail = () => {
-    if (check()) {
-      handOff("email");
-      setStatus("ready");
+    const journey = payload();
+    // The visitor picks a channel by its label; the contract names it in its
+    // own terms, and "Phone call" is the one that is not simply lowercased.
+    const replyBy =
+      form.reply === "Phone call" ? "phone" : form.reply === "Email" ? "email" : "whatsapp";
+    const result = booking
+      ? await requestBooking(journey)
+      : await recordEnquiry({ ...journey, replyBy });
+
+    if (result.ok) {
+      setSubmission({ state: "sent", reference: result.reference });
+      return;
     }
+
+    if (result.reason === "invalid") {
+      // A rule the API applied and this form did not. Each message goes beside
+      // the input that caused it; anything it named that this form has no
+      // input for leaves the banner to say so on its own.
+      const found: Errors = {};
+      for (const [field, message] of Object.entries(result.fields)) {
+        const key = FIELD_OF[field];
+        if (key) found[key] = message;
+      }
+      setAttempted(true);
+      setErrors(found);
+      if (Object.keys(found).length) focusFirstProblem();
+    }
+
+    setSubmission({ state: "failed", message: result.message });
   };
 
-  const onCopy = async () => {
+  const openWhatsApp = (reference: string) => {
+    const text = encodeURIComponent(composeMessage(reference));
+    window.open(
+      `https://wa.me/${contact.whatsappNumber}?text=${text}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const onCopy = async (reference: string) => {
     try {
-      await navigator.clipboard.writeText(composeMessage());
+      await navigator.clipboard.writeText(composeMessage(reference));
       setCopied(true);
     } catch {
       setCopied(false);
     }
+  };
+
+  /** A genuinely new request: a clean form and a fresh submission id. */
+  const startAnother = () => {
+    submissionId.current = "";
+    setForm(blank());
+    setErrors({});
+    setAttempted(false);
+    setCopied(false);
+    setHoneypot("");
+    setSubmission({ state: "editing" });
   };
 
   const errorCount = Object.keys(errors).length;
@@ -386,7 +535,7 @@ export function EnquiryForm({
   // ----------------------------------------------------------------- fields
 
   const serviceField = (
-    <Field id={id("service")} label="Service">
+    <Field id={id("service")} label="Service" error={errors.service}>
       <select
         {...aria("service")}
         required={req("service")}
@@ -423,6 +572,7 @@ export function EnquiryForm({
         {...aria("pickup")}
         required={req("pickup")}
         autoComplete="street-address"
+        maxLength={PUBLIC_FORM_LIMITS.pickup}
         value={form.pickup}
         onChange={(e) => set("pickup")(e.target.value)}
         placeholder="Address, hotel or airport"
@@ -432,9 +582,16 @@ export function EnquiryForm({
   );
 
   const destinationField = (
-    <Field id={id("destination")} label="Destination" optional className={full ? "sm:col-span-2" : ""}>
+    <Field
+      id={id("destination")}
+      label="Destination"
+      optional
+      error={errors.destination}
+      className={full ? "sm:col-span-2" : ""}
+    >
       <input
         {...aria("destination")}
+        maxLength={PUBLIC_FORM_LIMITS.dropoff}
         value={form.destination}
         onChange={(e) => set("destination")(e.target.value)}
         placeholder="Address — or hours, if as directed"
@@ -449,6 +606,7 @@ export function EnquiryForm({
         {...aria("name")}
         required
         autoComplete="name"
+        maxLength={PUBLIC_FORM_LIMITS.name}
         value={form.name}
         onChange={(e) => set("name")(e.target.value)}
         placeholder="Your name"
@@ -465,6 +623,7 @@ export function EnquiryForm({
         type="tel"
         inputMode="tel"
         autoComplete="tel"
+        maxLength={PUBLIC_FORM_LIMITS.phone}
         value={form.phone}
         onChange={(e) => set("phone")(e.target.value)}
         placeholder="Best number to reach you"
@@ -479,11 +638,13 @@ export function EnquiryForm({
       label="Anything else"
       optional
       hint={full ? "Isofix booster seats are available on request." : undefined}
+      error={errors.notes}
       className="sm:col-span-2"
     >
       <textarea
         {...aria("notes", full)}
         rows={full ? 3 : 2}
+        maxLength={PUBLIC_FORM_LIMITS.message}
         value={form.notes}
         onChange={(e) => set("notes")(e.target.value)}
         placeholder={
@@ -504,7 +665,7 @@ export function EnquiryForm({
         <div className="grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-2">
           <div className="sm:col-span-2">{serviceField}</div>
           {dateField}
-          <Field id={id("time")} label="Pick-up time" optional>
+          <Field id={id("time")} label="Pick-up time" optional error={errors.time}>
             <input
               {...aria("time")}
               type="time"
@@ -521,10 +682,12 @@ export function EnquiryForm({
               label="Flight number"
               optional
               hint="We track it, so a delay moves the collection with it."
+              error={errors.flight}
             >
               <input
                 {...aria("flight", true)}
                 autoCapitalize="characters"
+                maxLength={PUBLIC_FORM_LIMITS.flight}
                 value={form.flight}
                 onChange={(e) => set("flight")(e.target.value)}
                 placeholder="e.g. BA 2551"
@@ -551,9 +714,10 @@ export function EnquiryForm({
               className={fieldClass}
             />
           </Field>
-          <Field id={id("luggage")} label="Luggage" optional>
+          <Field id={id("luggage")} label="Luggage" optional error={errors.luggage}>
             <input
               {...aria("luggage")}
+              maxLength={PUBLIC_FORM_LIMITS.luggage}
               value={form.luggage}
               onChange={(e) => set("luggage")(e.target.value)}
               placeholder="Large cases, or none"
@@ -561,16 +725,27 @@ export function EnquiryForm({
             />
           </Field>
           {vehicles.length ? (
-            <Field id={id("vehicle")} label="Vehicle preference" optional className="sm:col-span-2">
+            <Field
+              id={id("vehicle")}
+              label="Vehicle preference"
+              optional
+              error={errors.vehicle}
+              className="sm:col-span-2"
+            >
               <select
                 {...aria("vehicle")}
                 value={form.vehicle}
                 onChange={(e) => set("vehicle")(e.target.value)}
                 className={`${fieldClass} cursor-pointer`}
               >
-                {[NO_VEHICLE_PREFERENCE, ...vehicles].map((option) => (
-                  <option key={option} value={option} className="bg-ink text-white">
-                    {option}
+                {/* The id is what is recorded, so "no preference" is the
+                    absence of one — an empty value, not a sentence. */}
+                <option value="" className="bg-ink text-white">
+                  {NO_VEHICLE_PREFERENCE}
+                </option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id} className="bg-ink text-white">
+                    {vehicle.name}
                   </option>
                 ))}
               </select>
@@ -588,7 +763,11 @@ export function EnquiryForm({
             id={id("email")}
             label="Email"
             optional
-            hint="For a written quotation."
+            hint={
+              booking
+                ? "If you would rather the office came back to you in writing."
+                : "For a written quotation."
+            }
             error={errors.email}
             className="sm:col-span-2"
           >
@@ -596,32 +775,38 @@ export function EnquiryForm({
               {...aria("email", true)}
               type="email"
               autoComplete="email"
+              maxLength={PUBLIC_FORM_LIMITS.email}
               value={form.email}
               onChange={(e) => set("email")(e.target.value)}
               placeholder="you@example.com"
               className={fieldClass}
             />
           </Field>
-          <fieldset className="sm:col-span-2">
-            <legend className="label-xs text-white/70">Reply by</legend>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {replyOptions.map((option) => (
-                <label key={option} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name={id("reply")}
-                    value={option}
-                    checked={form.reply === option}
-                    onChange={() => set("reply")(option)}
-                    className="peer sr-only"
-                  />
-                  <span className="label-xs inline-flex min-h-11 items-center rounded-[2px] border border-white/25 px-5 text-white/70 transition-colors duration-500 peer-checked:border-white peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-white hover:text-white">
-                    {option}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          {/* A booking request is answered by the office against the diary,
+              so there is no channel to choose — an enquiry is where that
+              preference belongs. */}
+          {booking ? null : (
+            <fieldset className="sm:col-span-2">
+              <legend className="label-xs text-white/70">Reply by</legend>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {replyOptions.map((option) => (
+                  <label key={option} className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name={id("reply")}
+                      value={option}
+                      checked={form.reply === option}
+                      onChange={() => set("reply")(option)}
+                      className="peer sr-only"
+                    />
+                    <span className="label-xs inline-flex min-h-11 items-center rounded-[2px] border border-white/25 px-5 text-white/70 transition-colors duration-500 peer-checked:border-white peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-white hover:text-white">
+                      {option}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
         </div>
       </Group>
     </div>
@@ -637,37 +822,50 @@ export function EnquiryForm({
     </div>
   );
 
-  if (status === "ready") {
+  // ----------------------------------------------------------------- states
+
+  if (submission.state === "sent") {
+    const { reference } = submission;
     return (
-      <div
-        className="border-t border-hairline pt-8"
-        role="status"
-        aria-live="polite"
-      >
-        <p className="label-xs text-silver">Nearly there</p>
-        <h3 className="display-md mt-4 max-w-[18ch] text-white">
-          Your enquiry is written out and ready to send
+      <div className="border-t border-hairline pt-8" role="status" aria-live="polite">
+        <p className="label-xs text-silver">Received</p>
+        <h3 className="display-md mt-4 max-w-[22ch] text-white">
+          {reference
+            ? `Request received. Your ${noun} reference is ${reference}.`
+            : "Request received."}
         </h3>
-        <p className="copy mt-5 max-w-[52ch] text-white/70">
-          It has opened in WhatsApp (or your email app) with every detail filled in.
-          Press send there and it reaches us — nothing is sent from this page on its
-          own.
+        <p className="copy mt-5 max-w-[54ch] text-white/70">
+          {booking
+            ? "This is a request, not a confirmed booking. The office will check the car and the chauffeur against your date and come back to you with what is available. Nothing is charged and nothing is held until they do."
+            : "It is with the office now and a person will answer it. Quote the reference if you call in the meantime."}
+        </p>
+        <p className="copy mt-4 max-w-[54ch] text-white/70">
+          We have it either way. If you would like it in front of us sooner, send the
+          same details on WhatsApp as well.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
-          <button type="button" onClick={() => handOff("whatsapp")} className="btn-ghost btn-on-dark">
-            Open WhatsApp again
-          </button>
+          {/*
+            Opened straight from this click. A window opened after an await is
+            one a pop-up blocker is entitled to swallow, which is why the
+            record is already made by the time this button exists.
+          */}
           <button
             type="button"
-            onClick={() => handOff("email")}
+            onClick={() => openWhatsApp(reference)}
+            className="btn-ghost btn-on-dark"
+          >
+            Send it on WhatsApp
+          </button>
+          <a
+            href={mailtoHref(reference)}
             className="label-xs link-quiet text-white/70 hover:text-white"
           >
-            Send by email instead
-          </button>
+            Send it by email instead
+          </a>
           <button
             type="button"
-            onClick={onCopy}
+            onClick={() => onCopy(reference)}
             className="label-xs link-quiet text-white/70 hover:text-white"
           >
             {copied ? "Copied" : "Copy the details"}
@@ -680,60 +878,80 @@ export function EnquiryForm({
             {contact.phoneDisplay}
           </a>
           .{" "}
-          <button
-            type="button"
-            onClick={() => setStatus("editing")}
-            className="link-quiet text-white"
-          >
-            Edit the details
+          <button type="button" onClick={startAnother} className="link-quiet text-white">
+            Send another {booking ? "booking request" : "enquiry"}
           </button>
         </p>
       </div>
     );
   }
 
+  const sending = submission.state === "sending";
+  const notice =
+    submission.state === "failed"
+      ? submission.message
+      : errorCount === 1
+        ? "One detail needs a look before this can be sent."
+        : errorCount > 1
+          ? `${errorCount} details need a look before this can be sent.`
+          : "";
+
   return (
-    <form ref={formRef} onSubmit={onSubmit} noValidate className="w-full">
+    <form ref={formRef} onSubmit={onSubmit} noValidate className="relative w-full">
       <p className="label-xs mb-8 normal-case tracking-normal text-white/55">
-        Fields not marked optional are needed to quote.
+        {booking
+          ? "Fields not marked optional are needed to hold a date."
+          : "Fields not marked optional are needed to quote."}
       </p>
 
-      <div
-        role="alert"
-        className={errorCount ? "mb-8 border-l border-white py-1 pl-4" : "sr-only"}
-      >
-        {errorCount ? (
-          <p className="copy text-white">
-            {errorCount === 1
-              ? "One detail needs a look before this can be sent."
-              : `${errorCount} details need a look before this can be sent.`}
-          </p>
-        ) : null}
+      <div role="alert" className={notice ? "mb-8 border-l border-white py-1 pl-4" : "sr-only"}>
+        {notice ? <p className="copy text-white">{notice}</p> : null}
       </div>
 
       {body}
 
+      {/*
+        The honeypot. No person sees this field, nothing focuses it and no
+        password manager fills it, so anything arriving with it set was set by
+        a machine — the API answers those exactly as it answers a person,
+        minus the record.
+      */}
+      <div aria-hidden className="pointer-events-none absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label htmlFor={id("website")}>Website</label>
+        <input
+          id={id("website")}
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+        />
+      </div>
+
       <div className="mt-10 flex flex-wrap items-center gap-x-10 gap-y-5">
         <button
           type="submit"
-          disabled={status === "opening"}
-          aria-busy={status === "opening"}
+          disabled={sending}
+          aria-busy={sending}
           className="btn-ghost btn-on-dark disabled:cursor-wait disabled:opacity-60"
         >
-          {status === "opening" ? "Opening WhatsApp…" : "Continue in WhatsApp"}
+          {sending ? "Sending…" : booking ? "Send the booking request" : "Send the enquiry"}
         </button>
-        <button
-          type="button"
-          onClick={onEmail}
-          className="label-xs link-quiet text-white/70 hover:text-white"
-        >
-          Or send it by email
-        </button>
+        {submission.state === "failed" ? (
+          <a
+            href={`tel:${contact.phoneE164}`}
+            className="label-xs link-quiet text-white/70 hover:text-white"
+          >
+            Or call {contact.phoneDisplay}
+          </a>
+        ) : null}
       </div>
 
       <p className="label-xs mt-6 max-w-[60ch] normal-case tracking-normal text-white/55">
-        This writes your enquiry out as a message for you to send — nothing is stored
-        or submitted from this page. Handled in confidence.
+        This records your {booking ? "booking request" : "enquiry"} with the office so it
+        is not left sitting in a chat window, and gives you a reference. You can send the
+        same details on WhatsApp afterwards if you would like. Handled in confidence.
       </p>
     </form>
   );
