@@ -1,12 +1,13 @@
 import { env } from "@CC-City-Chauffeurs/env/web";
 
 /**
- * Sending an enquiry or a booking request from the website.
+ * Sending an enquiry from the website.
  *
- * Both are recorded against the business's own inbox before anything is
- * handed to WhatsApp or email — a request that exists only in a chat window
- * is one that can be missed, and the admin's pipeline is built on having the
- * record.
+ * Everything a visitor sends is an enquiry, and it is recorded against the
+ * business's own inbox before anything is handed to WhatsApp or email — a
+ * request that exists only in a chat window is one that can be missed, and the
+ * admin's pipeline is built on having the record. The office turns an enquiry
+ * into a booking once the journey is agreed.
  *
  * Nothing here is fire-and-forget. A visitor who has just written out a
  * wedding itinerary is owed the truth about whether we have it, so every
@@ -18,8 +19,8 @@ import { env } from "@CC-City-Chauffeurs/env/web";
 
 const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/public`;
 
-/** What both forms ask for: who is asking, and about what journey. */
-type JourneyPayload = {
+/** What the form asks for: who is asking, and about what journey. */
+export type EnquiryPayload = {
   name: string;
   phone: string;
   email: string;
@@ -42,14 +43,9 @@ type JourneyPayload = {
   submissionId: string;
   /** The honeypot. No person can see the field, so this is always "". */
   website: string;
-};
-
-export type EnquiryPayload = JourneyPayload & {
+  /** How the visitor would rather be answered. */
   replyBy: "whatsapp" | "phone" | "email";
 };
-
-/** A booking request has no reply-by, and its date is not optional. */
-export type BookingPayload = JourneyPayload;
 
 /**
  * What happened, in terms a form can render.
@@ -100,13 +96,14 @@ async function readBody(response: Response): Promise<ApiBody> {
 const wording = (body: ApiBody, fallback: string) =>
   typeof body.error === "string" && body.error.trim() ? body.error : fallback;
 
-async function send(path: string, payload: JourneyPayload): Promise<SubmissionResult> {
+/** Records an enquiry. The office replies; nothing is sent to anybody here. */
+export async function recordEnquiry(payload: EnquiryPayload): Promise<SubmissionResult> {
   let response: Response;
   try {
     // No credentials: this is the public surface and there is no session to
     // send. Anything that stops the request leaving — a lost signal, a
     // blocked origin — lands in the catch as one indistinguishable failure.
-    response = await fetch(`${BASE}${path}`, {
+    response = await fetch(`${BASE}/enquiries`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -158,17 +155,4 @@ async function send(path: string, payload: JourneyPayload): Promise<SubmissionRe
   }
 
   return { ok: false, reason: "failed", message: UNAVAILABLE };
-}
-
-/** Records an enquiry. The office replies; nothing is sent to anybody here. */
-export function recordEnquiry(payload: EnquiryPayload) {
-  return send("/enquiries", payload);
-}
-
-/**
- * Records a booking *request* — a date the visitor would like, not one they
- * have been given. It lands as a pending booking for the office to confirm.
- */
-export function requestBooking(payload: BookingPayload) {
-  return send("/bookings", payload);
 }
