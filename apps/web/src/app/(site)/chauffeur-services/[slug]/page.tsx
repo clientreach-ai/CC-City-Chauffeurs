@@ -123,6 +123,7 @@ export default async function ServicePage({
       actions={
         <>
           <GhostLink href={quoteHref}>Request a quote</GhostLink>
+          <QuietLink href={routes.bookFor(service.slug)}>Already have a date</QuietLink>
           <QuietLink href={routes.fleet}>See the fleet</QuietLink>
         </>
       }

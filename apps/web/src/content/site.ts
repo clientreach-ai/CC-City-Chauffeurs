@@ -63,6 +63,15 @@ export const routes = {
   quote: "/request-a-quote" as Route,
   /** The quote form with a service already chosen. */
   quoteFor: (service: string) => `/request-a-quote?service=${service}` as Route,
+  /*
+   * A booking *request*, for someone who already knows the date. It is not a
+   * reservation — there is no availability to check against and nothing is
+   * held until the office confirms it — so it is deliberately a separate
+   * route from the quote, which is where an unsettled date belongs.
+   */
+  book: "/book" as Route,
+  /** The booking form with a service already chosen. */
+  bookFor: (service: string) => `/book?service=${service}` as Route,
 } as const;
 
 export type NavItem = { label: string; href: Route; note?: string };
@@ -72,6 +81,7 @@ export const navLinks: readonly NavItem[] = [
   { label: "Fleet", href: routes.fleet },
   { label: "Gallery", href: routes.gallery },
   { label: "About", href: routes.about },
+  { label: "Book", href: routes.book },
   { label: "Contact", href: routes.contact },
 ];
 

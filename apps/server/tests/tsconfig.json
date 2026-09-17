@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "rootDir": "..",
+    "types": ["bun"],
+    "paths": {
+      "@/*": ["../src/*"]
+    }
+  },
+  "include": ["."],
+  "exclude": []
+}

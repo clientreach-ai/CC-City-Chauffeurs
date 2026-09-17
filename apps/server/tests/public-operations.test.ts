@@ -9,7 +9,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { setTestEnvironment, startDatabase, type TestDatabase } from "./harness";
+import { only, setTestEnvironment, startDatabase, type TestDatabase } from "./harness";
 
 setTestEnvironment();
 
@@ -76,12 +76,12 @@ describe("an enquiry from the website", () => {
     const { reference } = (await response.json()) as { reference: string };
     expect(reference).toMatch(/^ENQ-\d+$/);
 
-    const [record] = await rows(`select * from enquiry where reference = '${reference}'`);
+    const record = only(await rows(`select * from enquiry where reference = '${reference}'`));
     expect(record).toBeDefined();
     expect(record.status).toBe("new");
     expect(record.source).toBe("website");
 
-    const [customer] = await rows(`select * from customer where id = '${record.customer_id}'`);
+    const customer = only(await rows(`select * from customer where id = '${record.customer_id}'`));
     expect(customer.name).toBe("Eleanor Hart");
     expect(customer.email).toBe("eleanor.hart@example.com");
 
@@ -100,7 +100,7 @@ describe("an enquiry from the website", () => {
     const response = await post("/enquiries", enquiry({ vehicleId: "veh-cullinan" }));
     const { reference } = (await response.json()) as { reference: string };
 
-    const [record] = await rows(`select journey from enquiry where reference = '${reference}'`);
+    const record = only(await rows(`select journey from enquiry where reference = '${reference}'`));
     expect((record.journey as { vehicleId: string }).vehicleId).toBe("veh-cullinan");
   });
 
@@ -202,13 +202,13 @@ describe("a booking request from the website", () => {
     const { reference } = (await response.json()) as { reference: string };
     expect(reference).toMatch(/^BKG-\d+$/);
 
-    const [record] = await rows(`select * from booking where reference = '${reference}'`);
+    const record = only(await rows(`select * from booking where reference = '${reference}'`));
     expect(record.status).toBe("pending");
     expect(record.date).toBe("2027-02-14");
     expect(record.pickup).toBe("Heathrow Terminal 5");
     expect(record.destination).toBe("Mayfair");
 
-    const [customer] = await rows(`select * from customer where id = '${record.customer_id}'`);
+    const customer = only(await rows(`select * from customer where id = '${record.customer_id}'`));
     expect(customer.name).toBe("Eleanor Hart");
   });
 

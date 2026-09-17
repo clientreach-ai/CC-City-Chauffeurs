@@ -10,7 +10,7 @@
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 
-import { setTestEnvironment, startDatabase, type TestDatabase } from "./harness";
+import { only, setTestEnvironment, startDatabase, type TestDatabase } from "./harness";
 
 setTestEnvironment();
 
@@ -82,11 +82,13 @@ test("a won enquiry becomes a booking that keeps everything", async () => {
 
   // And it still knows where it came from, in both directions.
   expect(booking.enquiryId).toBe(enquiry.id);
-  const [updated] = (
-    await database.client.query<{ booking_id: string; status: string }>(
-      `select booking_id, status from enquiry where id = '${enquiry.id}'`,
-    )
-  ).rows;
+  const updated = only(
+    (
+      await database.client.query<{ booking_id: string; status: string }>(
+        `select booking_id, status from enquiry where id = '${enquiry.id}'`,
+      )
+    ).rows,
+  );
   expect(updated.booking_id).toBe(booking.id);
   expect(updated.status).toBe("won");
 });
