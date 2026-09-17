@@ -11,17 +11,18 @@
   },
   "dependencies": {
     "@CC-City-Chauffeurs/auth": "workspace:*",
+    "@CC-City-Chauffeurs/core": "workspace:*",
     "@CC-City-Chauffeurs/db": "workspace:*",
     "@CC-City-Chauffeurs/env": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.32",
-    "zod": "catalog:",
-    "@CC-City-Chauffeurs/core": "workspace:*",
-    "drizzle-orm": "^0.45.2"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@CC-City-Chauffeurs/config": "workspace:*",
+    "@electric-sql/pglite": "^0.5.8",
     "@types/bun": "catalog:",
     "tsdown": "^0.22.14",
     "typescript": "catalog:"
