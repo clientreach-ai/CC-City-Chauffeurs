@@ -10,7 +10,7 @@ import { StatusBadge, Tag } from "@/components/admin/ui/badge";
 import { Button } from "@/components/admin/ui/button";
 import { Dialog } from "@/components/admin/ui/dialog";
 import { ChoiceCards, Field, FieldRow, TextArea, TextInput } from "@/components/admin/ui/form";
-import { DefinitionList, ErrorState, LoadingBlock, PageBody, PageHeader, Panel, SampleDataNotice } from "@/components/admin/ui/page";
+import { DefinitionList, ErrorState, LoadingBlock, PageBody, PageHeader, Panel } from "@/components/admin/ui/page";
 import { notify } from "@/components/admin/ui/toast";
 import { GuardedLink, useLeaveGuard, useUnsavedChanges } from "@/components/admin/ui/unsaved";
 import { formatDate, formatRelative, formatShortDate } from "@CC-City-Chauffeurs/core";
@@ -65,7 +65,6 @@ export function CustomerDetail({ id }: { id: string }) {
           </Button>
         }
       />
-      <SampleDataNotice />
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[20rem_minmax(0,1fr)] xl:gap-12">
         <div className="flex flex-col gap-6">

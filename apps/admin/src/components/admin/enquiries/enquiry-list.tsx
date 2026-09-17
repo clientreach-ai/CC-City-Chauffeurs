@@ -9,7 +9,7 @@ import { usePreferences } from "@/components/admin/shell/preferences";
 import { adminRoutes } from "@/components/admin/shell/routes";
 import { StatusBadge } from "@/components/admin/ui/badge";
 import { ActionMenu, type MenuAction } from "@/components/admin/ui/menu";
-import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader, SampleDataNotice } from "@/components/admin/ui/page";
+import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader } from "@/components/admin/ui/page";
 import { DataTable, rowLinkClass, type Column } from "@/components/admin/ui/table";
 import { FilterSelect, ResultCount, SearchField, SegmentedFilter, Toolbar } from "@/components/admin/ui/toolbar";
 import { GuardedLink } from "@/components/admin/ui/unsaved";
@@ -24,7 +24,7 @@ import { changeStatus, LostDialog, QuoteDialog } from "./enquiry-actions";
 export function EnquiryList() {
   const router = useRouter();
   const { can } = usePreferences();
-  const { serviceLabel, services } = useLookups();
+  const { serviceLabel, services, vehicleName } = useLookups();
   const { data, loading, error, reload } = useCmsQuery("enquiries:list", getEnquiries);
   const [status, setStatus] = useState<EnquiryStatus | "all">("all");
   const [service, setService] = useState<string | "all">("all");
@@ -84,7 +84,12 @@ export function EnquiryList() {
       id: "service",
       header: "Service",
       sortValue: (enquiry) => serviceLabel(enquiry.journey.service),
-      cell: (enquiry) => <span className="text-white/80">{serviceLabel(enquiry.journey.service)}</span>,
+      cell: (enquiry) => (
+        <span className="text-white/80">
+          {serviceLabel(enquiry.journey.service)}
+          <span className="block text-[0.75rem] text-white/50">{vehicleName(enquiry.journey.vehicleId) || "No preference"}</span>
+        </span>
+      ),
     },
     {
       id: "journey",
@@ -132,7 +137,6 @@ export function EnquiryList() {
         title="Enquiries"
         description="Every enquiry from first message to won or lost — what needs a reply, what has been quoted, and why work was lost."
       />
-      <SampleDataNotice />
 
       <SegmentedFilter
         label="Status"

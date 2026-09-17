@@ -202,17 +202,6 @@ export function Notice({
   );
 }
 
-/** Shown on every operations screen: these records are not real. */
-export function SampleDataNotice() {
-  return (
-    <Notice title="Sample records">
-      The website does not store enquiries yet — its form hands them to WhatsApp or email. These customers,
-      enquiries and bookings are invented examples for reviewing the workflow. Status changes and notes are
-      kept in this browser; nothing is sent to anyone.
-    </Notice>
-  );
-}
-
 /** Label/value pairs in a hairline list — detail screens. */
 export function DefinitionList({ items, className }: { items: { label: string; value: ReactNode }[]; className?: string }) {
   return (

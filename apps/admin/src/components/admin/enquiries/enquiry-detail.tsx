@@ -9,7 +9,7 @@ import { adminRoutes } from "@/components/admin/shell/routes";
 import { StatusBadge } from "@/components/admin/ui/badge";
 import { Button, ButtonLink, IconButton } from "@/components/admin/ui/button";
 import { Field, TextArea } from "@/components/admin/ui/form";
-import { DefinitionList, ErrorState, LoadingBlock, Notice, PageBody, PageHeader, Panel, SampleDataNotice } from "@/components/admin/ui/page";
+import { DefinitionList, ErrorState, LoadingBlock, Notice, PageBody, PageHeader, Panel } from "@/components/admin/ui/page";
 import { notify } from "@/components/admin/ui/toast";
 import { GuardedLink, useUnsavedChanges } from "@/components/admin/ui/unsaved";
 import { formatAge, formatDate, formatDateTime, formatMoney, formatWhen } from "@CC-City-Chauffeurs/core";
@@ -158,7 +158,6 @@ export function EnquiryDetail({ id }: { id: string }) {
           </>
         }
       />
-      <SampleDataNotice />
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-12">
         <div className="order-2 flex min-w-0 flex-col gap-8 lg:order-1">
