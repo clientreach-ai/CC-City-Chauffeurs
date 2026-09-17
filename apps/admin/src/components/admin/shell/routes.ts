@@ -10,6 +10,7 @@ export const adminRoutes = {
   enquiries: "/enquiries" as Route,
   enquiry: (id: string) => `/enquiries/${id}` as Route,
   bookings: "/bookings" as Route,
+  bookingsCalendar: "/bookings/calendar" as Route,
   booking: (id: string) => `/bookings/${id}` as Route,
   customers: "/customers" as Route,
   customer: (id: string) => `/customers/${id}` as Route,

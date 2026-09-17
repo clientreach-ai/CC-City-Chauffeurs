@@ -62,6 +62,18 @@ export async function getBooking(id: string) {
   return api.get<Booking>(`/bookings/${id}`);
 }
 
+/**
+ * The other jobs that car is already down for that day.
+ *
+ * Not an availability check: a booking carries a date and a time and nothing
+ * that says when the car is free again, so this is something for the office
+ * to read rather than something the software can rule on. Empty when the
+ * booking has no vehicle yet.
+ */
+export async function getBookingClashes(id: string) {
+  return api.get<Booking[]>(`/bookings/${id}/clashes`);
+}
+
 export async function updateBookingStatus(id: string, status: BookingStatus) {
   return api.patch<Booking>(`/bookings/${id}/status`, { status });
 }
