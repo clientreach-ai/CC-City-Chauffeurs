@@ -1,14 +1,17 @@
-import { env } from "@CC-City-Chauffeurs/env/admin";
 import { createAuthClient } from "better-auth/react";
 
 /**
- * Sessions. The admin runs on its own origin, so every call carries the
- * cookie cross-site — which is why the API sets it with SameSite=None.
+ * Sessions.
+ *
+ * No base URL on purpose. better-auth then resolves its own — `/api/auth` on
+ * whatever origin the admin is being served from — and `next.config.ts`
+ * forwards that to the API. Naming the API here instead would put the session
+ * cookie on another origin, which is the one arrangement Safari refuses.
+ *
+ * Server-side there is no origin to resolve against, but nothing asks: the
+ * session store hands React a static snapshot while rendering and only starts
+ * fetching once it is subscribed to in the browser.
  */
-export const authClient = createAuthClient({
-  // better-auth derives its route matching from this URL's path, so the
-  // client's base must equal where the server mounts it: /api/auth.
-  baseURL: new URL("/api/auth", env.NEXT_PUBLIC_SERVER_URL).toString(),
-});
+export const authClient = createAuthClient();
 
 export const { signIn, signOut, useSession: useAuthSession } = authClient;
