@@ -24,4 +24,4 @@ CREATE SEQUENCE IF NOT EXISTS "booking_reference_seq" START WITH 2100 INCREMENT 
 -- writes them, because an index is only used when it matches to the letter.
 --
 CREATE INDEX "customer_email_lower_idx" ON "customer" (lower(trim("email")));--> statement-breakpoint
-CREATE INDEX "customer_phone_digits_idx" ON "customer" (regexp_replace("phone", '\D', '', 'g'));
+CREATE INDEX "customer_phone_digits_idx" ON "customer" (right(regexp_replace("phone", '\D', '', 'g'), 9));
