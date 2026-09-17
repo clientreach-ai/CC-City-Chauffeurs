@@ -102,7 +102,7 @@ function GalleryItemForm({
         <AdminImage image={form.image} alt={form.image.alt} sizes="640px" className="object-contain" />
       </div>
       <p className="-mt-3 text-[0.75rem] text-white/50">
-        {form.image.src.startsWith("data:") ? "Local preview — not uploaded." : `${form.image.width} × ${form.image.height} · site photography`}
+        {`${form.image.width} × ${form.image.height} · ${form.image.src.includes("/uploads/") ? "uploaded" : "site photography"}`}
       </p>
 
       <Field
@@ -286,7 +286,7 @@ function AddForm({ onClose, rows, vehicles }: { onClose: () => void; rows: Row[]
       >
         <Upload className="size-5 text-white/50" aria-hidden />
         <p className="text-[0.875rem] text-white">Drop the client’s photographs here</p>
-        <p className="text-[0.75rem] text-white/55">JPEG, PNG, WebP or AVIF · kept in this browser as reduced previews, not uploaded</p>
+        <p className="text-[0.75rem] text-white/55">JPEG, PNG, WebP or AVIF · uploaded as you add them, then added to the gallery as hidden</p>
         <div className="mt-2 flex flex-wrap justify-center gap-2">
           <input
             ref={fileRef}
