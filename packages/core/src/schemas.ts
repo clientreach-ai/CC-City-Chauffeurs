@@ -349,15 +349,13 @@ export const bookingNotesSchema = z.object({ notes: z.string() });
  * to is an enquiry lost.
  */
 
-const publicEmail = trimmed
-  .max(PUBLIC_FORM_LIMITS.email)
+const publicEmail = capped(PUBLIC_FORM_LIMITS.email, "email address")
   .default("")
   .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value), {
     message: "That email address does not look complete.",
   });
 
-const publicPhone = trimmed
-  .max(PUBLIC_FORM_LIMITS.phone)
+const publicPhone = capped(PUBLIC_FORM_LIMITS.phone, "telephone number")
   .default("")
   .refine((value) => !value || value.replace(/[^\d]/g, "").length >= 7, {
     message: "That number looks too short — include the area code.",
@@ -378,20 +376,40 @@ const submissionId = trimmed.max(64).default("");
  */
 const honeypot = trimmed.max(200).default("");
 
+/**
+ * A length a customer could exceed, with a message written for them.
+ *
+ * Left to itself the library says "Too big: expected string to have <=160
+ * characters", which is addressed to whoever wrote the form rather than to
+ * the person filling it in. These are the only validation messages a customer
+ * ever reads.
+ */
+function capped(limit: number, field: string) {
+  return trimmed.max(limit, `Please keep the ${field} under ${limit} characters.`);
+}
+
 /** What both public forms ask for: who is asking, and about what journey. */
 const publicJourney = {
-  name: trimmed.min(1).max(PUBLIC_FORM_LIMITS.name),
+  /**
+   * The messages are written out because these are the only validation
+   * messages a customer ever reads. Left to itself the library says "Too
+   * small: expected string to have >=1 characters", which is addressed to
+   * whoever wrote the form, not to the person filling it in.
+   */
+  name: trimmed
+    .min(1, "Tell us your name so we know who we are replying to.")
+    .max(PUBLIC_FORM_LIMITS.name, `Please keep the name under ${PUBLIC_FORM_LIMITS.name} characters.`),
   phone: publicPhone,
   email: publicEmail,
-  service: trimmed.max(PUBLIC_FORM_LIMITS.service).default(""),
+  service: capped(PUBLIC_FORM_LIMITS.service, "service").default(""),
   vehicleId: z.string().nullable().default(null),
-  pickup: trimmed.max(PUBLIC_FORM_LIMITS.pickup).default(""),
-  dropoff: trimmed.max(PUBLIC_FORM_LIMITS.dropoff).default(""),
-  time: trimmed.max(PUBLIC_FORM_LIMITS.time).default(""),
+  pickup: capped(PUBLIC_FORM_LIMITS.pickup, "pick-up address").default(""),
+  dropoff: capped(PUBLIC_FORM_LIMITS.dropoff, "destination").default(""),
+  time: capped(PUBLIC_FORM_LIMITS.time, "time").default(""),
   passengers: nullableInt.default(null),
-  luggage: trimmed.max(PUBLIC_FORM_LIMITS.luggage).default(""),
-  flight: trimmed.max(PUBLIC_FORM_LIMITS.flight).default(""),
-  message: trimmed.max(PUBLIC_FORM_LIMITS.message).default(""),
+  luggage: capped(PUBLIC_FORM_LIMITS.luggage, "luggage note").default(""),
+  flight: capped(PUBLIC_FORM_LIMITS.flight, "flight number").default(""),
+  message: capped(PUBLIC_FORM_LIMITS.message, "message").default(""),
   submissionId,
   website: honeypot,
 };
