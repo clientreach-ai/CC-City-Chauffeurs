@@ -20,7 +20,7 @@ import {
   type Note,
 } from "@CC-City-Chauffeurs/core";
 import { db, schema } from "@CC-City-Chauffeurs/db";
-import { asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
@@ -509,6 +509,40 @@ export async function getBookings(): Promise<Booking[]> {
     .select()
     .from(schema.booking)
     .orderBy(asc(schema.booking.date), asc(schema.booking.time));
+  const activity = await bookingActivity(rows.map((row) => row.id));
+  return rows.map((row) => toBooking(row, activity(row.id)));
+}
+
+/**
+ * The other jobs that car is already down for that day.
+ *
+ * Not an availability check, because this system has no idea how long a
+ * journey takes: a booking carries a date and a time and nothing that says
+ * when the car is free again. A Cullinan doing a wedding at eleven and an
+ * airport run at eight in the evening is an ordinary day, so a clash here is
+ * a thing to look at rather than a thing to refuse — the office knows which
+ * of the two it is and the software does not.
+ *
+ * Cancelled bookings are left out; they are history, not a commitment.
+ */
+export async function bookingClashes(id: string): Promise<Booking[]> {
+  const [booking] = await db.select().from(schema.booking).where(eq(schema.booking.id, id)).limit(1);
+  if (!booking) throw new CmsNotFoundError("This booking");
+  if (!booking.vehicleId) return [];
+
+  const rows = await db
+    .select()
+    .from(schema.booking)
+    .where(
+      and(
+        eq(schema.booking.vehicleId, booking.vehicleId),
+        eq(schema.booking.date, booking.date),
+        ne(schema.booking.id, booking.id),
+        ne(schema.booking.status, "cancelled"),
+      ),
+    )
+    .orderBy(asc(schema.booking.time));
+
   const activity = await bookingActivity(rows.map((row) => row.id));
   return rows.map((row) => toBooking(row, activity(row.id)));
 }

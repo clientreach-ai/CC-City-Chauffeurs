@@ -144,3 +144,66 @@ test("the office's own workflow is recorded as it happens", async () => {
   expect(trail).toContain("note");
   expect(trail).toContain("booking");
 });
+
+test("the same car twice in one day is shown, not refused", async () => {
+  const first = await wonEnquiry();
+  const morning = await operations.createBookingFromEnquiry(first.id);
+
+  // A second journey, same car, same day — an ordinary thing, and exactly
+  // what the office needs to see before it promises the car to anybody.
+  const second = await operations.createPublicEnquiry({
+    name: "Priya Shah",
+    phone: "07700 900222",
+    email: "priya.shah@example.com",
+    replyBy: "phone",
+    service: "airport-transfers",
+    vehicleId: "veh-ghost",
+    pickup: "Heathrow Terminal 5",
+    dropoff: "Mayfair",
+    date: "2027-06-19",
+    time: "20:00",
+    passengers: 2,
+    luggage: "",
+    flight: "BA178",
+    message: "",
+    submissionId: "",
+    website: "",
+  });
+  await operations.updateEnquiryStatus(second.id, "won");
+  const evening = await operations.createBookingFromEnquiry(second.id);
+
+  const clashes = await operations.bookingClashes(morning.id);
+  expect(clashes.map((booking) => booking.id)).toEqual([evening.id]);
+
+  // Cancelling one takes it out of the way.
+  await operations.updateBookingStatus(evening.id, "cancelled");
+  expect(await operations.bookingClashes(morning.id)).toHaveLength(0);
+});
+
+test("a different day, or no car chosen, is not a clash", async () => {
+  const enquiry = await wonEnquiry();
+  const booking = await operations.createBookingFromEnquiry(enquiry.id);
+
+  const elsewhere = await operations.createPublicEnquiry({
+    name: "Marcus Lee",
+    phone: "07700 900456",
+    email: "marcus.lee@example.com",
+    replyBy: "phone",
+    service: "weddings",
+    vehicleId: "veh-ghost",
+    pickup: "Claridge's",
+    dropoff: "Kew Gardens",
+    date: "2027-06-20",
+    time: "13:00",
+    passengers: 3,
+    luggage: "",
+    flight: "",
+    message: "",
+    submissionId: "",
+    website: "",
+  });
+  await operations.updateEnquiryStatus(elsewhere.id, "won");
+  await operations.createBookingFromEnquiry(elsewhere.id);
+
+  expect(await operations.bookingClashes(booking.id)).toHaveLength(0);
+});
