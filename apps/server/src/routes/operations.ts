@@ -54,6 +54,15 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
   // ------------------------------------------------------------ bookings
   .get("/bookings", requires("operations.view"), async (c) => c.json(await operations.getBookings()))
 
+  /**
+   * What else that car is down for that day. The screen asks before it offers
+   * to confirm, because the moment to notice a clash is before somebody is
+   * told the car is theirs.
+   */
+  .get("/bookings/:id/clashes", requires("operations.view"), async (c) =>
+    c.json(await operations.bookingClashes(c.req.param("id"))),
+  )
+
   .get("/bookings/:id", requires("operations.view"), async (c) =>
     c.json(await operations.getBooking(c.req.param("id"))),
   )

@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ExternalLink } from "lucide-react";
+import { CalendarDays, ExternalLink } from "lucide-react";
 import { useState } from "react";
 
 import { useLookups } from "@/components/admin/lookups";
 import { usePreferences } from "@/components/admin/shell/preferences";
 import { adminRoutes } from "@/components/admin/shell/routes";
 import { StatusBadge } from "@/components/admin/ui/badge";
+import { ButtonLink } from "@/components/admin/ui/button";
 import { ActionMenu, type MenuAction } from "@/components/admin/ui/menu";
 import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader } from "@/components/admin/ui/page";
 import { DataTable, rowLinkClass, type Column } from "@/components/admin/ui/table";
@@ -125,7 +126,13 @@ export function BookingList() {
       <PageHeader
         eyebrow="Operations"
         title="Bookings"
-        description="Agreed journeys, from pending to completed. A foundation only — there is no calendar, dispatch or chauffeur assignment yet."
+        description="Agreed journeys, from pending to completed. A foundation only — there is no dispatch or chauffeur assignment yet."
+        actions={
+          <ButtonLink href={adminRoutes.bookingsCalendar}>
+            <CalendarDays aria-hidden />
+            Calendar
+          </ButtonLink>
+        }
       />
 
       <SegmentedFilter
