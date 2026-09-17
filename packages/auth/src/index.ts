@@ -35,6 +35,23 @@ export function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
+      /**
+       * `none` is what a cross-origin admin needs, and it is why signing in
+       * never worked on an iPhone: a cookie from another origin is a
+       * third-party cookie, and Safari has refused those by default since
+       * 2020 — so the session was dropped the moment it was issued.
+       *
+       * The admin now reaches the API through its own origin (see its
+       * `next.config.ts`), which makes this cookie first-party, and `none` is
+       * accepted first-party — so nothing here had to change alongside it.
+       *
+       * Once that is live, this should become `lax`, and `secure`/`httpOnly`
+       * can go: better-auth derives both, and deriving `secure` rather than
+       * forcing it is what lets Safari keep the cookie on http://localhost in
+       * development. Do it in a later deploy, not the same one — the API
+       * ships on every push to master while the admin ships separately, so
+       * `lax` arriving first would lock out everyone rather than just iPhones.
+       */
       defaultCookieAttributes: {
         sameSite: "none",
         secure: true,
