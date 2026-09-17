@@ -11,7 +11,7 @@ import {
 
 import { PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core/validation";
 import { NO_VEHICLE_PREFERENCE, replyOptions } from "@/content/enquiry";
-import { recordEnquiry, requestBooking } from "@/lib/enquiries";
+import { recordEnquiry } from "@/lib/enquiries";
 
 /** The contact details the site is configured with, from the admin. */
 export type ContactDetails = {
@@ -30,7 +30,7 @@ export type ServiceOptionItem = { value: string; label: string };
 export type VehicleOption = { id: string; name: string };
 
 /*
- * The enquiry and booking-request form.
+ * The enquiry form.
  *
  * It records the request against the business's own inbox and shows the
  * visitor the reference it was given. Only then does it offer WhatsApp or
@@ -44,16 +44,18 @@ export type VehicleOption = { id: string; name: string };
  * API's own schema, so a field this form lets someone fill is never one the
  * API then refuses.
  *
- * Three variants, one set of fields:
+ * Two variants, one set of fields, and one thing made either way — an enquiry
+ * the office answers, and turns into a booking once the journey is agreed:
  *
- *   "short"   the homepage and contact bands — who you are and roughly what
- *   "full"    the quote page: everything a quote needs in one pass (PRD §10.1)
- *   "booking" the same, as a booking request — the date is required, because
- *             a booking is a row in the diary and the diary has a column for
- *             it. "Sometime in June" belongs in an enquiry.
+ *   "short"  the homepage and contact bands — who you are and roughly what
+ *   "full"   the request page: the whole journey in one pass (PRD §10.1)
+ *
+ * The date is optional in both. Somebody who has not settled on one is
+ * precisely who the request page is also for, and "sometime in June" is an
+ * answerable enquiry; agreeing a date is what the office does next.
  */
 
-type Variant = "short" | "full" | "booking";
+type Variant = "short" | "full";
 
 type FormState = {
   service: string;
@@ -78,8 +80,7 @@ type Errors = Partial<Record<FieldKey, string>>;
 
 const REQUIRED: Record<Variant, readonly FieldKey[]> = {
   short: ["name", "phone"],
-  full: ["service", "date", "pickup", "passengers", "name", "phone"],
-  booking: ["service", "date", "pickup", "passengers", "name", "phone"],
+  full: ["service", "pickup", "passengers", "name", "phone"],
 };
 
 /**
@@ -167,7 +168,7 @@ function validate(form: FormState, variant: Variant): Errors {
   const required = REQUIRED[variant];
   const missing = (key: FieldKey) => required.includes(key) && !String(form[key]).trim();
 
-  if (missing("name")) errors.name = "Tell us who we are quoting for.";
+  if (missing("name")) errors.name = "Tell us who we are replying to.";
 
   if (missing("phone")) {
     errors.phone = "Add a number so we can reply — WhatsApp is fine.";
@@ -179,10 +180,9 @@ function validate(form: FormState, variant: Variant): Errors {
     errors.email = "That email address does not look complete.";
   }
 
-  if (missing("date")) {
-    errors.date =
-      variant === "booking" ? "Choose the date of the journey." : "Choose the date of the booking.";
-  } else if (form.date && form.date < todayISO()) {
+  // The date is nobody's required field: it may not be settled yet. A date
+  // that has been settled and has already gone is still worth catching.
+  if (form.date && form.date < todayISO()) {
     errors.date = "That date has passed — choose today or later.";
   }
 
@@ -282,10 +282,8 @@ export function EnquiryForm({
   /** What the service dropdown offers, as configured in the admin. */
   services: ServiceOptionItem[];
 }) {
-  const booking = variant === "booking";
-  /** Both long variants share the three-group layout. */
-  const full = variant !== "short";
-  const noun = booking ? "booking" : "enquiry";
+  /** The request page's three-group layout; the short bands are one grid. */
+  const full = variant === "full";
   const uid = useId();
   const id = (key: string) => `${uid}-${key}`;
   const formRef = useRef<HTMLFormElement>(null);
@@ -382,15 +380,11 @@ export function EnquiryForm({
       `Name: ${form.name}`,
       `Phone: ${form.phone}`,
       form.email && `Email: ${form.email}`,
-      full && !booking && `Reply by: ${form.reply}`,
+      full && `Reply by: ${form.reply}`,
     ];
     const lines = (list: (string | false)[]) => list.filter(Boolean).join("\n");
     return [
-      booking
-        ? "Booking request — City Chauffeurs"
-        : full
-          ? "Quote request — City Chauffeurs"
-          : "Chauffeur enquiry — City Chauffeurs",
+      "Chauffeur enquiry — City Chauffeurs",
       // The reference is what lets the office match this message to the record
       // it already has, rather than treating it as a second request.
       reference && `Reference: ${reference}`,
@@ -401,14 +395,16 @@ export function EnquiryForm({
       .join("\n\n");
   };
 
-  const mailtoHref = (reference?: string) =>
-    `mailto:${contact.email}?subject=${encodeURIComponent(
-      booking
-        ? `Booking request ${reference || ""}`.trim()
-        : full
-          ? `Quote request — ${serviceLabel(form.service, services)}`
-          : "Chauffeur enquiry",
+  const mailtoHref = (reference?: string) => {
+    const subject = full
+      ? `Chauffeur enquiry — ${serviceLabel(form.service, services)}`
+      : "Chauffeur enquiry";
+    // The reference, where there is one, is what lets the office match this
+    // message to the record it already has rather than open a second.
+    return `mailto:${contact.email}?subject=${encodeURIComponent(
+      reference ? `${subject} (${reference})` : subject,
     )}&body=${encodeURIComponent(composeMessage(reference))}`;
+  };
 
   /** After the errors render, focus the first flagged field in on-screen
    *  order — not validation order, which differs between the variants. */
@@ -467,9 +463,7 @@ export function EnquiryForm({
     // own terms, and "Phone call" is the one that is not simply lowercased.
     const replyBy =
       form.reply === "Phone call" ? "phone" : form.reply === "Email" ? "email" : "whatsapp";
-    const result = booking
-      ? await requestBooking(journey)
-      : await recordEnquiry({ ...journey, replyBy });
+    const result = await recordEnquiry({ ...journey, replyBy });
 
     if (result.ok) {
       setSubmission({ state: "sent", reference: result.reference });
@@ -763,11 +757,7 @@ export function EnquiryForm({
             id={id("email")}
             label="Email"
             optional
-            hint={
-              booking
-                ? "If you would rather the office came back to you in writing."
-                : "For a written quotation."
-            }
+            hint="If you would rather the office came back to you in writing."
             error={errors.email}
             className="sm:col-span-2"
           >
@@ -782,31 +772,26 @@ export function EnquiryForm({
               className={fieldClass}
             />
           </Field>
-          {/* A booking request is answered by the office against the diary,
-              so there is no channel to choose — an enquiry is where that
-              preference belongs. */}
-          {booking ? null : (
-            <fieldset className="sm:col-span-2">
-              <legend className="label-xs text-white/70">Reply by</legend>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {replyOptions.map((option) => (
-                  <label key={option} className="cursor-pointer">
-                    <input
-                      type="radio"
-                      name={id("reply")}
-                      value={option}
-                      checked={form.reply === option}
-                      onChange={() => set("reply")(option)}
-                      className="peer sr-only"
-                    />
-                    <span className="label-xs inline-flex min-h-11 items-center rounded-[2px] border border-white/25 px-5 text-white/70 transition-colors duration-500 peer-checked:border-white peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-white hover:text-white">
-                      {option}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
+          <fieldset className="sm:col-span-2">
+            <legend className="label-xs text-white/70">Reply by</legend>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {replyOptions.map((option) => (
+                <label key={option} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    name={id("reply")}
+                    value={option}
+                    checked={form.reply === option}
+                    onChange={() => set("reply")(option)}
+                    className="peer sr-only"
+                  />
+                  <span className="label-xs inline-flex min-h-11 items-center rounded-[2px] border border-white/25 px-5 text-white/70 transition-colors duration-500 peer-checked:border-white peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-white hover:text-white">
+                    {option}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
       </Group>
     </div>
@@ -831,13 +816,13 @@ export function EnquiryForm({
         <p className="label-xs text-silver">Received</p>
         <h3 className="display-md mt-4 max-w-[22ch] text-white">
           {reference
-            ? `Request received. Your ${noun} reference is ${reference}.`
-            : "Request received."}
+            ? `Enquiry received. Your reference is ${reference}.`
+            : "Enquiry received."}
         </h3>
         <p className="copy mt-5 max-w-[54ch] text-white/70">
-          {booking
-            ? "This is a request, not a confirmed booking. The office will check the car and the chauffeur against your date and come back to you with what is available. Nothing is charged and nothing is held until they do."
-            : "It is with the office now and a person will answer it. Quote the reference if you call in the meantime."}
+          It is with the office now and a person will answer it with what is available.
+          Nothing is held and nothing is charged until you have agreed it. Quote the
+          reference if you call in the meantime.
         </p>
         <p className="copy mt-4 max-w-[54ch] text-white/70">
           We have it either way. If you would like it in front of us sooner, send the
@@ -879,7 +864,7 @@ export function EnquiryForm({
           </a>
           .{" "}
           <button type="button" onClick={startAnother} className="link-quiet text-white">
-            Send another {booking ? "booking request" : "enquiry"}
+            Send another enquiry
           </button>
         </p>
       </div>
@@ -899,9 +884,7 @@ export function EnquiryForm({
   return (
     <form ref={formRef} onSubmit={onSubmit} noValidate className="relative w-full">
       <p className="label-xs mb-8 normal-case tracking-normal text-white/55">
-        {booking
-          ? "Fields not marked optional are needed to hold a date."
-          : "Fields not marked optional are needed to quote."}
+        Fields not marked optional are the ones we need before we can reply.
       </p>
 
       <div role="alert" className={notice ? "mb-8 border-l border-white py-1 pl-4" : "sr-only"}>
@@ -936,7 +919,7 @@ export function EnquiryForm({
           aria-busy={sending}
           className="btn-ghost btn-on-dark disabled:cursor-wait disabled:opacity-60"
         >
-          {sending ? "Sending…" : booking ? "Send the booking request" : "Send the enquiry"}
+          {sending ? "Sending…" : "Send the enquiry"}
         </button>
         {submission.state === "failed" ? (
           <a
@@ -949,9 +932,10 @@ export function EnquiryForm({
       </div>
 
       <p className="label-xs mt-6 max-w-[60ch] normal-case tracking-normal text-white/55">
-        This records your {booking ? "booking request" : "enquiry"} with the office so it
-        is not left sitting in a chat window, and gives you a reference. You can send the
-        same details on WhatsApp afterwards if you would like. Handled in confidence.
+        This records your enquiry with the office so it is not left sitting in a chat
+        window, and gives you a reference. You can send the same details on WhatsApp
+        afterwards if you would like. Nothing is held and nothing is charged here.
+        Handled in confidence.
       </p>
     </form>
   );
