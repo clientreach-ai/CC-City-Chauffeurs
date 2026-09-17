@@ -15,6 +15,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { vehicle } from "./fleet";
@@ -27,6 +28,14 @@ import { vehicle } from "./fleet";
  * the parent: they are append-only, they are read in date order, and an
  * enquiry that has been worked for a month should not rewrite a growing JSON
  * blob every time someone adds a line to it.
+ *
+ * Two things live in the migrations and not here, because drizzle has no way
+ * to describe them: the `enquiry_reference_seq` and `booking_reference_seq`
+ * sequences that hand out references, and the functional indexes on
+ * `lower(trim(email))` and the digits of `phone` that make matching a
+ * returning customer a query rather than a table scan. Leaving them out of
+ * the schema is deliberate — a generated migration only drops what it has
+ * been told about.
  */
 
 const timestamps = {
@@ -91,12 +100,21 @@ export const enquiry = pgTable(
       recordedAt: string;
     } | null>(),
     bookingId: text("booking_id"),
+    /**
+     * The client's own id for the submission, when it sends one. A visitor who
+     * presses "Open WhatsApp again", loses signal mid-post or double-taps send
+     * would otherwise leave two identical records for the office to untangle;
+     * the unique index makes the second attempt return the first reference.
+     * Null for anything not created from the public form.
+     */
+    submissionId: text("submission_id"),
     ...timestamps,
   },
   (table) => [
     index("enquiry_status_idx").on(table.status),
     index("enquiry_created_idx").on(table.createdAt),
     index("enquiry_customer_idx").on(table.customerId),
+    uniqueIndex("enquiry_submission_idx").on(table.submissionId),
   ],
 );
 
@@ -123,12 +141,21 @@ export const booking = pgTable(
     passengers: integer("passengers"),
     notes: text("notes").default("").notNull(),
     status: text("status").$type<BookingStatus>().default("pending").notNull(),
+    /**
+     * The client's own id for the submission, when it sends one. A visitor who
+     * presses "Open WhatsApp again", loses signal mid-post or double-taps send
+     * would otherwise leave two identical records for the office to untangle;
+     * the unique index makes the second attempt return the first reference.
+     * Null for anything not created from the public form.
+     */
+    submissionId: text("submission_id"),
     ...timestamps,
   },
   (table) => [
     index("booking_status_idx").on(table.status),
     index("booking_date_idx").on(table.date),
     index("booking_customer_idx").on(table.customerId),
+    uniqueIndex("booking_submission_idx").on(table.submissionId),
   ],
 );
 
