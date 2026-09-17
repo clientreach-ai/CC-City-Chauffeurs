@@ -8,12 +8,12 @@ import { adminRoutes } from "@/components/admin/shell/routes";
 import { StatusBadge } from "@/components/admin/ui/badge";
 import { Button } from "@/components/admin/ui/button";
 import { Field, TextArea } from "@/components/admin/ui/form";
-import { DefinitionList, ErrorState, LoadingBlock, PageBody, PageHeader, Panel } from "@/components/admin/ui/page";
+import { DefinitionList, ErrorState, LoadingBlock, Notice, PageBody, PageHeader, Panel } from "@/components/admin/ui/page";
 import { notify } from "@/components/admin/ui/toast";
 import { GuardedLink, useUnsavedChanges } from "@/components/admin/ui/unsaved";
 import { formatDate, formatDateTime } from "@CC-City-Chauffeurs/core";
 import { errorMessage, useCmsQuery } from "@/lib/query";
-import { getBooking, getCustomer, getEnquiry, updateBookingNotes } from "@/lib/api/operations";
+import { getBooking, getBookingClashes, getCustomer, getEnquiry, updateBookingNotes } from "@/lib/api/operations";
 import { bookingStatuses } from "@CC-City-Chauffeurs/core";
 import { CmsNotFoundError } from "@CC-City-Chauffeurs/core";
 
@@ -21,18 +21,20 @@ import { transitions, useBookingStatus } from "./booking-status";
 
 export function BookingDetail({ id }: { id: string }) {
   const { can } = usePreferences();
-  const { serviceLabel, vehicleName } = useLookups();
+  const { serviceLabel, vehicleName, vehicles } = useLookups();
   const changeStatus = useBookingStatus();
   const { data, loading, error, reload } = useCmsQuery(`booking:${id}`, async () => {
     const booking = await getBooking(id);
     // The booking carries only the enquiry's id, so the enquiry itself is
     // what the reference has to come from. A missing one must not take the
-    // whole screen down: the booking still reads without it.
-    const [customer, enquiry] = await Promise.all([
+    // whole screen down: the booking still reads without it, and the same
+    // goes for the day's other jobs — they are context, not the record.
+    const [customer, enquiry, clashes] = await Promise.all([
       booking.customerId ? getCustomer(booking.customerId).then((result) => result.customer) : null,
       booking.enquiryId ? getEnquiry(booking.enquiryId).catch(() => null) : null,
+      getBookingClashes(id).catch(() => []),
     ]);
-    return { booking, customer, enquiry };
+    return { booking, customer, enquiry, clashes };
   });
   const [notes, setNotes] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -57,9 +59,15 @@ export function BookingDetail({ id }: { id: string }) {
     );
   }
 
-  const { booking, customer, enquiry } = data;
+  const { booking, customer, enquiry, clashes } = data;
   const canEdit = can("operations.edit");
   const steps = transitions[booking.status];
+  // Nothing to weigh up on a job that is over or called off, so the day's
+  // other work is only worth raising while this one is still open.
+  const open = booking.status !== "completed" && booking.status !== "cancelled";
+  // Named only when the vehicle is still on the fleet; `vehicleName` answers
+  // "no longer listed" for a deleted one, which is no way to open a sentence.
+  const car = vehicles.find((vehicle) => vehicle.id === booking.vehicleId)?.name;
 
   const saveNotes = async () => {
     if (notes === null) return;
@@ -89,6 +97,30 @@ export function BookingDetail({ id }: { id: string }) {
           </>
         }
       />
+
+      {open && clashes.length ? (
+        <Notice
+          tone="warning"
+          title={clashes.length === 1 ? "This car is down for another job that day" : `This car is down for ${clashes.length} other jobs that day`}
+        >
+          <p>
+            {car ?? "The same car"} is also carrying the journeys below on {formatDate(booking.date)}. That is often an ordinary day — a
+            wedding at eleven and an airport run at eight are no trouble at all. A booking here carries a date and a
+            time and nothing that says when the car is free again, so this one is yours to judge, not the system’s.
+          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {clashes.map((clash) => (
+              <li key={clash.id} className="flex flex-wrap items-baseline gap-x-2">
+                {clash.time ? <span className="text-white/60 tabular-nums">{clash.time}</span> : null}
+                <GuardedLink href={adminRoutes.booking(clash.id)} className="text-white underline-offset-4 hover:underline">
+                  {clash.reference}
+                </GuardedLink>
+                <span className="text-white/60">— {clash.pickup}</span>
+              </li>
+            ))}
+          </ul>
+        </Notice>
+      ) : null}
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-12">
         <div className="order-2 flex min-w-0 flex-col gap-8 lg:order-1">
