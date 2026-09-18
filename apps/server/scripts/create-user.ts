@@ -22,6 +22,9 @@ import { roles, type Role } from "@CC-City-Chauffeurs/core";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
+/** What better-auth writes on the account row behind an email and password. */
+const CREDENTIAL_ISSUER = "local:credential";
+
 const [email, password, name, role = "admin"] = process.argv.slice(2);
 
 if (!email || !password || !name) {
@@ -72,7 +75,7 @@ if (existing) {
       id: randomUUID(),
       accountId: existing.id,
       providerId: "credential",
-      issuer: "credential",
+      issuer: CREDENTIAL_ISSUER,
       userId: existing.id,
       password: hash,
       createdAt: now,
@@ -98,14 +101,17 @@ await db.insert(schema.user).values({
 
 /**
  * better-auth looks an email/password sign-in up by `providerId: "credential"`
- * with `accountId` set to the user's own id. Anything else stores a row it
- * will never find.
+ * with `accountId` set to the user's own id, and it qualifies that lookup by
+ * `issuer`, which for a local password is "local:credential" and not
+ * "credential". An account written with anything else is a row it will never
+ * find: the sign-in answers "Invalid email or password" for a password that
+ * is perfectly correct.
  */
 await db.insert(schema.account).values({
   id: randomUUID(),
   accountId: id,
   providerId: "credential",
-  issuer: "credential",
+  issuer: CREDENTIAL_ISSUER,
   userId: id,
   password: hash,
   createdAt: now,
