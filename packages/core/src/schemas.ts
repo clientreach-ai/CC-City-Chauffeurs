@@ -422,6 +422,48 @@ export const publicEnquirySchema = z.object({
   date: calendarDate.default(""),
 });
 
+/**
+ * A booking the office takes itself — the telephone rings, the journey is
+ * agreed, and it goes in the diary there and then.
+ *
+ * There is no enquiry behind it and there does not need to be: an enquiry is
+ * a question somebody asked, and this call did not end in a question. The
+ * customer is matched on what is typed here, or created if they are new, so
+ * taking a booking by telephone cannot quietly make a second copy of a
+ * customer the business already has.
+ *
+ * Only the date is required. A booking is a row in the diary and the diary
+ * has a column for it; everything else is what the caller happened to say,
+ * and an office writing down a job while somebody talks should never be
+ * stopped for a field it can fill in afterwards.
+ */
+export const bookingInputSchema = z.object({
+  name: trimmed
+    .min(1, "Whose booking is it? A name is enough.")
+    .max(PUBLIC_FORM_LIMITS.name, `Please keep the name under ${PUBLIC_FORM_LIMITS.name} characters.`),
+  phone: publicPhone,
+  email: publicEmail,
+  service: capped(PUBLIC_FORM_LIMITS.service, "service").default(""),
+  vehicleId: z.string().nullable().default(null),
+  date: z
+    .string({ error: "Choose the date of the journey." })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date of the journey."),
+  time: capped(PUBLIC_FORM_LIMITS.time, "time").default(""),
+  pickup: capped(PUBLIC_FORM_LIMITS.pickup, "pick-up address").default(""),
+  dropoff: capped(PUBLIC_FORM_LIMITS.dropoff, "destination").default(""),
+  passengers: nullableInt.default(null),
+  notes: capped(PUBLIC_FORM_LIMITS.message, "notes").default(""),
+  /**
+   * Pending unless the office says otherwise. A job agreed on the telephone
+   * is often confirmed the moment it is written down, and making somebody
+   * save it and then change it would be a step that exists for the software's
+   * sake.
+   */
+  status: z.enum(["pending", "confirmed"]).default("pending"),
+});
+
+export type BookingInput = z.infer<typeof bookingInputSchema>;
+
 // ---------------------------------------------------------------- shared
 
 export const reorderSchema = z.object({ ids: z.array(z.string()) });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { CalendarDays, ExternalLink } from "lucide-react";
+import { CalendarDays, ExternalLink, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { useLookups } from "@/components/admin/lookups";
@@ -128,10 +128,16 @@ export function BookingList() {
         title="Bookings"
         description="Agreed journeys, from pending to completed. A foundation only — there is no dispatch or chauffeur assignment yet."
         actions={
-          <ButtonLink href={adminRoutes.bookingsCalendar}>
-            <CalendarDays aria-hidden />
-            Calendar
-          </ButtonLink>
+          <>
+            <ButtonLink href={adminRoutes.bookingsCalendar}>
+              <CalendarDays aria-hidden />
+              Calendar
+            </ButtonLink>
+            <ButtonLink href={adminRoutes.newBooking} variant="primary">
+              <Plus aria-hidden />
+              New booking
+            </ButtonLink>
+          </>
         }
       />
 
