@@ -14,6 +14,7 @@ import type {
   VehiclePricing,
   VehicleSpecs,
 } from "@CC-City-Chauffeurs/core";
+import type { BookingInput } from "@CC-City-Chauffeurs/core/schemas";
 
 import { api } from "./client";
 
@@ -72,6 +73,28 @@ export async function getBooking(id: string) {
  */
 export async function getBookingClashes(id: string) {
   return api.get<Booking[]>(`/bookings/${id}/clashes`);
+}
+
+/**
+ * The same question, asked before there is a booking to ask it about.
+ *
+ * The office needs the answer while the caller is still on the telephone, so
+ * this takes the vehicle and the day straight from the form rather than an
+ * id. Empty when either is still blank.
+ */
+export async function getBookingClashesFor(vehicleId: string | null, date: string, exclude?: string) {
+  const query = new URLSearchParams({ vehicleId: vehicleId ?? "", date });
+  if (exclude) query.set("exclude", exclude);
+  return api.get<Booking[]>(`/bookings/clashes?${query.toString()}`);
+}
+
+/**
+ * A booking the office took itself. There is no enquiry behind it and there
+ * need not be: the journey was agreed on the telephone. The server matches
+ * the customer on the address or the number before it creates one.
+ */
+export async function createBooking(input: BookingInput) {
+  return api.post<Booking>("/bookings", input);
 }
 
 export async function updateBookingStatus(id: string, status: BookingStatus) {

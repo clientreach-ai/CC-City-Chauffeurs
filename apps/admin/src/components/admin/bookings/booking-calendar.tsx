@@ -72,8 +72,16 @@ function BookingEntry({ booking, subject, compact = false }: { booking: Booking;
             tighter, so that "In progress" still fits a seventh of a week. */}
         <StatusBadge kind="booking" value={booking.status} className={compact ? "h-5 px-1.5 text-[0.5625rem] tracking-[0.09em]" : undefined} />
       </span>
-      <span className="mt-0.5 block truncate text-[0.75rem] text-white/60">
-        {booking.reference} · {subject}
+      {/* The subject leads and the reference follows it. A cell is narrow
+          enough to clip this line, and what gets clipped should be the part
+          that can be recovered from the screen it links to — which car is out
+          is the whole reason to look at a calendar, and "BKG-2106 · Rolls-Royc…"
+          answers nothing when three of them are Rolls-Royces. */}
+      <span
+        className="mt-0.5 block truncate text-[0.75rem] text-white/60"
+        title={`${subject} · ${booking.reference}`}
+      >
+        {subject} · {booking.reference}
       </span>
       {compact ? null : <span className="mt-0.5 block text-[0.75rem] text-white/50">{booking.pickup}</span>}
     </GuardedLink>
@@ -171,7 +179,7 @@ export function BookingCalendar() {
         <LoadingRows label="Loading bookings" />
       ) : (
         <>
-          <div className="mt-5 hidden md:block">
+          <div className="mt-5 hidden xl:block">
             <div aria-hidden className="grid grid-cols-7">
               {weekdays.map((day) => (
                 <p key={day} className="label-xs px-2 pb-2 text-white/45">
@@ -231,7 +239,7 @@ export function BookingCalendar() {
 
           {/* The phone gets the same month as an agenda: only the days with
               work on them, in order, at a width a place name fits in. */}
-          <div className="mt-5 md:hidden">
+          <div className="mt-5 xl:hidden">
             {days.length ? (
               <ol className="border-t border-hairline">
                 {days.map(([date, list]) => (
