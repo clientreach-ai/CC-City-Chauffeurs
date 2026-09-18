@@ -97,6 +97,22 @@ export async function createBooking(input: BookingInput) {
   return api.post<Booking>("/bookings", input);
 }
 
+/**
+ * Who a booking would be attached to, asked before it is saved.
+ *
+ * The server matches a caller against the customers the business already has
+ * — on the email address or on the telephone number — so that a regular keeps
+ * one history instead of twelve. The screen asks the same question first so
+ * the office is told whose record the booking is about to join, rather than
+ * watching a name it has just typed turn into somebody else's afterwards.
+ *
+ * Null when nothing matches, and null when both are still blank.
+ */
+export async function getCustomerMatch(phone: string, email: string) {
+  const query = new URLSearchParams({ phone, email });
+  return api.get<Customer | null>(`/customers/match?${query.toString()}`);
+}
+
 export async function updateBookingStatus(id: string, status: BookingStatus) {
   return api.patch<Booking>(`/bookings/${id}/status`, { status });
 }
