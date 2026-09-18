@@ -1,4 +1,5 @@
 import {
+  bookingInputSchema,
   bookingNotesSchema,
   bookingStatusUpdateSchema,
   customerInputSchema,
@@ -53,6 +54,33 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
 
   // ------------------------------------------------------------ bookings
   .get("/bookings", requires("operations.view"), async (c) => c.json(await operations.getBookings()))
+
+  /**
+   * A booking taken by the office — the telephone rang and the journey was
+   * agreed, so there is no enquiry to convert.
+   */
+  .post("/bookings", requires("operations.edit"), async (c) => {
+    const input = bookingInputSchema.parse(await c.req.json());
+    return c.json(await operations.createBooking(input), 201);
+  })
+
+  /**
+   * What else that car is down for, asked before the booking exists. The
+   * screen that takes a booking needs the answer while somebody is still on
+   * the telephone, not after it is saved.
+   *
+   * Declared above `/bookings/:id` so the word is read as itself rather than
+   * as an id.
+   */
+  .get("/bookings/clashes", requires("operations.view"), async (c) =>
+    c.json(
+      await operations.clashesFor(
+        c.req.query("vehicleId") ?? null,
+        c.req.query("date") ?? "",
+        c.req.query("exclude") ?? null,
+      ),
+    ),
+  )
 
   /**
    * What else that car is down for that day. The screen asks before it offers

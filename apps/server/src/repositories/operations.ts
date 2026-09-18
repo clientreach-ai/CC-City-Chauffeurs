@@ -24,7 +24,7 @@ import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
-import type { PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
+import type { BookingInput, PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
 
 /**
  * Operations — enquiries, the bookings they become, and the customers behind
@@ -407,7 +407,7 @@ async function findCustomerId(tx: Tx, email: string, phone: string) {
  * telephone number gets no customer record at all: there would be nothing to
  * match it to next time, and a wall of nameless duplicates helps nobody.
  */
-async function customerFor(tx: Tx, input: PublicEnquiryInput) {
+async function customerFor(tx: Tx, input: { name: string; phone: string; email: string }) {
   const email = input.email.trim().toLowerCase();
   const phone = input.phone.replace(/\D/g, "");
   if (!email && !phone) return null;
@@ -525,26 +525,92 @@ export async function getBookings(): Promise<Booking[]> {
  *
  * Cancelled bookings are left out; they are history, not a commitment.
  */
-export async function bookingClashes(id: string): Promise<Booking[]> {
-  const [booking] = await db.select().from(schema.booking).where(eq(schema.booking.id, id)).limit(1);
-  if (!booking) throw new CmsNotFoundError("This booking");
-  if (!booking.vehicleId) return [];
+/**
+ * A booking the office takes itself, with no enquiry behind it.
+ *
+ * The telephone rings and the journey is agreed in the same breath, so there
+ * is nothing to convert — an enquiry would be a record of a question nobody
+ * asked. What matters is that the customer is the same person the business
+ * already knows: `customerFor` matches on the address or the number before it
+ * creates anybody, so a regular who rings every month does not accumulate a
+ * customer record per journey.
+ *
+ * Whether the car is already out that day is deliberately not checked here.
+ * The office can see it on the screen before it saves, and only the office
+ * knows whether two journeys in one day is a clash or a Tuesday.
+ */
+export async function createBooking(input: BookingInput): Promise<Booking> {
+  /**
+   * The route parses the same rule before this is reached, but the rules of
+   * the diary live here rather than at the edge — `createBookingFromEnquiry`
+   * refuses a dateless booking too, and a booking with no day against it is
+   * not a booking whichever door it came through.
+   */
+  if (!input.date) {
+    assertValid({ date: "Choose the date of the journey." });
+  }
+
+  const id = newId("bkg");
+
+  await db.transaction(async (tx) => {
+    const customerId = await customerFor(tx, input);
+    const reference = await nextReference(tx, "BKG");
+
+    await tx.insert(schema.booking).values({
+      id,
+      reference,
+      customerId,
+      enquiryId: null,
+      service: input.service,
+      vehicleId: input.vehicleId,
+      date: input.date,
+      time: input.time,
+      pickup: input.pickup,
+      destination: input.dropoff,
+      passengers: input.passengers,
+      notes: input.notes,
+      status: input.status,
+    });
+
+    await log(
+      tx,
+      { bookingId: id },
+      "created",
+      `Booking ${reference} taken by the office — ${labelFor(bookingStatuses, input.status)}`,
+    );
+  });
+
+  return getBooking(id);
+}
+
+export async function clashesFor(
+  vehicleId: string | null,
+  date: string,
+  exclude: string | null = null,
+): Promise<Booking[]> {
+  if (!vehicleId || !date) return [];
 
   const rows = await db
     .select()
     .from(schema.booking)
     .where(
       and(
-        eq(schema.booking.vehicleId, booking.vehicleId),
-        eq(schema.booking.date, booking.date),
-        ne(schema.booking.id, booking.id),
+        eq(schema.booking.vehicleId, vehicleId),
+        eq(schema.booking.date, date),
         ne(schema.booking.status, "cancelled"),
+        ...(exclude ? [ne(schema.booking.id, exclude)] : []),
       ),
     )
     .orderBy(asc(schema.booking.time));
 
   const activity = await bookingActivity(rows.map((row) => row.id));
   return rows.map((row) => toBooking(row, activity(row.id)));
+}
+
+export async function bookingClashes(id: string): Promise<Booking[]> {
+  const [booking] = await db.select().from(schema.booking).where(eq(schema.booking.id, id)).limit(1);
+  if (!booking) throw new CmsNotFoundError("This booking");
+  return clashesFor(booking.vehicleId, booking.date, booking.id);
 }
 
 export async function getBooking(id: string): Promise<Booking> {
