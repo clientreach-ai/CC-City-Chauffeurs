@@ -106,6 +106,14 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
   })
 
   // ------------------------------------------------------------ customers
+  /**
+   * Who a name and number would be attached to, before anything is saved.
+   * Declared above `/customers/:id` so the word is read as itself.
+   */
+  .get("/customers/match", requires("operations.view"), async (c) =>
+    c.json(await operations.customerMatch(c.req.query("phone") ?? "", c.req.query("email") ?? "")),
+  )
+
   .get("/customers", requires("operations.view"), async (c) =>
     c.json(await operations.getCustomers()),
   )
