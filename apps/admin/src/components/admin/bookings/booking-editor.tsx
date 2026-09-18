@@ -24,7 +24,7 @@ import { LoadingBlock, Notice, PageBody, PageHeader, Panel } from "@/components/
 import { notify } from "@/components/admin/ui/toast";
 import { GuardedLink, useUnsavedChanges } from "@/components/admin/ui/unsaved";
 import { errorMessage } from "@/lib/query";
-import { createBooking, getBookingClashesFor } from "@/lib/api/operations";
+import { createBooking, getBookingClashesFor, getCustomerMatch } from "@/lib/api/operations";
 import {
   bookingStatuses,
   CmsValidationError,
@@ -33,6 +33,7 @@ import {
   hasErrors,
   PUBLIC_FORM_LIMITS,
   type Booking,
+  type Customer,
   type FieldErrors,
 } from "@CC-City-Chauffeurs/core";
 import type { BookingInput } from "@CC-City-Chauffeurs/core/schemas";
@@ -75,6 +76,10 @@ const STATUSES = (["pending", "confirmed"] as const).map((value) => {
 });
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Digits only — the shape the matching on the server compares. */
+const digitsOf = (phone: string) => phone.replace(/\D/g, "");
 
 function emptyBooking(): BookingInput {
   return {
@@ -108,11 +113,11 @@ function validateBooking(form: BookingInput): FieldErrors {
   }
   if (!ISO_DATE.test(form.date)) errors.date = "Choose the date of the journey.";
   const phone = form.phone.trim();
-  if (phone && phone.replace(/\D/g, "").length < 7) {
+  if (phone && digitsOf(phone).length < 7) {
     errors.phone = "That number looks too short — include the area code.";
   }
   const email = form.email.trim();
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+  if (email && !EMAIL.test(email)) {
     errors.email = "That email address does not look complete.";
   }
   return errors;
@@ -130,6 +135,7 @@ export function BookingEditor() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [clashes, setClashes] = useState<Booking[]>([]);
+  const [match, setMatch] = useState<Customer | null>(null);
 
   const dirty = !saved && JSON.stringify(form) !== JSON.stringify(emptyBooking());
   useUnsavedChanges(dirty);
@@ -146,6 +152,14 @@ export function BookingEditor() {
       setClashes([]);
       return;
     }
+    /**
+     * Cleared the moment the number changes, not when the answer comes back.
+     * The round trip takes a second or two, and for that second the old
+     * answer is a statement about a number nobody has typed — long enough to
+     * correct a digit and save while the screen still names the wrong person.
+     */
+    setMatch(null);
+
     let live = true;
     const timer = setTimeout(() => {
       getBookingClashesFor(vehicleId, date)
@@ -161,6 +175,40 @@ export function BookingEditor() {
       clearTimeout(timer);
     };
   }, [vehicleId, date]);
+
+  /**
+   * Whose record this booking would join, asked the same way and for the same
+   * reason. The server matches the caller on the address or the number and
+   * files the booking under whoever it finds, so the office is told that here
+   * — while the number can still be corrected — rather than after the event,
+   * when a name it typed has already been replaced by the one on file.
+   *
+   * Only asked once there is enough to match on, and never allowed to fail
+   * loudly: a lookup that does not answer must not stop a booking being taken.
+   */
+  const { phone, email } = form;
+  useEffect(() => {
+    const number = phone.trim();
+    const address = email.trim();
+    if (digitsOf(number).length < 7 && !EMAIL.test(address)) {
+      setMatch(null);
+      return;
+    }
+    let live = true;
+    const timer = setTimeout(() => {
+      getCustomerMatch(number, address)
+        .then((found) => {
+          if (live) setMatch(found);
+        })
+        .catch(() => {
+          if (live) setMatch(null);
+        });
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [phone, email]);
 
   const canEdit = can("operations.edit");
 
@@ -235,6 +283,9 @@ export function BookingEditor() {
   // Named only while the vehicle is one this office recognises — the picker
   // only ever offers those, but the notice reads as a sentence either way.
   const car = vehicles.find((vehicle) => vehicle.id === form.vehicleId)?.name;
+
+  // What the business already holds for the person this would be filed under.
+  const onFile = match ? [match.phone, match.email].filter(Boolean).join(" · ") : "";
 
   return (
     <PageBody className="pb-32 lg:pb-24">
@@ -317,6 +368,37 @@ export function BookingEditor() {
                   )}
                 </Field>
               </FieldRow>
+
+              {/* Announced, because it arrives on its own a second after the
+                  typing stops, below the field being typed in — a screen
+                  reader would otherwise never mention the one thing this
+                  section exists to say. */}
+              <div role="status" aria-live="polite">
+                {match ? (
+                <Notice title={`This booking will be filed under ${match.name}`}>
+                  <p>
+                    That telephone number or email address is already on file, so the booking joins their history rather
+                    than starting a second copy of them — and the name on file stays theirs, whatever is typed above. If
+                    this is somebody else, change the number or the email, or look at their record first.
+                  </p>
+                  <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
+                    {/* A new tab: this one is half-filled with a booking, and
+                        the unsaved-changes guard would otherwise offer to
+                        discard it in order to follow the advice above. */}
+                    <a
+                      href={adminRoutes.customer(match.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white underline underline-offset-4 decoration-white/40 hover:decoration-white"
+                    >
+                      {match.name}
+                    </a>
+                    {match.company ? <span className="text-white/60">{match.company}</span> : null}
+                    {onFile ? <span className="text-white/60">— {onFile}</span> : null}
+                  </p>
+                </Notice>
+                ) : null}
+              </div>
             </FormSection>
 
             <FormSection
