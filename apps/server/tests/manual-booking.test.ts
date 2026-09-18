@@ -222,3 +222,46 @@ describe("the clash preview, before the booking exists", () => {
     expect(await operations.clashesFor("veh-cullinan", "2027-05-08", first.id)).toHaveLength(0);
   });
 });
+
+describe("who the booking is attached to", () => {
+  test("does not mistake one number for another that merely ends the same way", async () => {
+    // The fault this replaced: +441123123123, 07123123123 and a bare
+    // 123123123 all end in the same nine digits. Matching on nine made them
+    // one person, and the office watched the name it had just typed turn
+    // into a stranger's.
+    await operations.createBooking(taken({ name: "John Will", phone: "+441123123123", email: "" }) as never);
+
+    for (const typed of ["123123123", "0123123123", "+44123123123", "07123123123"]) {
+      expect(await operations.customerMatch(typed, "")).toBeNull();
+    }
+
+    const booking = await operations.createBooking(
+      taken({ name: "Sarah Jones", phone: "07123123123", email: "", date: "2027-09-01" }) as never,
+    );
+    const customer = only(
+      await rows(`select name from customer where id = '${booking.customerId}'`),
+    );
+    expect(customer.name).toBe("Sarah Jones");
+    expect(await rows("select id from customer")).toHaveLength(2);
+  });
+
+  test("still knows one telephone written two ways", async () => {
+    await operations.createBooking(taken({ phone: "07700 900321", email: "" }) as never);
+
+    const match = await operations.customerMatch("+44 7700 900321", "");
+    expect(match?.name).toBe("Amelia Hughes");
+
+    await operations.createBooking(
+      taken({ name: "A. Hughes", phone: "+44 7700 900321", email: "", date: "2027-09-02" }) as never,
+    );
+    expect(await rows("select id from customer")).toHaveLength(1);
+  });
+
+  test("says who it found before anything is saved, and nothing when it finds nobody", async () => {
+    await operations.createBooking(taken() as never);
+
+    expect((await operations.customerMatch("", "amelia.hughes@example.com"))?.name).toBe("Amelia Hughes");
+    expect(await operations.customerMatch("07700 111222", "")).toBeNull();
+    expect(await operations.customerMatch("", "")).toBeNull();
+  });
+});

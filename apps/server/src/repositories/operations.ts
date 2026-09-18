@@ -383,17 +383,21 @@ async function findCustomerId(tx: Tx, email: string, phone: string) {
       .select({ id: schema.customer.id })
       .from(schema.customer)
       /**
-       * The last nine digits, not all of them: the same person writes
-       * 07700 900123 on one form and +44 7700 900123 on the next, and that is
-       * one telephone. Nine is what is left of a United Kingdom number once a
-       * trunk zero or a country code is off the front — enough to be the same
-       * line, long enough not to be somebody else's.
+       * The last ten digits — the national number itself. The same person
+       * writes 07700 900123 on one form and +44 7700 900123 on the next, and
+       * both end in 7700900123, which is the pair this matching exists to
+       * see.
+       *
+       * It was nine, and nine was too few: +441123123123, 07123123123 and a
+       * bare 123123123 all end in the same nine digits, so three unrelated
+       * people matched one another and whoever was taking a booking watched
+       * the name they had just typed turn into a stranger's.
        *
        * '\\D' and not '\D': the template literal is JavaScript first, and
        * Postgres has to receive the backslash for the class to mean anything.
        */
       .where(
-        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 9) = ${phone.slice(-9)}`,
+        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${phone.slice(-10)}`,
       )
       .limit(1);
     if (match) return match.id;
@@ -595,6 +599,30 @@ export async function createBooking(input: BookingInput): Promise<Booking> {
   });
 
   return getBooking(id);
+}
+
+/**
+ * Who this booking would be attached to, asked before it is saved.
+ *
+ * Matching a caller to the customer the business already has is the right
+ * thing to do — it is how a regular keeps one history instead of twelve — but
+ * doing it silently is not. The name on the booking becomes the name already
+ * on file, and somebody who has just typed a different one sees it replaced
+ * without a word and reasonably concludes the screen is broken.
+ *
+ * So the screen asks first and says what it found, and the person taking the
+ * booking decides whether it is the same person.
+ */
+export async function customerMatch(phone: string, email: string): Promise<Customer | null> {
+  const normalisedEmail = email.trim().toLowerCase();
+  const digits = phone.replace(/\D/g, "");
+  if (!normalisedEmail && !digits) return null;
+
+  const id = await findCustomerId(db as unknown as Tx, normalisedEmail, digits);
+  if (!id) return null;
+
+  const [row] = await db.select().from(schema.customer).where(eq(schema.customer.id, id)).limit(1);
+  return row ? toCustomer(row) : null;
 }
 
 export async function clashesFor(
