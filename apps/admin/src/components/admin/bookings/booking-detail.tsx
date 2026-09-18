@@ -91,8 +91,10 @@ export function BookingDetail({ id }: { id: string }) {
         meta={
           <>
             <StatusBadge kind="booking" value={booking.status} />
+            {/* A booking taken over the telephone often has no time yet, and
+                "9 Sept 2027 at" with nothing after it reads as a bug. */}
             <span className="text-[0.8125rem] text-white/60">
-              {formatDate(booking.date)} at {booking.time}
+              {booking.time ? `${formatDate(booking.date)} at ${booking.time}` : formatDate(booking.date)}
             </span>
           </>
         }
@@ -112,7 +114,7 @@ export function BookingDetail({ id }: { id: string }) {
             {clashes.map((clash) => (
               <li key={clash.id} className="flex flex-wrap items-baseline gap-x-2">
                 {clash.time ? <span className="text-white/60 tabular-nums">{clash.time}</span> : null}
-                <GuardedLink href={adminRoutes.booking(clash.id)} className="text-white underline-offset-4 hover:underline">
+                <GuardedLink href={adminRoutes.booking(clash.id)} className="text-white underline underline-offset-4 decoration-white/40 hover:decoration-white">
                   {clash.reference}
                 </GuardedLink>
                 <span className="text-white/60">— {clash.pickup}</span>
