@@ -407,10 +407,24 @@ async function findCustomerId(tx: Tx, email: string, phone: string) {
  * telephone number gets no customer record at all: there would be nothing to
  * match it to next time, and a wall of nameless duplicates helps nobody.
  */
-async function customerFor(tx: Tx, input: { name: string; phone: string; email: string }) {
+/**
+ * `always` is for a booking the office takes itself.
+ *
+ * A visitor who leaves neither an address nor a number gets no customer
+ * record: there would be nothing to match them by next time, and a wall of
+ * nameless duplicates helps nobody. But when the office writes a name down
+ * off the telephone, that name is the whole of what it knows about the
+ * person, and dropping it because no number was given loses the one thing it
+ * was told — the booking would show no customer at all.
+ */
+async function customerFor(
+  tx: Tx,
+  input: { name: string; phone: string; email: string },
+  { always = false } = {},
+) {
   const email = input.email.trim().toLowerCase();
   const phone = input.phone.replace(/\D/g, "");
-  if (!email && !phone) return null;
+  if (!email && !phone && !always) return null;
 
   const existing = await findCustomerId(tx, email, phone);
   if (existing) return existing;
@@ -553,7 +567,7 @@ export async function createBooking(input: BookingInput): Promise<Booking> {
   const id = newId("bkg");
 
   await db.transaction(async (tx) => {
-    const customerId = await customerFor(tx, input);
+    const customerId = await customerFor(tx, input, { always: true });
     const reference = await nextReference(tx, "BKG");
 
     await tx.insert(schema.booking).values({
