@@ -123,10 +123,39 @@ describe("taking a booking by telephone", () => {
     expect(await rows("select id from customer")).toHaveLength(1);
   });
 
-  test("takes a booking from somebody who leaves no way to reach them", async () => {
-    // Rare, but the diary should never refuse the journey over it.
+  test("keeps the name even when no number or address is given", async () => {
+    // The office was made to type a name. Losing it because the caller did
+    // not leave a number would throw away the only thing it was told, and the
+    // booking would show no customer at all.
     const booking = await operations.createBooking(taken({ phone: "", email: "" }) as never);
-    expect(booking.customerId).toBeNull();
+
+    const customer = only(await rows("select * from customer"));
+    expect(customer.name).toBe("Amelia Hughes");
+    expect(booking.customerId).toBe(customer.id as string);
+  });
+
+  test("still records nothing for a website enquiry with no way to reply", async () => {
+    // The public form is the other way round: no address and no number means
+    // nothing to match on next time, so no customer is invented.
+    await operations.createPublicEnquiry({
+      name: "Nobody Reachable",
+      phone: "",
+      email: "",
+      replyBy: "whatsapp",
+      service: "",
+      vehicleId: null,
+      pickup: "",
+      dropoff: "",
+      date: "",
+      time: "",
+      passengers: null,
+      luggage: "",
+      flight: "",
+      message: "",
+      submissionId: "",
+      website: "",
+    });
+
     expect(await rows("select id from customer")).toHaveLength(0);
   });
 
