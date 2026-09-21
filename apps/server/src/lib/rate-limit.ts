@@ -35,6 +35,9 @@ const SUSTAINED = { limit: 8, windowMs: 10 * 60_000 };
 /** Above this many tracked addresses, expired ones are swept before the next check. */
 const SWEEP_ABOVE = 5_000;
 
+/** The most addresses tracked at once, however many are live. */
+const MAX_TRACKED = 50_000;
+
 type Window = { count: number; resetAt: number };
 
 /**
@@ -71,10 +74,18 @@ function tick(window: Window, limit: number, windowMs: number, now: number) {
  * escaping the limit altogether.
  */
 function clientIp(c: Context) {
+  /**
+   * The *last* address, not the first. A proxy that appends (nginx's usual
+   * `$proxy_add_x_forwarded_for`) leaves whatever the client sent at the
+   * front, so the first entry is the visitor's own claim — and a script that
+   * sends a fresh one each time would get a fresh allowance each time. The
+   * last entry is the one our proxy wrote; a proxy that overwrites the header
+   * leaves only that one.
+   */
   const forwarded = c.req.header("x-forwarded-for");
   if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+    const last = forwarded.split(",").at(-1)?.trim();
+    if (last) return last;
   }
   return (
     c.req.header("cf-connecting-ip")?.trim() ||
@@ -88,11 +99,14 @@ const limiter: MiddlewareHandler = async (c, next) => {
   if (windows.size > SWEEP_ABOVE) sweep(now);
 
   const key = clientIp(c);
-  const entry = windows.get(key) ?? {
+  // Swept and still full means a flood of distinct addresses. Refusing to
+  // track more keeps memory bounded; they share one bucket until it drains.
+  const tracked = windows.has(key) || windows.size < MAX_TRACKED ? key : "overflow";
+  const entry = windows.get(tracked) ?? {
     burst: { count: 0, resetAt: now + BURST.windowMs },
     sustained: { count: 0, resetAt: now + SUSTAINED.windowMs },
   };
-  windows.set(key, entry);
+  windows.set(tracked, entry);
 
   const waitMs =
     tick(entry.burst, BURST.limit, BURST.windowMs, now) ||

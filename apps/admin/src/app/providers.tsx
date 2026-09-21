@@ -14,11 +14,14 @@ import { setQueryClient } from "@/lib/query/client";
  * can mark the cache out of date without every screen having to remember to.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [client] = useState(() => {
-    const created = createQueryClient();
-    setQueryClient(created);
-    return created;
-  });
+  const [client] = useState(createQueryClient);
+  /*
+   * Registered from the client React actually kept, not from inside the
+   * initialiser: in development React runs an initialiser twice and throws
+   * one result away, and registering there left the API client invalidating
+   * the discarded cache — every save landed, and no screen refreshed.
+   */
+  setQueryClient(client);
 
   return (
     <QueryClientProvider client={client}>

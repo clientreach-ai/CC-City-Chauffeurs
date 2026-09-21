@@ -4,6 +4,23 @@ import type { NextConfig } from "next";
 /** The API, with any trailing slash taken off so paths join cleanly. */
 const API = env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "");
 
+
+/**
+ * Sent with every page. Deliberately no script policy: Next inlines its own
+ * bootstrapping, and a CSP that has to be loosened for that protects little
+ * while breaking a lot. What these do stop is the page being framed by
+ * another site (clickjacking), a response being re-typed by the browser, and
+ * the full address leaking to other sites in the Referer.
+ */
+const SECURITY_HEADERS = [
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+];
+
 const nextConfig: NextConfig = {
   typedRoutes: true,
   reactCompiler: true,
@@ -23,6 +40,10 @@ const nextConfig: NextConfig = {
    * of its own, and rewrites returned as an array run after the filesystem
    * routes, so nothing here is shadowed.
    */
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
+
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
   },

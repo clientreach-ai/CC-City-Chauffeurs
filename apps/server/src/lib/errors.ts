@@ -59,6 +59,10 @@ export function errorResponse(error: unknown, c: Context) {
   if (error instanceof ConflictError) {
     return c.json({ error: error.message }, 409);
   }
+  if (error instanceof SyntaxError) {
+    // `c.req.json()` on a body that is not JSON. The sender's mistake, not ours.
+    return c.json({ error: "That request was not valid JSON." }, 400);
+  }
   if (error instanceof HTTPException) {
     return c.json({ error: error.message }, error.status);
   }

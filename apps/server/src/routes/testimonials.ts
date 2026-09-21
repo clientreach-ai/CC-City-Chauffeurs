@@ -1,7 +1,7 @@
 import { reorderSchema, statusSchema, testimonialInputSchema } from "@CC-City-Chauffeurs/core/schemas";
 import { Hono } from "hono";
 
-import { requires, type Variables } from "../lib/session";
+import { mayPublish, requires, type Variables } from "../lib/session";
 import * as testimonials from "../repositories/testimonials";
 
 export const testimonialRoutes = new Hono<{ Variables: Variables }>()
@@ -9,6 +9,7 @@ export const testimonialRoutes = new Hono<{ Variables: Variables }>()
 
   .post("/testimonials", requires("content.edit"), async (c) => {
     const input = testimonialInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) input.status = "draft";
     return c.json(await testimonials.createTestimonial(input), 201);
   })
 
@@ -20,6 +21,10 @@ export const testimonialRoutes = new Hono<{ Variables: Variables }>()
 
   .patch("/testimonials/:id", requires("content.edit"), async (c) => {
     const input = testimonialInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) {
+      const current = (await testimonials.getTestimonials()).find((row) => row.id === c.req.param("id"));
+      if (current) input.status = current.status;
+    }
     return c.json(await testimonials.updateTestimonial(c.req.param("id"), input));
   })
 
