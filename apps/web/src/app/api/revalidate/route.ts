@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { revalidateTag } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -14,17 +16,27 @@ import { type NextRequest, NextResponse } from "next/server";
  * misconfigured deployment falls back to the timed window rather than
  * silently accepting anonymous purges.
  */
+/** The tags the API purges — see `apps/server/src/lib/revalidate.ts`. */
+const KNOWN_TAGS = new Set(["fleet", "homepage", "services", "site-settings", "gallery", "testimonials", "site"]);
+
+/** Compared in constant time, so the secret cannot be guessed a byte at a time. */
+function matches(given: string, expected: string) {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function POST(request: NextRequest) {
   const secret = process.env.REVALIDATE_SECRET;
   if (!secret) {
     return NextResponse.json({ error: "Revalidation is not configured." }, { status: 503 });
   }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!matches(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Not authorised." }, { status: 401 });
   }
 
   const body = (await request.json().catch(() => null)) as { tags?: unknown } | null;
-  const tags = Array.isArray(body?.tags) ? body.tags.filter((tag) => typeof tag === "string") : [];
+  const tags = Array.isArray(body?.tags) ? body.tags.filter((tag): tag is string => typeof tag === "string" && KNOWN_TAGS.has(tag)) : [];
   if (!tags.length) {
     return NextResponse.json({ error: "Name at least one tag." }, { status: 400 });
   }

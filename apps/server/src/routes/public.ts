@@ -26,6 +26,19 @@ const published = <T extends { status: string }>(rows: T[]) =>
   rows.filter((row) => row.status === "published");
 
 /**
+ * The live vehicles, with what the business keeps to itself taken out.
+ * Whether a car is owned or sourced is "tracked internally and never
+ * published", and the pricing notes are the office's own — the website
+ * reads neither, so neither leaves here.
+ */
+const liveVehicles = (rows: Vehicle[]): Vehicle[] =>
+  published(rows).map((vehicle) => ({
+    ...vehicle,
+    ownership: "unconfirmed",
+    pricing: { ...vehicle.pricing, notes: "" },
+  }));
+
+/**
  * The honeypot. `website` is a field no person can see — the form renders it
  * hidden, off the tab order and with autocomplete off — so anything arriving
  * with it filled in was filled in by a machine. It is answered exactly as a
@@ -79,7 +92,7 @@ export const publicRoutes = new Hono()
       testimonials.getTestimonials(),
     ]);
 
-    const liveVehicles = new Map(published(vehicles).map((item) => [item.id, item]));
+    const liveById = new Map(liveVehicles(vehicles).map((item) => [item.id, item]));
     const liveServices = new Map(published(serviceRows).map((item) => [item.id, item]));
 
     const bands = sections
@@ -89,7 +102,7 @@ export const publicRoutes = new Hono()
           return {
             ...section,
             vehicles: section.vehicleIds
-              .map((id) => liveVehicles.get(id))
+              .map((id) => liveById.get(id))
               .filter((item): item is Vehicle => item != null),
           };
         }
@@ -114,7 +127,7 @@ export const publicRoutes = new Hono()
       fleet.getVehicles(),
       fleet.getFeatures(),
     ]);
-    const live = published(vehicles);
+    const live = liveVehicles(vehicles);
     return c.json({
       categories: liveGroupings(categories, live),
       vehicles: live,
@@ -123,7 +136,7 @@ export const publicRoutes = new Hono()
   })
 
   .get("/fleet/:slug", async (c) => {
-    const vehicles = published(await fleet.getVehicles());
+    const vehicles = liveVehicles(await fleet.getVehicles());
     const vehicle = vehicles.find((item) => item.slug === c.req.param("slug"));
     if (!vehicle) throw new CmsNotFoundError("This vehicle");
     return c.json(vehicle);
@@ -140,7 +153,7 @@ export const publicRoutes = new Hono()
     const service = published(serviceRows).find((item) => item.slug === c.req.param("slug"));
     if (!service) throw new CmsNotFoundError("This service");
 
-    const byId = new Map(published(vehicles).map((item) => [item.id, item]));
+    const byId = new Map(liveVehicles(vehicles).map((item) => [item.id, item]));
     return c.json({
       ...service,
       vehicles: service.vehicleIds

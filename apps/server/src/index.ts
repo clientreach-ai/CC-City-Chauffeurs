@@ -3,6 +3,7 @@ import { env } from "@CC-City-Chauffeurs/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { secureHeaders } from "hono/secure-headers";
 
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -10,7 +11,7 @@ import { join, normalize } from "node:path";
 
 import { errorResponse } from "./lib/errors";
 import { revalidateSite } from "./lib/revalidate";
-import { requireUser, withSession, type Variables } from "./lib/session";
+import { requireUser, sameSiteWrites, withSession, type Variables } from "./lib/session";
 import { contentRoutes } from "./routes/content";
 import { fleetRoutes } from "./routes/fleet";
 import { galleryRoutes } from "./routes/gallery";
@@ -32,6 +33,8 @@ import { UPLOAD_DIR } from "./lib/uploads";
 const app = new Hono<{ Variables: Variables }>();
 
 app.use(logger());
+// nosniff, frame-deny, a strict referrer policy and HSTS on every response.
+app.use(secureHeaders());
 app.use(
   "/*",
   cors({
@@ -73,6 +76,10 @@ app.get("/uploads/:name", async (c) => {
     headers: {
       "Content-Type": types[extension] ?? "application/octet-stream",
       "Content-Length": String(info.size),
+      // Served as the image it was sniffed to be, and nothing else: a file
+      // that is somehow not one can neither be re-typed nor run as a page.
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
       // The name is unique per upload, so this can never go stale.
       "Cache-Control": "public, max-age=31536000, immutable",
     },
@@ -87,6 +94,7 @@ app.route("/api/public", publicRoutes);
  * the UI is never the only thing standing in the way of it.
  */
 const admin = new Hono<{ Variables: Variables }>()
+  .use(sameSiteWrites)
   .use(withSession)
   .use(requireUser)
   // Runs after the handler: a successful write tells the website to refresh.

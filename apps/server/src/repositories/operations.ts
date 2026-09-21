@@ -307,6 +307,15 @@ async function nextReference(tx: Tx, prefix: "ENQ" | "BKG") {
   return `${prefix}-${result.rows[0]!.value}`;
 }
 
+async function vehicleExists(tx: Tx, id: string) {
+  const [row] = await tx
+    .select({ id: schema.vehicle.id })
+    .from(schema.vehicle)
+    .where(eq(schema.vehicle.id, id))
+    .limit(1);
+  return row != null;
+}
+
 /** Turns a won enquiry into a pending booking carrying the same journey. */
 export async function createBookingFromEnquiry(id: string): Promise<Booking> {
   let bookingId = "";
@@ -321,6 +330,11 @@ export async function createBookingFromEnquiry(id: string): Promise<Booking> {
 
     bookingId = newId("bkg");
     const reference = await nextReference(tx, "BKG");
+    // The car asked about may have left the fleet since the enquiry came in.
+    const vehicleId =
+      enquiry.journey.vehicleId && (await vehicleExists(tx, enquiry.journey.vehicleId))
+        ? enquiry.journey.vehicleId
+        : null;
 
     await tx.insert(schema.booking).values({
       id: bookingId,
@@ -328,7 +342,7 @@ export async function createBookingFromEnquiry(id: string): Promise<Booking> {
       customerId: enquiry.customerId,
       enquiryId: enquiry.id,
       service: enquiry.journey.service,
-      vehicleId: enquiry.journey.vehicleId,
+      vehicleId,
       date: enquiry.journey.date,
       time: enquiry.journey.time,
       pickup: enquiry.journey.pickup,
@@ -484,6 +498,11 @@ export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<En
   try {
     await db.transaction(async (tx) => {
       const customerId = await customerFor(tx, input);
+      // The id comes from the visitor's browser. One that names no car is
+      // dropped rather than refused — the enquiry is worth more than the
+      // field — and never reaches the booking it may later become.
+      const vehicleId =
+        input.vehicleId && (await vehicleExists(tx, input.vehicleId)) ? input.vehicleId : null;
       const reference = await nextReference(tx, "ENQ");
 
       await tx.insert(schema.enquiry).values({
@@ -496,7 +515,7 @@ export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<En
         replyBy: input.replyBy,
         journey: {
           service: input.service,
-          vehicleId: input.vehicleId,
+          vehicleId,
           pickup: input.pickup,
           dropoff: input.dropoff,
           date: input.date,
@@ -566,6 +585,10 @@ export async function createBooking(input: BookingInput): Promise<Booking> {
    */
   if (!input.date) {
     assertValid({ date: "Choose the date of the journey." });
+  }
+
+  if (input.vehicleId && !(await vehicleExists(db as unknown as Tx, input.vehicleId))) {
+    assertValid({ vehicleId: "That car is not in the fleet any more — choose another." });
   }
 
   const id = newId("bkg");
