@@ -7,7 +7,7 @@ import {
 } from "@CC-City-Chauffeurs/core/schemas";
 import { Hono } from "hono";
 
-import { requires, type Variables } from "../lib/session";
+import { mayPublish, requires, type Variables } from "../lib/session";
 import * as gallery from "../repositories/gallery";
 
 export const galleryRoutes = new Hono<{ Variables: Variables }>()
@@ -40,5 +40,9 @@ export const galleryRoutes = new Hono<{ Variables: Variables }>()
 
   .patch("/gallery/:id", requires("content.edit"), async (c) => {
     const input = galleryItemInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) {
+      const current = (await gallery.getGallery()).find((row) => row.id === c.req.param("id"));
+      if (current) input.status = current.status;
+    }
     return c.json(await gallery.updateGalleryItem(c.req.param("id"), input));
   });

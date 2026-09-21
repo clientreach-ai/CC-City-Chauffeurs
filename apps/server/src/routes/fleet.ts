@@ -8,7 +8,7 @@ import {
 } from "@CC-City-Chauffeurs/core/schemas";
 import { Hono } from "hono";
 
-import { requires, type Variables } from "../lib/session";
+import { mayPublish, requires, type Variables } from "../lib/session";
 import * as fleet from "../repositories/fleet";
 
 /** Vehicles, the groupings they appear in, and the feature list. */
@@ -22,11 +22,13 @@ export const fleetRoutes = new Hono<{ Variables: Variables }>()
 
   .post("/vehicles", requires("content.edit"), async (c) => {
     const input = vehicleInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) input.status = "draft";
     return c.json(await fleet.createVehicle(input), 201);
   })
 
   .patch("/vehicles/:id", requires("content.edit"), async (c) => {
     const input = vehicleInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) input.status = (await fleet.getVehicle(c.req.param("id"))).status;
     return c.json(await fleet.updateVehicle(c.req.param("id"), input));
   })
 
@@ -57,6 +59,7 @@ export const fleetRoutes = new Hono<{ Variables: Variables }>()
 
   .post("/fleet-categories", requires("content.edit"), async (c) => {
     const input = fleetCategoryInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) input.status = "draft";
     return c.json(await fleet.createCategory(input), 201);
   })
 
@@ -68,6 +71,10 @@ export const fleetRoutes = new Hono<{ Variables: Variables }>()
 
   .patch("/fleet-categories/:id", requires("content.edit"), async (c) => {
     const input = fleetCategoryInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) {
+      const current = (await fleet.getCategories()).find((row) => row.id === c.req.param("id"));
+      if (current) input.status = current.status;
+    }
     return c.json(await fleet.updateCategory(c.req.param("id"), input));
   })
 

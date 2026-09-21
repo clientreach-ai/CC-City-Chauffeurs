@@ -53,7 +53,8 @@ const grants: Record<Role, readonly Capability[]> = {
 };
 
 export function can(role: Role, capability: Capability) {
-  return grants[role].includes(capability);
+  // An unrecognised role in the database is refused, not a crash.
+  return (grants[role] ?? []).includes(capability);
 }
 
 /** The reason shown beside a control the current role cannot use. */

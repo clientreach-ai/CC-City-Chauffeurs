@@ -1,7 +1,7 @@
 import { reorderSchema, serviceInputSchema, statusSchema } from "@CC-City-Chauffeurs/core/schemas";
 import { Hono } from "hono";
 
-import { requires, type Variables } from "../lib/session";
+import { mayPublish, requires, type Variables } from "../lib/session";
 import * as services from "../repositories/services";
 
 /** The chauffeur service pages. */
@@ -10,6 +10,7 @@ export const serviceRoutes = new Hono<{ Variables: Variables }>()
 
   .post("/services", requires("content.edit"), async (c) => {
     const input = serviceInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) input.status = "draft";
     return c.json(await services.createService(input), 201);
   })
 
@@ -26,6 +27,7 @@ export const serviceRoutes = new Hono<{ Variables: Variables }>()
 
   .patch("/services/:id", requires("content.edit"), async (c) => {
     const input = serviceInputSchema.parse(await c.req.json());
+    if (!mayPublish(c)) input.status = (await services.getService(c.req.param("id"))).status;
     return c.json(await services.updateService(c.req.param("id"), input));
   })
 

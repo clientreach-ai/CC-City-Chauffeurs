@@ -1,6 +1,23 @@
 import "@CC-City-Chauffeurs/env/web";
 import type { NextConfig } from "next";
 
+
+/**
+ * Sent with every page. Deliberately no script policy: Next inlines its own
+ * bootstrapping, and a CSP that has to be loosened for that protects little
+ * while breaking a lot. What these do stop is the page being framed by
+ * another site (clickjacking), a response being re-typed by the browser, and
+ * the full address leaking to other sites in the Referer.
+ */
+const SECURITY_HEADERS = [
+  { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+];
+
 const nextConfig: NextConfig = {
   typedRoutes: true,
   reactCompiler: true,
@@ -13,6 +30,10 @@ const nextConfig: NextConfig = {
    * Next keeps it, which is why neither of these names it. Permanent, because
    * the old pages are not coming back.
    */
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
+
   async redirects() {
     return [
       { source: "/request-a-quote", destination: "/request-a-chauffeur", permanent: true },
