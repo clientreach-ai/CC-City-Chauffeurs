@@ -15,9 +15,29 @@ import { PUBLIC_FORM_LIMITS } from "./validation";
 // ---------------------------------------------------------------- primitives
 
 const trimmed = z.string().trim();
+/**
+ * A day that exists. The pattern alone let "2026-02-31" and "2026-13-45"
+ * into the diary, where they sort, filter and clash-check as nonsense.
+ */
+function isRealDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 /** "YYYY-MM-DD", or "" where the date is not yet known. */
-const calendarDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal("")]);
+const calendarDate = z.union([
+  z.string().refine(isRealDate, "That date does not exist — check the day and month."),
+  z.literal(""),
+]);
 const nullableInt = z.number().int().nullable();
+/** The website's form asks for 1 to 50; the API holds every door to the same. */
+const passengerCount = z
+  .number()
+  .int()
+  .min(1, "Enter a number of passengers between 1 and 50.")
+  .max(50, "Enter a number of passengers between 1 and 50.")
+  .nullable();
 const nullableAmount = z.number().nullable();
 
 export const imageRefSchema = z.object({
@@ -406,7 +426,7 @@ const publicJourney = {
   pickup: capped(PUBLIC_FORM_LIMITS.pickup, "pick-up address").default(""),
   dropoff: capped(PUBLIC_FORM_LIMITS.dropoff, "destination").default(""),
   time: capped(PUBLIC_FORM_LIMITS.time, "time").default(""),
-  passengers: nullableInt.default(null),
+  passengers: passengerCount.default(null),
   luggage: capped(PUBLIC_FORM_LIMITS.luggage, "luggage note").default(""),
   flight: capped(PUBLIC_FORM_LIMITS.flight, "flight number").default(""),
   message: capped(PUBLIC_FORM_LIMITS.message, "message").default(""),
@@ -418,8 +438,15 @@ const publicJourney = {
 export const publicEnquirySchema = z.object({
   ...publicJourney,
   replyBy: z.enum(["whatsapp", "phone", "email"]).default("whatsapp"),
-  /** An enquiry may be about a date the visitor has not settled on yet. */
-  date: calendarDate.default(""),
+  /**
+   * An enquiry may be about a date the visitor has not settled on yet. One
+   * that has already gone is refused, as the form refuses it — with a day's
+   * grace, because "today" for a visitor abroad can be yesterday here.
+   */
+  date: calendarDate.default("").refine(
+    (value) => !value || value >= new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+    "That date has passed — choose today or later.",
+  ),
 });
 
 /**
@@ -447,11 +474,12 @@ export const bookingInputSchema = z.object({
   vehicleId: z.string().nullable().default(null),
   date: z
     .string({ error: "Choose the date of the journey." })
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date of the journey."),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date of the journey.")
+    .refine(isRealDate, "That date does not exist — check the day and month."),
   time: capped(PUBLIC_FORM_LIMITS.time, "time").default(""),
   pickup: capped(PUBLIC_FORM_LIMITS.pickup, "pick-up address").default(""),
   dropoff: capped(PUBLIC_FORM_LIMITS.dropoff, "destination").default(""),
-  passengers: nullableInt.default(null),
+  passengers: passengerCount.default(null),
   notes: capped(PUBLIC_FORM_LIMITS.message, "notes").default(""),
   /**
    * Pending unless the office says otherwise. A job agreed on the telephone

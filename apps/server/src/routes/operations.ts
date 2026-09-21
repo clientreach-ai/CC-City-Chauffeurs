@@ -42,10 +42,12 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
   })
 
   .post("/enquiries/:id/notes", requires("operations.edit"), async (c) => {
-    const { body, author } = noteInputSchema.parse(await c.req.json());
+    const { body } = noteInputSchema.parse(await c.req.json());
     // The signed-in user is the author; a body cannot claim to be someone else.
-    const name = author?.trim() || authorName(c.get("user"));
-    return c.json(await operations.addEnquiryNote(c.req.param("id"), body, name), 201);
+    return c.json(
+      await operations.addEnquiryNote(c.req.param("id"), body, authorName(c.get("user"))),
+      201,
+    );
   })
 
   .post("/enquiries/:id/booking", requires("operations.edit"), async (c) =>

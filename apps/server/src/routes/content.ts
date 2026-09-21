@@ -7,7 +7,7 @@ import {
 import type { HomepageSection, SiteSettings } from "@CC-City-Chauffeurs/core";
 import { Hono } from "hono";
 
-import { requires, type Variables } from "../lib/session";
+import { mayPublish, requires, type Variables } from "../lib/session";
 import * as content from "../repositories/content";
 
 /** The homepage bands and the site settings. */
@@ -24,6 +24,10 @@ export const contentRoutes = new Hono<{ Variables: Variables }>()
     const parsed = homepageSectionSchema.parse(await c.req.json());
     // The id in the path is the authority; a mismatched body cannot move it.
     const section = { ...parsed, id: c.req.param("id") } as HomepageSection;
+    if (!mayPublish(c)) {
+      const current = (await content.getHomepage()).find((row) => row.id === section.id);
+      if (current) section.visible = current.visible;
+    }
     return c.json(await content.updateSection(section));
   })
 

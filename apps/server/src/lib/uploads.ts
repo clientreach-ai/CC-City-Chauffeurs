@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { CmsValidationError } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/server";
 
-import { imageSize } from "./image-size";
+import { imageSize, sniffImageType } from "./image-size";
 
 /**
  * Where an uploaded photograph goes.
@@ -37,8 +37,7 @@ export type StoredFile = {
 };
 
 export async function storeUpload(file: File): Promise<StoredFile> {
-  const extension = ACCEPTED[file.type];
-  if (!extension) {
+  if (!ACCEPTED[file.type]) {
     throw new CmsValidationError({
       file: `“${file.name}” is not a JPEG, PNG, WebP or AVIF image.`,
     });
@@ -48,14 +47,18 @@ export async function storeUpload(file: File): Promise<StoredFile> {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const size = imageSize(bytes);
-  if (!size) {
+  // The extension — and so the type it is served with — comes from what the
+  // bytes are, not from what the browser said they were.
+  const sniffed = sniffImageType(bytes);
+  const extension = sniffed ? ACCEPTED[sniffed] : undefined;
+  const size = extension ? imageSize(bytes) : null;
+  if (!extension || !size || !size.width || !size.height) {
     throw new CmsValidationError({ file: `“${file.name}” could not be read as an image.` });
   }
 
   // A fresh name every time: an upload never overwrites what a published
   // page is already pointing at, and the URL can be cached forever.
-  const name = `${randomUUID()}${extension || extname(file.name)}`;
+  const name = `${randomUUID()}${extension}`;
   await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(join(UPLOAD_DIR, name), bytes);
 
