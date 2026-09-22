@@ -40,15 +40,9 @@ const MAX_TRACKED = 50_000;
 
 type Window = { count: number; resetAt: number };
 
-/**
- * One process, one map. This is a single API server, so an in-memory counter
- * is the honest amount of machinery: nothing to run, nothing to fall over,
- * and a restart forgiving everyone is an acceptable price. A second instance
- * would need Redis behind the same function.
- */
-const windows = new Map<string, { burst: Window; sustained: Window }>();
+type Windows = Map<string, { burst: Window; sustained: Window }>;
 
-function sweep(now: number) {
+function sweep(windows: Windows, now: number) {
   for (const [key, entry] of windows) {
     if (entry.burst.resetAt <= now && entry.sustained.resetAt <= now) windows.delete(key);
   }
@@ -94,40 +88,65 @@ function clientIp(c: Context) {
   );
 }
 
-const limiter: MiddlewareHandler = async (c, next) => {
-  const now = Date.now();
-  if (windows.size > SWEEP_ABOVE) sweep(now);
+type Limit = { limit: number; windowMs: number };
 
-  const key = clientIp(c);
-  // Swept and still full means a flood of distinct addresses. Refusing to
-  // track more keeps memory bounded; they share one bucket until it drains.
-  const tracked = windows.has(key) || windows.size < MAX_TRACKED ? key : "overflow";
-  const entry = windows.get(tracked) ?? {
-    burst: { count: 0, resetAt: now + BURST.windowMs },
-    sustained: { count: 0, resetAt: now + SUSTAINED.windowMs },
+/**
+ * A limiter with counters of its own, so traffic through one door never uses
+ * up another's allowance.
+ *
+ * One process, one map per limiter. This is a single API server, so an
+ * in-memory counter is the honest amount of machinery: nothing to run,
+ * nothing to fall over, and a restart forgiving everyone is an acceptable
+ * price. A second instance would need Redis behind the same function.
+ */
+function rateLimiter(options: {
+  burst: Limit;
+  sustained: Limit;
+  refuse: (c: Context, retryAfterSeconds: number) => Response;
+}): MiddlewareHandler {
+  const windows: Windows = new Map();
+  const { burst, sustained } = options;
+
+  return async (c, next) => {
+    const now = Date.now();
+    if (windows.size > SWEEP_ABOVE) sweep(windows, now);
+
+    const key = clientIp(c);
+    // Swept and still full means a flood of distinct addresses. Refusing to
+    // track more keeps memory bounded; they share one bucket until it drains.
+    const tracked = windows.has(key) || windows.size < MAX_TRACKED ? key : "overflow";
+    const entry = windows.get(tracked) ?? {
+      burst: { count: 0, resetAt: now + burst.windowMs },
+      sustained: { count: 0, resetAt: now + sustained.windowMs },
+    };
+    windows.set(tracked, entry);
+
+    const waitMs =
+      tick(entry.burst, burst.limit, burst.windowMs, now) ||
+      tick(entry.sustained, sustained.limit, sustained.windowMs, now);
+
+    if (waitMs > 0) return options.refuse(c, Math.ceil(waitMs / 1000));
+
+    await next();
   };
-  windows.set(tracked, entry);
+}
 
-  const waitMs =
-    tick(entry.burst, BURST.limit, BURST.windowMs, now) ||
-    tick(entry.sustained, SUSTAINED.limit, SUSTAINED.windowMs, now);
-
-  if (waitMs > 0) {
-    // Nothing about being rate limited is the customer's fault, and the reply
-    // should not read as an accusation — it should tell them how to reach us.
-    return c.json(
+const limiter = rateLimiter({
+  burst: BURST,
+  sustained: SUSTAINED,
+  // Nothing about being rate limited is the customer's fault, and the reply
+  // should not read as an accusation — it should tell them how to reach us.
+  refuse: (c, retryAfter) =>
+    c.json(
       {
         error:
           "We have had several messages from this connection in the last few minutes. " +
           "Please try again shortly, or call us and we will take the details over the phone.",
       },
       429,
-      { "Retry-After": String(Math.ceil(waitMs / 1000)) },
-    );
-  }
-
-  await next();
-};
+      { "Retry-After": String(retryAfter) },
+    ),
+});
 
 /**
  * Everything a public write is wrapped in. Applied to the POSTs only: the
@@ -142,3 +161,21 @@ export const publicWriteGuard = every(
   }),
   limiter,
 );
+
+/**
+ * The WhatsApp webhook's limit — generous, and deliberately so.
+ *
+ * Every customer's message arrives from Twilio, and Twilio posts from a small
+ * pool of addresses, so a per-address limit here is a limit on the whole
+ * channel. It is set far above anything a chauffeur company's WhatsApp will
+ * see — a few hundred messages a minute — and exists only so a flood of
+ * forged requests costs us a counter rather than a signature check each.
+ * The signature is the real gate. The body cap sits in the route, because
+ * the body has to reach the channel unparsed.
+ */
+export const webhookRateLimit = rateLimiter({
+  burst: { limit: 300, windowMs: 60_000 },
+  sustained: { limit: 2_000, windowMs: 10 * 60_000 },
+  refuse: (c, retryAfter) =>
+    c.text("Too many requests.", 429, { "Retry-After": String(retryAfter) }),
+});

@@ -67,7 +67,10 @@ export async function startDatabase() {
     /** Empties the operational tables between tests, leaving the schema alone. */
     async reset() {
       await client.exec(`
-        truncate table activity_entry, enquiry_note, booking, enquiry, customer restart identity cascade;
+        truncate table
+          whatsapp_agent_run, whatsapp_message, whatsapp_conversation, whatsapp_identity,
+          activity_entry, enquiry_note, booking, enquiry, customer
+          restart identity cascade;
         alter sequence enquiry_reference_seq restart with 1100;
         alter sequence booking_reference_seq restart with 2100;
       `);
