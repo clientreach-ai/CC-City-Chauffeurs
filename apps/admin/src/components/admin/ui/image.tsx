@@ -106,18 +106,20 @@ export function useUploader() {
   return { upload, busy };
 }
 
-function FileButton({
+export function FileButton({
   onFiles,
   multiple,
   busy,
   children,
   variant = "secondary",
+  size = "sm",
 }: {
   onFiles: (files: FileList) => void;
   multiple?: boolean;
   busy?: boolean;
   children: ReactNode;
   variant?: "secondary" | "primary" | "ghost";
+  size?: "sm" | "md";
 }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
@@ -135,9 +137,9 @@ function FileButton({
           event.target.value = "";
         }}
       />
-      <Button variant={variant} size="sm" busy={busy} onClick={() => ref.current?.click()}>
+      <Button variant={variant} size={size} busy={busy} onClick={() => ref.current?.click()}>
         {busy ? null : <Upload aria-hidden />}
-        {busy ? "Preparing…" : children}
+        {busy ? "Uploading…" : children}
       </Button>
     </>
   );

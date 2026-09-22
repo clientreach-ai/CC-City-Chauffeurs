@@ -43,7 +43,10 @@ This project uses PostgreSQL with Drizzle ORM.
 1. Make sure you have a PostgreSQL database set up.
 2. Update your `apps/server/.env` file with your PostgreSQL connection details.
 
-3. Apply the schema, then seed it from the website's own content:
+3. Fill in the Cloudflare R2 variables — every photograph is stored in and served
+   from that bucket. `apps/server/.env.example` explains each one.
+
+4. Apply the schema, then seed it from the website's own content:
 
 ```bash
 pnpm run db:migrate
@@ -53,6 +56,15 @@ pnpm run db:seed -- --samples   # --samples adds example enquiries and bookings
 Seeding is destructive for content and idempotent: it rewrites every content
 table from `apps/web/src/content/*`. It leaves enquiries, bookings and
 customers alone unless you ask it not to.
+
+The seed writes bucket addresses for the site's own photography. To put the
+files themselves in the bucket (once, or again to fill a gap):
+
+```bash
+cd apps/server
+bun run scripts/migrate-media-to-r2.ts            # says what it would do
+bun run scripts/migrate-media-to-r2.ts --apply    # does it
+```
 
 Then, run the development server:
 
