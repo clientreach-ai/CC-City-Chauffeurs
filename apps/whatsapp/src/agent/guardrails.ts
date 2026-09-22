@@ -66,5 +66,13 @@ export const URGENT_REPLY =
 export const UNSUPPORTED_REPLY =
   "I can currently help with text messages only. If you'd like to send something else, just say and I'll connect you with the team.";
 
+/**
+ * A conversation that has had more turns in an hour than any real one does.
+ * Said once, as the assistant stands down — a customer is never told to go
+ * away, they are handed to a person.
+ */
+export const TOO_MANY_REPLY =
+  "Thank you for all of this — I am passing the conversation to a member of the City Chauffeurs team, who will reply here.";
+
 export const FALLBACK_REPLY =
   "Sorry — I couldn't answer that just now. I've let the City Chauffeurs team know, and a member of the team will reply to you here.";

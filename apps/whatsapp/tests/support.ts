@@ -30,7 +30,7 @@ import { SimulatorProvider } from "../src/providers/simulator";
 export const OUR_NUMBER = "+442084433332" as E164;
 export const CUSTOMER = "+447700900321" as E164;
 
-type Run = { id: string; conversationId: string; triggeringMessageId: string; status: string; record?: unknown };
+type Run = { id: string; conversationId: string; triggeringMessageId: string; status: string; createdAt: Date; record?: unknown };
 
 let clock = Date.UTC(2027, 0, 10, 9, 0, 0);
 /** Every stored message a millisecond after the last, so order is exact. */
@@ -82,7 +82,7 @@ export class MemoryStore implements ConversationStore {
     let runId: string | null = null;
     if (acceptsAssistantReplies(conversation.status)) {
       runId = this.id("war");
-      this.runs.set(runId, { id: runId, conversationId: conversation.id, triggeringMessageId: stored.id, status: "queued" });
+      this.runs.set(runId, { id: runId, conversationId: conversation.id, triggeringMessageId: stored.id, status: "queued", createdAt: tick() });
     }
     return { outcome: "recorded", conversation: structuredClone(conversation), messageId: stored.id, runId };
   }
@@ -146,6 +146,31 @@ export class MemoryStore implements ConversationStore {
 
   async queuedRuns() {
     return [...this.runs.values()].filter((run) => run.status === "queued").map((run) => run.id);
+  }
+
+  /** What a restart left behind: runs half-answered, replies never sent. */
+  async recoverInterrupted() {
+    const requeuedRuns: string[] = [];
+    for (const run of this.runs.values()) {
+      if (run.status !== "running") continue;
+      run.status = "queued";
+      requeuedRuns.push(run.id);
+    }
+    const undelivered = this.messages
+      .filter((message) => message.direction === "outbound" && message.delivery === "pending")
+      .map((message) => ({
+        id: message.id,
+        conversationId: message.conversationId,
+        to: this.conversations.get(message.conversationId)!.phone,
+        body: message.body,
+      }));
+    return { requeuedRuns, undelivered };
+  }
+
+  async runsSince(conversationId: string, since: Date) {
+    return [...this.runs.values()].filter(
+      (run) => run.conversationId === conversationId && run.createdAt >= since,
+    ).length;
   }
 
   async recordOperatorMessage(conversationId: string, body: string) {

@@ -21,7 +21,7 @@
  */
 
 import type { ChannelDependencies, ChannelLogger, IngestResult, WhatsAppChannel } from "./channel-types";
-import { escalationFor, FALLBACK_REPLY, HANDOFF_REPLY, UNSUPPORTED_REPLY, URGENT_REPLY } from "./agent/guardrails";
+import { escalationFor, FALLBACK_REPLY, HANDOFF_REPLY, TOO_MANY_REPLY, UNSUPPORTED_REPLY, URGENT_REPLY } from "./agent/guardrails";
 import type { ModelMessage } from "./agent/model";
 import { buildContext } from "./agent/prompt";
 import { runAgentTurn, type TurnOutcome } from "./agent/run";
@@ -32,6 +32,7 @@ import {
   WebhookPayloadError,
   type Conversation,
   type ConversationStatus,
+  type E164,
   type SendResult,
   type StoredMessage,
 } from "./ports";
@@ -40,6 +41,9 @@ import type { ToolContext } from "./tools/tool";
 
 /** WhatsApp only lets a business write freely within a day of the customer's last message. */
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** The window the turn ceiling is counted over. */
+const HOUR_MS = 60 * 60 * 1000;
 
 const silent: ChannelLogger = { info() {}, warn() {}, error() {} };
 
@@ -57,6 +61,13 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
   const config = {
     historyLimit: 30,
     maxIterations: 8,
+    /**
+     * Forty turns in an hour is far more than a person arranging a car has
+     * ever needed — a long enquiry runs to a dozen — and far less than a
+     * conversation stuck in a loop would reach. Past it a person takes over,
+     * which is also the right answer for whoever is genuinely still typing.
+     */
+    maxTurnsPerHour: 40,
     maxBodyBytes: 64 * 1024,
     today: londonToday,
     ...deps.config,
@@ -177,9 +188,26 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
     const state = structuredClone(conversation.state);
     state.answeredThrough = pending.at(-1)!.createdAt.toISOString();
 
+    // What this conversation has already cost. Counted before the model is
+    // asked, so the turn that reaches the ceiling is the one that stops.
+    const recentTurns = await store.runsSince(conversationId, new Date(Date.now() - HOUR_MS));
+    const overTheLimit = recentTurns > config.maxTurnsPerHour;
+    if (overTheLimit) log.warn("whatsapp_turn_limit_reached", { runId, conversationId, recentTurns });
+
     let outcome: TurnOutcome | { reply: string; handoff: TurnOutcome["handoff"]; decided: string };
     try {
-      outcome = await decide(conversation, state, history, pending, triggeringMessageId);
+      // Over the ceiling the model is never asked: a person takes over, and
+      // whatever is wrong with this conversation stops costing anything.
+      outcome = overTheLimit
+        ? {
+            reply: TOO_MANY_REPLY,
+            handoff: {
+              reason: "cannot_help",
+              summary: `This conversation has had ${recentTurns} assistant replies within the hour, so the assistant has stood down.`,
+            },
+            decided: "turn_limit",
+          }
+        : await decide(conversation, state, history, pending, triggeringMessageId);
     } catch (error) {
       log.error("whatsapp_turn_failed", { runId, conversationId, error: error instanceof Error ? error.name : "unknown" });
       outcome = {
@@ -223,6 +251,7 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
       iterations: agentRun?.iterations ?? 0,
       tools: agentRun?.toolCalls.map((call) => `${call.name}:${call.ok ? "ok" : call.errorCode}`) ?? [],
       handoff: handedOver ? outcome.handoff?.reason : null,
+      corrections: agentRun?.corrections ?? [],
       inputTokens: agentRun?.usage.inputTokens ?? 0,
       outputTokens: agentRun?.usage.outputTokens ?? 0,
       durationMs: elapsed(),
@@ -304,23 +333,67 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
     });
   }
 
-  async function deliver(messageId: string, conversation: Conversation, body: string): Promise<SendResult> {
-    let result = await provider.send({ to: conversation.phone, body });
+  async function deliver(
+    messageId: string,
+    target: { id: string; phone: E164 },
+    body: string,
+  ): Promise<SendResult> {
+    let result = await provider.send({ to: target.phone, body });
     // One more go for a hiccup; anything else is recorded and left to a person.
     if (!result.ok && result.retryable) {
       await new Promise((resolve) => setTimeout(resolve, 1_000));
-      result = await provider.send({ to: conversation.phone, body });
+      result = await provider.send({ to: target.phone, body });
     }
     if (result.ok) {
       await store.markDelivered(messageId, result.providerMessageId);
     } else {
       await store.markUndelivered(messageId, result.code, result.detail);
-      log.error("whatsapp_send_failed", { messageId, conversationId: conversation.id, code: result.code });
+      log.error("whatsapp_send_failed", { messageId, conversationId: target.id, code: result.code });
     }
     return result;
   }
 
+  /**
+   * Everything the last process was in the middle of, and everything it
+   * never got to.
+   *
+   * A restart is ordinary here — every deployment is one — and it can land
+   * anywhere: between taking a run and answering it, or between writing a
+   * reply down and sending it. Both are picked up, in that order:
+   *
+   * - A run that was being worked on goes back in the queue and is answered
+   *   again from the message that triggered it. Answering it twice creates
+   *   nothing twice: the enquiry or booking it may already have made carries
+   *   a submission id derived from that same message, so the second attempt
+   *   finds the record rather than making another.
+   * - A reply that was written down but never sent is sent now, before any
+   *   new turn runs, so the customer reads the conversation in order.
+   *
+   * Safe because one process runs the channel: anything found here belongs
+   * to a process that is gone. See `docs/WHATSAPP.md`.
+   */
   async function resumeQueued() {
+    try {
+      const { requeuedRuns, undelivered } = await store.recoverInterrupted();
+      if (requeuedRuns.length || undelivered.length) {
+        log.info("whatsapp_recovered_interrupted", {
+          requeuedRuns: requeuedRuns.length,
+          undelivered: undelivered.length,
+        });
+      }
+      for (const message of undelivered) {
+        await deliver(message.id, { id: message.conversationId, phone: message.to }, message.body).catch((error) =>
+          log.error("whatsapp_resume_failed", {
+            messageId: message.id,
+            error: error instanceof Error ? error.name : "unknown",
+          }),
+        );
+      }
+    } catch (error) {
+      // A recovery that fails must not stop the runs that are plainly queued.
+      log.error("whatsapp_recovery_failed", { error: error instanceof Error ? error.name : "unknown" });
+    }
+
     for (const runId of await store.queuedRuns()) {
       await processRun(runId).catch((error) =>
         log.error("whatsapp_resume_failed", { runId, error: error instanceof Error ? error.name : "unknown" }),

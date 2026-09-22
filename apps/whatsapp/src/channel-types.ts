@@ -26,6 +26,12 @@ export type ChannelConfig = {
   historyLimit?: number;
   /** Most tool rounds in one reply before the assistant hands over. */
   maxIterations?: number;
+  /**
+   * The most assistant turns one conversation may have in a rolling hour.
+   * Past it the assistant stands down and a person takes over, so a
+   * conversation that has gone wrong cannot spend without end.
+   */
+  maxTurnsPerHour?: number;
   /** Largest webhook body accepted, in bytes. */
   maxBodyBytes?: number;
   /** Today's date, as the business sees it — injectable so tests do not depend on the clock. */

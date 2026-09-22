@@ -7,10 +7,11 @@ import type {
   ConversationStore,
   E164,
   InboundMessage,
+  InterruptedWork,
   RecordedInbound,
   StoredMessage,
 } from "@CC-City-Chauffeurs/whatsapp/ports";
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { newId } from "../lib/ids";
@@ -410,17 +411,24 @@ export function createWhatsAppStore(options: WhatsAppStoreOptions = {}): Convers
     },
 
     async markDelivered(messageId, providerMessageId) {
-      await db
-        .update(schema.whatsappMessage)
-        .set({
-          delivery: "sent",
-          provider: options.provider ?? null,
-          providerMessageId,
-          errorCode: null,
-          errorDetail: null,
-          sentAt: new Date(),
-        })
-        .where(eq(schema.whatsappMessage.id, messageId));
+      const sent = {
+        delivery: "sent" as const,
+        errorCode: null,
+        errorDetail: null,
+        sentAt: new Date(),
+      };
+      try {
+        await db
+          .update(schema.whatsappMessage)
+          .set({ ...sent, provider: options.provider ?? null, providerMessageId })
+          .where(eq(schema.whatsappMessage.id, messageId));
+      } catch (error) {
+        if (!isDuplicateKey(error)) throw error;
+        // The provider handed back an id already on another message. The
+        // message itself has gone out, so it is recorded as sent without the
+        // id rather than left looking unsent because of a clash over it.
+        await db.update(schema.whatsappMessage).set(sent).where(eq(schema.whatsappMessage.id, messageId));
+      }
     },
 
     async markUndelivered(messageId, code, detail) {
@@ -428,6 +436,78 @@ export function createWhatsAppStore(options: WhatsAppStoreOptions = {}): Convers
         .update(schema.whatsappMessage)
         .set({ delivery: "failed", errorCode: code, errorDetail: detail.slice(0, MAX_ERROR_DETAIL) })
         .where(eq(schema.whatsappMessage.id, messageId));
+    },
+
+    /**
+     * What the last process was in the middle of when it stopped.
+     *
+     * A run it had taken goes back in the queue: it is answered again from
+     * the message that triggered it, and the submission id derived from that
+     * message means an enquiry or booking already made is found rather than
+     * made twice. A reply written down but never sent is handed back to be
+     * sent, oldest first.
+     *
+     * This takes every `running` run and every `pending` reply there is,
+     * which is only safe because one process runs the channel — see the
+     * comment on `lib/whatsapp.ts`. Two processes would need this narrowed to
+     * work claimed by this one, or older than a lease.
+     */
+    async recoverInterrupted(): Promise<InterruptedWork> {
+      return db.transaction(async (tx) => {
+        const requeued = await tx
+          .update(schema.whatsappAgentRun)
+          .set({ status: "queued", startedAt: null })
+          .where(eq(schema.whatsappAgentRun.status, "running"))
+          .returning({ id: schema.whatsappAgentRun.id });
+
+        const stranded = await tx
+          .select({
+            id: schema.whatsappMessage.id,
+            conversationId: schema.whatsappMessage.conversationId,
+            body: schema.whatsappMessage.body,
+            phone: schema.whatsappIdentity.phoneE164,
+          })
+          .from(schema.whatsappMessage)
+          .innerJoin(
+            schema.whatsappConversation,
+            eq(schema.whatsappConversation.id, schema.whatsappMessage.conversationId),
+          )
+          .innerJoin(
+            schema.whatsappIdentity,
+            eq(schema.whatsappIdentity.id, schema.whatsappConversation.identityId),
+          )
+          .where(
+            and(
+              eq(schema.whatsappMessage.direction, "outbound"),
+              eq(schema.whatsappMessage.delivery, "pending"),
+            ),
+          )
+          .orderBy(asc(schema.whatsappMessage.createdAt), asc(schema.whatsappMessage.id));
+
+        return {
+          requeuedRuns: requeued.map((run) => run.id),
+          undelivered: stranded.map((message) => ({
+            id: message.id,
+            conversationId: message.conversationId,
+            to: message.phone as E164,
+            body: message.body,
+          })),
+        };
+      });
+    },
+
+    /** Assistant turns this conversation has had since `since` — the ceiling on what one conversation may spend. */
+    async runsSince(conversationId, since) {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.whatsappAgentRun)
+        .where(
+          and(
+            eq(schema.whatsappAgentRun.conversationId, conversationId),
+            gte(schema.whatsappAgentRun.createdAt, since),
+          ),
+        );
+      return row?.count ?? 0;
     },
 
     async queuedRuns() {
