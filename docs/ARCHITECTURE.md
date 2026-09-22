@@ -155,6 +155,17 @@ WhatsApp or email. An enquiry that exists only in a chat window is one that
 can be missed, and the admin's pipeline is built on having the record. If
 recording fails the visitor is never told — their message still goes.
 
+## `apps/whatsapp` — the WhatsApp assistant
+
+A library, not a service: the API mounts it at `/api/whatsapp/*` when
+`WHATSAPP_PROVIDER` is set, and never loads it otherwise. It holds the
+provider (Twilio, or a simulator), the conversation and the agent loop, and
+declares two ports the server implements — a conversation store over the
+`whatsapp_*` tables, and a backend over the existing repositories. An
+enquiry from WhatsApp is the website's enquiry with `source = "whatsapp"`; a
+booking request is a `pending` booking. No second database, no second copy of
+a rule. See [WHATSAPP.md](WHATSAPP.md).
+
 ## Running it
 
 ```bash
@@ -200,6 +211,9 @@ operations and publishing. `admin` adds site settings.
 
 ## What is still not real
 
+- **WhatsApp is switched off in production.** It is built and tested, and
+  waits on a Meta-approved business account, a Twilio sender, an OpenAI key
+  and migration `0004_whatsapp` — see [WHATSAPP.md](WHATSAPP.md#going-live).
 - **Nothing is sent to anybody.** A status change, a recorded quote or a note
   is written to the book of record and no further: no email reaches a
   customer, no chauffeur is dispatched. Every screen offering one of these

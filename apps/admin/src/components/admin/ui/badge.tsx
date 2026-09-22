@@ -9,6 +9,8 @@ import {
 } from "@CC-City-Chauffeurs/core";
 import type { BookingStatus, EnquiryStatus, PublishStatus, Visibility } from "@CC-City-Chauffeurs/core";
 
+import { conversationStatuses, type ConversationStatus } from "@/lib/api/whatsapp";
+
 /**
  * Status badges. Monochrome, like the rest of the brand: states are told
  * apart by fill, outline and dash — and always by their word — never by
@@ -40,13 +42,20 @@ const styles = {
     completed: quiet,
     cancelled: dashed,
   } satisfies Record<BookingStatus, string>,
+  whatsapp: {
+    human_requested: solid,
+    human_active: silver,
+    ai_active: outline,
+    closed: dashed,
+  } satisfies Record<ConversationStatus, string>,
 };
 
 type BadgeProps =
   | { kind: "publish"; value: PublishStatus }
   | { kind: "visibility"; value: Visibility }
   | { kind: "enquiry"; value: EnquiryStatus }
-  | { kind: "booking"; value: BookingStatus };
+  | { kind: "booking"; value: BookingStatus }
+  | { kind: "whatsapp"; value: ConversationStatus };
 
 export function StatusBadge(props: BadgeProps & { className?: string }) {
   let label: string;
@@ -67,6 +76,10 @@ export function StatusBadge(props: BadgeProps & { className?: string }) {
     case "booking":
       label = labelFor(bookingStatuses, props.value);
       style = styles.booking[props.value];
+      break;
+    case "whatsapp":
+      label = labelFor(conversationStatuses, props.value);
+      style = styles.whatsapp[props.value];
       break;
   }
   const live =
