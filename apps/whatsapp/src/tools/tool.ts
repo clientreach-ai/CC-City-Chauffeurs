@@ -33,7 +33,7 @@ export type ToolContext = {
   /** Set by `handoff_to_human`; the channel acts on it once the turn ends. */
   handoff: { reason: string; summary: string } | null;
   /** Set when a record is created, so the channel can link the customer. */
-  createdFor: { reference: string } | null;
+  createdFor: { kind: "enquiry" | "booking"; reference: string } | null;
 };
 
 export type ToolResult =

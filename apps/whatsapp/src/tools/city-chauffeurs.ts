@@ -185,7 +185,7 @@ async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
 
   context.state.lastRequest = { kind, fingerprint: print, reference };
   if (!context.state.references.includes(reference)) context.state.references.push(reference);
-  context.createdFor = { reference };
+  context.createdFor = { kind, reference };
   return success({ reference });
 }
 
