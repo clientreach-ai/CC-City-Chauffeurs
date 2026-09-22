@@ -14,6 +14,7 @@ import {
   Library,
   LogOut,
   LayoutDashboard,
+  MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
   PanelsTopLeft,
@@ -53,6 +54,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
     items: [
       { label: "Enquiries", href: adminRoutes.enquiries, icon: Inbox, requires: "operations.view" },
       { label: "Bookings", href: adminRoutes.bookings, icon: CalendarClock, requires: "operations.view" },
+      { label: "WhatsApp", href: adminRoutes.whatsapp, icon: MessageCircle, requires: "operations.view" },
       { label: "Customers", href: adminRoutes.customers, icon: Users, requires: "operations.view" },
     ],
   },
