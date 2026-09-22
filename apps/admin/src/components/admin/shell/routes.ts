@@ -15,6 +15,8 @@ export const adminRoutes = {
   booking: (id: string) => `/bookings/${id}` as Route,
   customers: "/customers" as Route,
   customer: (id: string) => `/customers/${id}` as Route,
+  whatsapp: "/whatsapp" as Route,
+  conversation: (id: string) => `/whatsapp/${id}` as Route,
   fleet: "/fleet" as Route,
   newVehicle: "/fleet/new" as Route,
   vehicle: (id: string) => `/fleet/${id}` as Route,
