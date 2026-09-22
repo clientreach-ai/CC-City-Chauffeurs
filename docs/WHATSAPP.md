@@ -156,7 +156,18 @@ is the whole of it: enough for a customer who asked for a person to get one,
 not a second inbox to live in. Nothing notifies the office yet — somebody has
 to look.
 
-When the office replies the conversation becomes `human_active`. The office can hand it back to the assistant with
+When the office replies the conversation becomes `human_active`. The office
+can hand it back to the assistant with
+`PATCH …/status {"status":"ai_active"}`.
+
+Handing back answers whatever the customer is still waiting on. A message
+sent while a person had the conversation was recorded and never queued —
+correctly, since the assistant does not answer over a person — so the
+hand-back queues one run for it, the same run any message gets. "Still
+waiting" means inbound, after the last turn the assistant finished and after
+the last thing the office said, so a message the office answered itself is
+left alone; and the unique triggering message means handing back twice
+queues nothing twice. The office can hand it back to the assistant with
 `PATCH …/status {"status":"ai_active"}`.
 
 WhatsApp only lets a business message a customer freely within 24 hours of

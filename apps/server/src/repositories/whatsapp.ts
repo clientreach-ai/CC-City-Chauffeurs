@@ -553,6 +553,42 @@ export function createWhatsAppStore(options: WhatsAppStoreOptions = {}): Convers
       });
     },
 
+    /**
+     * One run for one message the customer is still waiting on, queued when
+     * the office hands the conversation back.
+     *
+     * Two things make it safe to call more than once. The conversation is
+     * locked and its status read inside the same transaction, so a run is
+     * never queued for a conversation a person has taken back; and
+     * `triggering_message_id` is unique, so a message that already has a run
+     * — queued, running or long finished — gets nothing further.
+     */
+    async queueRun(conversationId, messageId) {
+      return db.transaction(async (tx) => {
+        const [conversation] = await tx
+          .select({ status: schema.whatsappConversation.status })
+          .from(schema.whatsappConversation)
+          .where(eq(schema.whatsappConversation.id, conversationId))
+          .limit(1)
+          .for("update");
+        if (!conversation) throw new CmsNotFoundError("This conversation");
+        if (conversation.status !== "ai_active") return null;
+
+        const runId = newId("war");
+        const [queued] = await tx
+          .insert(schema.whatsappAgentRun)
+          .values({
+            id: runId,
+            conversationId,
+            triggeringMessageId: messageId,
+            status: "queued",
+          })
+          .onConflictDoNothing({ target: schema.whatsappAgentRun.triggeringMessageId })
+          .returning({ id: schema.whatsappAgentRun.id });
+        return queued?.id ?? null;
+      });
+    },
+
     async setStatus(conversationId, status) {
       try {
         const [updated] = await db

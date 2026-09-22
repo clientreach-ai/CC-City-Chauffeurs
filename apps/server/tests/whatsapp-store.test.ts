@@ -526,3 +526,56 @@ describe("what a conversation has already cost", () => {
     expect(await store.runsSince(conversation.id, hourAgo)).toBe(1);
   });
 });
+
+describe("queueing a run for a message still waiting", () => {
+  test("queues one, and never a second for the same message", async () => {
+    const { conversation, messageId } = await record();
+    await database.client.exec(`delete from whatsapp_agent_run`);
+
+    const first = await store.queueRun(conversation.id, messageId);
+    const second = await store.queueRun(conversation.id, messageId);
+
+    expect(first).not.toBeNull();
+    expect(second).toBeNull();
+    expect(await count("whatsapp_agent_run")).toBe(1);
+    expect(await store.queuedRuns()).toEqual([first!]);
+  });
+
+  test("a message that already has a run — however it ended — gets no other", async () => {
+    const { conversation, messageId } = await record();
+
+    // The run recordInbound made is still queued.
+    expect(await store.queueRun(conversation.id, messageId)).toBeNull();
+
+    const runId = (await store.queuedRuns())[0]!;
+    await store.claimRun(runId);
+    expect(await store.queueRun(conversation.id, messageId)).toBeNull();
+
+    await store.completeTurn({
+      runId,
+      conversationId: conversation.id,
+      state: conversation.state,
+      status: "ai_active",
+      customerId: null,
+      handoff: null,
+      reply: "Of course.",
+      run: finished(),
+    });
+    expect(await store.queueRun(conversation.id, messageId)).toBeNull();
+    expect(await count("whatsapp_agent_run")).toBe(1);
+  });
+
+  test("nothing is queued while a person has the conversation", async () => {
+    const { conversation, messageId } = await record();
+    await database.client.exec(`delete from whatsapp_agent_run`);
+    await store.setStatus(conversation.id, "human_active");
+
+    expect(await store.queueRun(conversation.id, messageId)).toBeNull();
+    expect(await count("whatsapp_agent_run")).toBe(0);
+  });
+
+  test("a conversation that does not exist is not found", async () => {
+    const { messageId } = await record();
+    expect(store.queueRun("wac-nobody", messageId)).rejects.toThrow();
+  });
+});

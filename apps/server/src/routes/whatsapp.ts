@@ -111,9 +111,17 @@ export function whatsappAdminRoutes(channel: () => Promise<WhatsAppChannel>) {
       );
     })
 
+    /**
+     * Handing a conversation back to the assistant may leave it with a
+     * message to answer — one the customer sent while a person had the
+     * conversation. The office sees the conversation as it stands now; the
+     * assistant answers afterwards, so nobody waits on a model turn.
+     */
     .patch("/whatsapp/conversations/:id/status", requires("operations.edit"), async (c) => {
       const { status } = statusUpdateSchema.parse(await c.req.json());
-      await (await channel()).setStatus(c.req.param("id"), status);
+      const target = await channel();
+      const { runIds } = await target.setStatus(c.req.param("id"), status);
+      processAfterResponse(target, runIds);
       return c.json(await whatsapp.getConversationDetail(c.req.param("id")));
     });
 }

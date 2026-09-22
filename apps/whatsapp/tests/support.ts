@@ -167,6 +167,16 @@ export class MemoryStore implements ConversationStore {
     return { requeuedRuns, undelivered };
   }
 
+  /** One run for one message, and only while the conversation is the assistant's. */
+  async queueRun(conversationId: string, messageId: string) {
+    const conversation = this.conversations.get(conversationId)!;
+    if (conversation.status !== "ai_active") return null;
+    if ([...this.runs.values()].some((run) => run.triggeringMessageId === messageId)) return null;
+    const runId = this.id("war");
+    this.runs.set(runId, { id: runId, conversationId, triggeringMessageId: messageId, status: "queued", createdAt: tick() });
+    return runId;
+  }
+
   async runsSince(conversationId: string, since: Date) {
     return [...this.runs.values()].filter(
       (run) => run.conversationId === conversationId && run.createdAt >= since,

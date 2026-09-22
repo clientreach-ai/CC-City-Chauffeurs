@@ -68,5 +68,11 @@ export interface WhatsAppChannel {
   resumeQueued(): Promise<void>;
   /** A person in the office replying from the admin. */
   sendOperatorMessage(conversationId: string, body: string): Promise<SendResult>;
-  setStatus(conversationId: string, status: ConversationStatus): Promise<void>;
+  /**
+   * Moves a conversation between the assistant and a person, or closes it.
+   * Handing one back to the assistant returns the run queued for whatever
+   * the customer is still waiting on, for the caller to process after it has
+   * answered — the same way the webhook does.
+   */
+  setStatus(conversationId: string, status: ConversationStatus): Promise<{ runIds: string[] }>;
 }

@@ -263,6 +263,43 @@ describe("the office's conversations", () => {
     expect(response.status).toBe(403);
   });
 
+  test("handing a conversation back answers what the customer is still waiting on", async () => {
+    const conversationId = await waiting();
+    as = { role: "manager" };
+    const { createWhatsAppStore } = await import("../src/repositories/whatsapp");
+    const store = createWhatsAppStore({ provider: "simulator" });
+    // Written while a person had the conversation, so nothing was queued.
+    const recorded = await store.recordInbound(
+      {
+        provider: "simulator",
+        providerMessageId: `SM${Date.now()}-waiting`,
+        to: OURS,
+        from: "+447700900321" as E164,
+        profileName: "Amelia",
+        kind: "text",
+        text: "Could you tell me about the S Class?",
+        receivedAt: new Date(),
+      },
+      null,
+    );
+    if (recorded.outcome !== "recorded") throw new Error("expected the message to be recorded");
+    expect(recorded.runId).toBeNull();
+
+    const response = await call(`/whatsapp/conversations/${conversationId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "ai_active" }),
+    });
+
+    expect(response.status).toBe(200);
+    // The route answers at once and the assistant runs after, as the webhook does.
+    const runs = await eventually(
+      () => rows(`select status from whatsapp_agent_run where triggering_message_id = '${recorded.messageId}'`),
+      (found) => found.length > 0 && found[0]!.status !== "queued",
+    );
+    expect(runs).toHaveLength(1);
+  });
+
   test("the office can hand a conversation back to the assistant", async () => {
     const conversationId = await waiting();
     as = { role: "manager" };
