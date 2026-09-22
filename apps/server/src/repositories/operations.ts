@@ -15,6 +15,7 @@ import {
   type CustomerInput,
   type CustomerSummary,
   type Enquiry,
+  type EnquirySource,
   type EnquiryStatus,
   type LostReason,
   type Note,
@@ -460,6 +461,15 @@ async function customerFor(
   return id;
 }
 
+/** How the activity trail says where an enquiry came in. */
+const receivedFrom: Record<EnquirySource, string> = {
+  website: "from the website",
+  whatsapp: "on WhatsApp",
+  phone: "by telephone",
+  email: "by email",
+  referral: "by referral",
+};
+
 /** "" means the browser sent no id; the column stays null so the unique index ignores it. */
 const submissionIdOf = (input: { submissionId: string }) => input.submissionId.trim() || null;
 
@@ -477,8 +487,17 @@ function isDuplicateKey(error: unknown) {
  * leaving the office two identical enquiries to reconcile. The unique index
  * is what enforces it — the read below is only the quick way there, and the
  * duplicate-key catch is what covers two requests arriving at once.
+ *
+ * `source` is for the other public door. The WhatsApp assistant takes the
+ * same enquiry a stranger could make on the form, and records it through
+ * this function so the same rules, the same customer matching and the same
+ * numbering apply; the only thing that differs is where the office is told
+ * it came from. Left out, it is the website, as it always was.
  */
-export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<Enquiry> {
+export async function createPublicEnquiry(
+  input: PublicEnquiryInput,
+  { source = "website" }: { source?: EnquirySource } = {},
+): Promise<Enquiry> {
   const submissionId = submissionIdOf(input);
 
   const alreadyRecorded = async () => {
@@ -511,7 +530,7 @@ export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<En
         submissionId,
         customerId,
         contact: { name: input.name, phone: input.phone, email: input.email },
-        source: "website",
+        source,
         replyBy: input.replyBy,
         journey: {
           service: input.service,
@@ -527,7 +546,7 @@ export async function createPublicEnquiry(input: PublicEnquiryInput): Promise<En
         message: input.message,
         status: "new",
       });
-      await log(tx, { enquiryId: id }, "created", `Enquiry ${reference} received from the website`);
+      await log(tx, { enquiryId: id }, "created", `Enquiry ${reference} received ${receivedFrom[source]}`);
     });
   } catch (error) {
     if (!isDuplicateKey(error)) throw error;
@@ -575,8 +594,34 @@ export async function getBookings(): Promise<Booking[]> {
  * Whether the car is already out that day is deliberately not checked here.
  * The office can see it on the screen before it saves, and only the office
  * knows whether two journeys in one day is a clash or a Tuesday.
+ *
+ * `request` is the one other way in: a customer on WhatsApp asking for a
+ * booking. It is the same diary and the same customers, so it goes through
+ * here rather than a copy of this — but it is a request, not a booking the
+ * office agreed. So it is always pending whatever the input says, the trail
+ * says it is not yet confirmed, and it is idempotent on the submission id
+ * the way the website's enquiries are: a message delivered twice asks once.
  */
-export async function createBooking(input: BookingInput): Promise<Booking> {
+export async function createBooking(
+  input: BookingInput,
+  options: { request?: { channel: "whatsapp"; submissionId: string } } = {},
+): Promise<Booking> {
+  const request = options.request;
+  const submissionId = request ? submissionIdOf(request) : null;
+
+  const alreadyRecorded = async () => {
+    if (!submissionId) return null;
+    const [row] = await db
+      .select({ id: schema.booking.id })
+      .from(schema.booking)
+      .where(eq(schema.booking.submissionId, submissionId))
+      .limit(1);
+    return row ? getBooking(row.id) : null;
+  };
+
+  const existing = await alreadyRecorded();
+  if (existing) return existing;
+
   /**
    * The route parses the same rule before this is reached, but the rules of
    * the diary live here rather than at the edge — `createBookingFromEnquiry`
@@ -592,34 +637,46 @@ export async function createBooking(input: BookingInput): Promise<Booking> {
   }
 
   const id = newId("bkg");
+  // A customer cannot confirm their own booking, whatever the input claims.
+  const status = request ? "pending" : input.status;
 
-  await db.transaction(async (tx) => {
-    const customerId = await customerFor(tx, input, { always: true });
-    const reference = await nextReference(tx, "BKG");
+  try {
+    await db.transaction(async (tx) => {
+      const customerId = await customerFor(tx, input, { always: true });
+      const reference = await nextReference(tx, "BKG");
 
-    await tx.insert(schema.booking).values({
-      id,
-      reference,
-      customerId,
-      enquiryId: null,
-      service: input.service,
-      vehicleId: input.vehicleId,
-      date: input.date,
-      time: input.time,
-      pickup: input.pickup,
-      destination: input.dropoff,
-      passengers: input.passengers,
-      notes: input.notes,
-      status: input.status,
+      await tx.insert(schema.booking).values({
+        id,
+        reference,
+        customerId,
+        enquiryId: null,
+        service: input.service,
+        vehicleId: input.vehicleId,
+        date: input.date,
+        time: input.time,
+        pickup: input.pickup,
+        destination: input.dropoff,
+        passengers: input.passengers,
+        notes: input.notes,
+        status,
+        submissionId,
+      });
+
+      await log(
+        tx,
+        { bookingId: id },
+        "created",
+        request
+          ? `Booking ${reference} requested on WhatsApp — not yet confirmed`
+          : `Booking ${reference} taken by the office — ${labelFor(bookingStatuses, status)}`,
+      );
     });
-
-    await log(
-      tx,
-      { bookingId: id },
-      "created",
-      `Booking ${reference} taken by the office — ${labelFor(bookingStatuses, input.status)}`,
-    );
-  });
+  } catch (error) {
+    if (!isDuplicateKey(error)) throw error;
+    const recorded = await alreadyRecorded();
+    if (!recorded) throw error;
+    return recorded;
+  }
 
   return getBooking(id);
 }
@@ -646,6 +703,36 @@ export async function customerMatch(phone: string, email: string): Promise<Custo
 
   const [row] = await db.select().from(schema.customer).where(eq(schema.customer.id, id)).limit(1);
   return row ? toCustomer(row) : null;
+}
+
+/**
+ * An enquiry, but only for the person it belongs to.
+ *
+ * A customer on WhatsApp may ask how their enquiry is getting on, quoting its
+ * reference. References are sequential, so anybody could guess the next one;
+ * what makes it theirs is that the customer on the enquiry has the number
+ * they are writing from. Matched on the last ten digits, the same rule
+ * `findCustomerId` uses, so `07700 900321` on file answers to
+ * `+447700900321`. Somebody else's reference comes back exactly as one that
+ * does not exist.
+ */
+export async function enquiryForPhone(reference: string, phone: string): Promise<Enquiry | null> {
+  const digits = phone.replace(/\D/g, "");
+  const wanted = reference.trim().toUpperCase();
+  if (digits.length < 7 || !wanted) return null;
+
+  const [row] = await db
+    .select({ id: schema.enquiry.id })
+    .from(schema.enquiry)
+    .innerJoin(schema.customer, eq(schema.customer.id, schema.enquiry.customerId))
+    .where(
+      and(
+        eq(schema.enquiry.reference, wanted),
+        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
+      ),
+    )
+    .limit(1);
+  return row ? getEnquiry(row.id) : null;
 }
 
 export async function clashesFor(
