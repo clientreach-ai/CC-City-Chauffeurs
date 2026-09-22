@@ -34,4 +34,4 @@ export function checkImageFile(file: File) {
 }
 
 /** Shown beside the upload control so it is clear where files go. */
-export const storageDescription = "Uploaded to the server and served from it.";
+export const storageDescription = "Stored in the site's own bucket and served from there.";

@@ -23,6 +23,7 @@ export const adminRoutes = {
   newService: "/services/new" as Route,
   service: (id: string) => `/services/${id}` as Route,
   gallery: "/gallery" as Route,
+  media: "/media" as Route,
   testimonials: "/testimonials" as Route,
   content: "/content" as Route,
   settings: "/settings" as Route,
