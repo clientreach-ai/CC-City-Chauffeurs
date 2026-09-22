@@ -29,6 +29,13 @@
       "when": 1790080000000,
       "tag": "0003_media_in_object_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790500000000,
+      "tag": "0004_whatsapp",
+      "breakpoints": true
     }
   ]
 }
