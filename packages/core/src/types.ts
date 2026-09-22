@@ -38,22 +38,39 @@ export type ImageRef = {
 };
 
 export type MediaOrigin =
-  /** Already part of the website's own photography. */
+  /** Came with the website — the client's own photography, registered by the seed. */
   | "site"
-  /** Previewed in this browser only — not uploaded anywhere. */
+  /** Uploaded through the admin. */
   | "local";
 
 export type MediaAsset = {
   id: string;
+  /** The absolute address it is served from. */
   src: string;
+  /** Its key in the bucket; null for an address this API does not manage. */
+  key: string | null;
   width: number;
   height: number;
+  /** The description offered when an editor picks it. Each use keeps its own. */
   alt: string;
   filename: string;
   origin: MediaOrigin;
   /** Size of the stored file in bytes, when known. */
   bytes: number | null;
   createdAt: ISODateTime;
+};
+
+/** One place on the website a photograph is used. */
+export type MediaUsage = {
+  kind: "vehicle" | "service" | "gallery" | "homepage" | "settings";
+  /** The record: a vehicle, a service, a gallery photograph, a homepage band. */
+  id: string;
+  /** The record's name as the admin lists it. */
+  label: string;
+  /** Which slot on that record, e.g. "Main photograph". */
+  slot: string;
+  /** Whether that record is live on the website. */
+  published: boolean;
 };
 
 export type Timestamps = {

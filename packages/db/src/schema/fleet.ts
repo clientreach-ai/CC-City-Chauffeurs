@@ -39,13 +39,18 @@ const timestamps = {
 
 export const mediaAsset = pgTable("media_asset", {
   id: text("id").primaryKey(),
-  /** Site-relative ("/media/x.jpg") or the absolute address of an upload. */
+  /** The absolute address the photograph is served from. */
   src: text("src").notNull(),
+  /**
+   * Its key in the bucket, so the file can be replaced or removed there when
+   * the record is. Null for an address this API does not manage.
+   */
+  key: text("key"),
   width: integer("width").notNull(),
   height: integer("height").notNull(),
   alt: text("alt").default("").notNull(),
   filename: text("filename").notNull(),
-  /** "site" is the website's own photography and cannot be deleted here. */
+  /** "site" came with the website; "local" was uploaded through the admin. */
   origin: text("origin").$type<"site" | "local">().default("local").notNull(),
   bytes: integer("bytes"),
   createdAt: timestamps.createdAt,

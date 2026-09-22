@@ -22,6 +22,13 @@
       "when": 1789736000000,
       "tag": "0002_customer_phone_match",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790080000000,
+      "tag": "0003_media_in_object_storage",
+      "breakpoints": true
     }
   ]
 }

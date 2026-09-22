@@ -502,11 +502,20 @@ export const visibleSchema = z.object({ visible: z.boolean() });
 
 export const mediaInputSchema = z.object({
   src: z.string().min(1),
+  key: z.string().min(1).nullable().default(null),
   width: z.number().int().nonnegative(),
   height: z.number().int().nonnegative(),
   alt: z.string().default(""),
   filename: z.string(),
   bytes: z.number().int().nullable().default(null),
 });
+
+/** What an editor may change about a photograph in the library. */
+export const mediaUpdateSchema = z.object({
+  alt: z.string().trim().max(140, "Keep the description under 140 characters."),
+  filename: z.string().trim().min(1, "Give the photograph a name.").max(160, "Keep the name under 160 characters."),
+});
+
+export type MediaUpdateInput = z.infer<typeof mediaUpdateSchema>;
 
 export type PublicEnquiryInput = z.infer<typeof publicEnquirySchema>;
