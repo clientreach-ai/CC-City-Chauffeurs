@@ -11,6 +11,10 @@ ExecStart=/home/dave/.bun/bin/bun run --env-file .env.production dist/index.mjs
 Restart=always
 RestartSec=3
 Environment=PORT=3300
+# The production guards are written against this: a scripted assistant and
+# the simulator webhook are refused at boot when it is set. It belongs in the
+# unit rather than .env.production so it cannot be lost by editing a file.
+Environment=NODE_ENV=production
 MemoryMax=500M
 
 [Install]
