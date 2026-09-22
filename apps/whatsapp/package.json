@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@CC-City-Chauffeurs/core": "workspace:*",
-    "@anthropic-ai/sdk": "^0.127.0",
     "libphonenumber-js": "^1.13.13",
+    "openai": "^7.20.0",
     "zod": "catalog:"
   },
   "devDependencies": {

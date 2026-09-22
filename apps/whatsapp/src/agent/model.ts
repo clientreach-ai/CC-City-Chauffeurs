@@ -2,7 +2,7 @@
  * The model, as the agent sees it.
  *
  * Vendor-neutral on purpose. The agent loop, the tools and the tests speak in
- * these types; exactly one file — `anthropic.ts` — knows what a Claude
+ * these types; exactly one file — `openai.ts` — knows what an OpenAI
  * request looks like. That is what lets a test put a scripted model in its
  * place and assert on every request, and what keeps the model a configuration
  * choice rather than something written into the conversation logic.
@@ -79,7 +79,7 @@ export type ModelRequest = {
 };
 
 export interface ChatModel {
-  /** Which adapter — "anthropic", "scripted". Recorded on every run. */
+  /** Which adapter — "openai", "scripted". Recorded on every run. */
   readonly provider: string;
   /** The model id in use, recorded on every run. */
   readonly model: string;
