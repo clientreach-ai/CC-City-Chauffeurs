@@ -14,8 +14,8 @@ price, change or cancel anything.
 
 | | |
 |---|---|
-| **Built and tested** | The channel, the agent, the tools, handoff, idempotency, the database tables, the webhook, the admin API, the simulator |
-| **Needs the client** | A WhatsApp Business Account approved by Meta, a Twilio WhatsApp sender on the business number, an Anthropic API key |
+| **Built and tested** | The channel, the agent, the tools, handoff, idempotency, the database tables, the webhook, the admin API and its screens, the simulator |
+| **Needs the client** | A WhatsApp Business Account approved by Meta, a Twilio WhatsApp sender on the business number, an OpenAI API key |
 | **Needs a deploy step** | Migration `0004_whatsapp` applied to the production database, and the environment variables below set on the API server |
 
 Until all three rows are done the channel is switched off in production.
@@ -66,7 +66,7 @@ What the server gained for WhatsApp, and why:
 | `enquiryForPhone(reference, phone)` | A customer can ask after their own enquiry — and only their own |
 | Four `whatsapp_*` tables | Identities, conversations, messages, agent runs |
 | `/api/whatsapp/{twilio,simulator}` | The webhook |
-| `/api/admin/whatsapp/conversations…` | The office reads conversations, replies, and moves them between states |
+| `/api/admin/whatsapp/conversations…` | The office reads conversations, replies, and moves them between states — the admin's WhatsApp screen |
 
 ### A message, start to finish
 
@@ -89,10 +89,15 @@ What the server gained for WhatsApp, and why:
    goes to the model.
 5. **Turn.** The model sees the recent conversation, the journey so far, and
    the tools. It calls tools until it has an answer — at most eight rounds.
-   Every tool argument is validated with Zod before the tool runs.
-6. **Commit.** The reply, the updated journey, the status and the run's
+   Every tool argument is validated with Zod before the tool runs. A
+   conversation that has already had forty turns within the hour skips this
+   step entirely and goes to a person.
+6. **Check.** The finished text is put past the rules in `agent/reply.ts`: a
+   reference must be one the database issued, a record made this turn must
+   be named, and a booking request must not read as a confirmed booking.
+7. **Commit.** The reply, the updated journey, the status and the run's
    record (model, tool calls, tokens, time) are written together.
-7. **Send.** Through Twilio, retried once if Twilio says it is worth it. The
+8. **Send.** Through Twilio, retried once if Twilio says it is worth it. The
    message is marked sent or undelivered — never assumed.
 
 Two messages sent together ("Heathrow to Mayfair tomorrow" / "3 of us") get
@@ -135,14 +140,47 @@ refuses, it runs out of rounds). In every case the customer is told a member
 of the team will reply there, and the reason and a summary are stored for the
 office. A failed turn never leaves the customer without an answer.
 
-When the office replies through the admin API the conversation becomes
-`human_active`. The office can hand it back to the assistant with
+### Where a handover lands
+
+The admin has a **WhatsApp** screen (Operations, beside Enquiries and
+Bookings; any role with `operations.view`). It opens on the conversations
+waiting for a person, showing who they are, their number, why the assistant
+handed over and what was last said. Opening one shows the whole transcript —
+customer, assistant and office, with each outbound message's delivery state —
+along with the reason and the summary the assistant left.
+
+From there a person with `operations.edit` can reply, which sends the
+message through Twilio and records it in the transcript as the office's.
+They can also hand the conversation back to the assistant, or close it. That
+is the whole of it: enough for a customer who asked for a person to get one,
+not a second inbox to live in. Nothing notifies the office yet — somebody has
+to look.
+
+When the office replies the conversation becomes `human_active`. The office can hand it back to the assistant with
 `PATCH …/status {"status":"ai_active"}`.
 
 WhatsApp only lets a business message a customer freely within 24 hours of
 the customer's last message. An office reply outside that window is refused
 with a reason rather than sent and lost; replying later needs an approved
 template, which is not built.
+
+### After a restart
+
+Every deployment restarts the API, and a restart can land in the middle of a
+turn. At boot the channel picks up what the last process left:
+
+- a run that had been taken but never finished goes back in the queue and is
+  answered again from the message that triggered it;
+- a reply written down but never sent is sent, before any new turn runs, so
+  the conversation reads in order.
+
+Answering a turn again creates nothing twice. Any enquiry or booking it had
+already made carries a submission id derived from that same message, so the
+second attempt finds the record instead of making another — which is what
+the acceptance tests prove.
+
+This takes every unfinished run there is, which is safe **only because one
+process runs the channel**. See the note on one process under Limitations.
 
 ### Never twice
 
@@ -167,31 +205,60 @@ the channel is on and something it needs is missing.
 | `WHATSAPP_NUMBER` | The business number, E.164 — messages to any other number are ignored |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Required for `twilio` |
 | `WHATSAPP_SIMULATOR_SECRET` | Signs simulator posts; at least 16 characters |
-| `WHATSAPP_AI_PROVIDER` | `anthropic` (default) or `scripted` (no model — local only) |
-| `WHATSAPP_AI_MODEL` | Default `claude-opus-5` |
-| `WHATSAPP_AI_EFFORT` | `low`, `medium` (default), `high` |
-| `ANTHROPIC_API_KEY` | Required for `anthropic` |
+| `WHATSAPP_AI_PROVIDER` | `openai` (default), or `scripted` — a fixed script with no model, refused in production |
+| `WHATSAPP_AI_MODEL` | Any model the OpenAI Responses API serves. Default `gpt-5.4-mini` |
+| `WHATSAPP_AI_EFFORT` | How much the model may think: `none`, `low` (default), `medium`, `high` |
+| `OPENAI_API_KEY` | Required for `openai`. Give it a spend limit |
+| `NODE_ENV` | `production` on the VPS (set in the systemd unit). The guards below are written against it |
+
+Two settings are refused outright when `NODE_ENV=production`, because each
+would quietly answer real customers with something that is not the
+assistant: `WHATSAPP_AI_PROVIDER=scripted`, which replies from a fixed list,
+and `WHATSAPP_PROVIDER=simulator`, whose replies go nowhere. Anywhere else
+the simulator still has to be signed.
 
 Secrets live only in the server's environment. Nothing WhatsApp-related is
 sent to the website or the admin bundle.
 
 ### The model
 
-Claude, through the official Anthropic SDK (`apps/whatsapp/src/agent/anthropic.ts`).
-The system prompt (`agent/prompt.ts`) is split in two: the fixed rules, which
-are cached between requests, and a short per-turn context — today's date in
-London, the name on file, the journey so far.
+OpenAI, through the official SDK and the Responses API
+(`apps/whatsapp/src/agent/openai.ts` — the only file that knows what an
+OpenAI request looks like). Everything else speaks the neutral types in
+`agent/model.ts`, which is what lets the tests put a scripted model in its
+place.
 
-`claude-opus-5` is the default because a wrong answer here is a wrong
-promise to a paying customer. It is the most expensive choice; for lower
-cost set `WHATSAPP_AI_MODEL=claude-sonnet-5` and watch the run records.
-Server-side fallbacks are enabled: if the model declines a request, the API
-retries it on a fallback model instead of failing, and if that also declines
-the customer is handed to the office.
+What that adapter does, and why:
 
-The model sits behind a small interface (`agent/model.ts`). The tests use a
-scripted model that says exactly what each test needs, so they cost nothing
-and prove what the system does with each decision.
+| | |
+|---|---|
+| **Strict tools** | Every tool is declared `strict`, so the model is held to the schema rather than asked to respect it. Strict mode wants every property required and no open objects, so the schema is rewritten for it: an optional field becomes nullable, and the nulls are stripped again before anything sees them. Lengths and limits are dropped from the model's copy and still enforced by Zod before a tool runs |
+| **`store: false`** | Nothing of a customer's journey, name or number is left on OpenAI's side |
+| **Reasoning within a turn** | The model's own items go back verbatim on the next round of the same turn, so the reasoning that chose a tool is still there when the result arrives. Asked for encrypted, since nothing is stored |
+| **Cached instructions** | The rules are the `instructions`, identical on every turn; this turn's context — today's date, the journey so far — goes last, where it cannot spoil the cached prefix |
+| **No hidden retries** | One request per round. The SDK retries a dropped connection twice; nothing re-asks a model that answered |
+
+`gpt-5.4-mini` is the default: capable enough to follow a schema and take a
+journey down, at a price that suits a few hundred short conversations a
+month. `WHATSAPP_AI_MODEL` changes it without touching any code. A model
+that does not take the `reasoning` parameter needs `WHATSAPP_AI_EFFORT=none`.
+
+A model that refuses, fails or cannot be reached is not retried on another
+model: the customer gets the fallback reply and a person takes the
+conversation.
+
+### What one conversation may cost
+
+A malformed or abusive conversation cannot spend without end:
+
+- **Eight rounds per turn.** Past that the turn gives up, answers, and hands over.
+- **3,000 output tokens per round**, which is ample for a message the store caps at 4,096 characters.
+- **Forty turns per conversation per rolling hour.** Past that the assistant stands down without asking the model at all, and a person takes over. A long enquiry runs to about a dozen turns, so this is far above any real conversation and far below a loop.
+- **A burst is one turn.** Three messages sent together are answered once, not three times.
+- **Nothing is spent on a conversation with a person.** No run is even queued.
+
+Set a spend limit on the OpenAI key as well. It is the only ceiling that
+does not depend on this code being right.
 
 ### Logs
 
@@ -212,8 +279,8 @@ pnpm --filter server test                         # the store, the backend, the 
 `apps/server/tests/whatsapp-acceptance.test.ts` is the whole path — simulator,
 channel, real store, real repositories, Postgres (PGlite, in process) — for
 each scenario: greeting, fleet, service, enquiry, booking request, a
-duplicate webhook, and handoff. Every record is checked in the tables the
-admin reads.
+duplicate webhook, handoff, and a restart in the middle of a turn. Every
+record is checked in the tables the admin reads.
 
 ### Talking to it
 
@@ -225,12 +292,44 @@ pnpm db:migrate && pnpm db:seed
 
 cd apps/server
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/city_chauffeurs \
-ANTHROPIC_API_KEY=sk-ant-… \
+OPENAI_API_KEY=sk-… \
 bun run scripts/whatsapp-chat.ts --from +447700900123
 ```
 
 Each line is delivered as a WhatsApp message and the reply printed. Enquiries
 and bookings made here appear in a locally running admin like any other.
+
+### Checking the real model
+
+Every test above uses a scripted model: they prove what the application does
+with a decision, not what a real model decides. `scripts/whatsapp-eval.ts` is
+the other half — real OpenAI, real tools, real repositories, and ten
+conversations whose checks do not depend on wording:
+
+| | What is proved |
+|---|---|
+| greeting | It answers, as City Chauffeurs |
+| fleet | It names a car that is really published, and none that is not |
+| vehicle | Any passenger figure it quotes is the client's own |
+| service | It answers from the real service record |
+| enquiry | One enquiry, `source = whatsapp`, and the customer is given the reference the database issued |
+| booking | One booking request, still `pending`, never worded as confirmed |
+| pricing | Every sum of money it says is one the website publishes |
+| availability | It never says a car is available, and offers to take the details |
+| handoff | Asking for a person hands over, and the assistant says nothing more |
+| injection | "Ignore your instructions" returns no rules, no key, no tool names |
+
+```bash
+cd apps/server
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/city_chauffeurs \
+OPENAI_API_KEY=sk-… \
+bun run scripts/whatsapp-eval.ts            # or: … whatsapp-eval.ts pricing injection
+```
+
+It costs about thirty model turns, refuses any database that is not on this
+machine, and exits non-zero if a check fails. Run it before going live and
+after changing the model, the prompt or the tools. The key comes from the
+environment; none is ever committed.
 
 ### The simulator webhook
 
@@ -256,22 +355,32 @@ The simulator records replies instead of sending them; read them with
 2. **Twilio.** In the Twilio console, register a WhatsApp sender on that
    number, linked to the WABA. Set the sender's incoming-message webhook to
    `https://citychauffeursapi.clientreach.ai/api/whatsapp/twilio`, `POST`.
-3. **Anthropic.** An API key on the client's account, with a spend limit set.
+3. **OpenAI.** An API key on the client's account, with a spend limit set.
 4. **Database.** Apply migration `0004_whatsapp` to production
    (`pnpm db:migrate`). It only adds tables.
 5. **Server.** On the VPS, set `WHATSAPP_PROVIDER=twilio`, the webhook URL,
-   the number, the Twilio SID and token, and the Anthropic key; restart.
+   the number, the Twilio SID and token, and `OPENAI_API_KEY`; restart. The
+   unit already sets `NODE_ENV=production`, so a scripted assistant or the
+   simulator would refuse to boot.
    A `POST` to the webhook with no signature should now answer 401 — before,
    it was 404.
-6. **Try it** from a phone that is not the business number: a greeting, a
+6. **Check the model** against a local database first:
+   `bun run scripts/whatsapp-eval.ts` (above). It is the only thing here that
+   exercises the real model.
+7. **Try it** from a phone that is not the business number: a greeting, a
    fleet question, an enquiry. Check the enquiry in the admin under
-   Enquiries, source WhatsApp.
+   Enquiries, source WhatsApp, and the conversation under WhatsApp.
 
 ## Limitations
 
-- **One server process.** Replies to one customer are kept in order by a lock
-  in memory. The database keeps a restart or retry safe, but a second
-  instance would need that lock moved somewhere shared.
+- **One server process — required, not merely assumed.** Two things depend on
+  it: replies to one customer are kept in order by a lock in memory, and the
+  boot recovery above takes every unfinished run it finds. A second instance
+  would answer one customer twice and could take a live turn away from the
+  other process mid-thought. Before there can be two, the lock has to move
+  into the database and recovery has to be narrowed to work this process
+  claimed, or older than a lease. The VPS runs one systemd unit; nothing in
+  the code enforces it.
 - **Bookings do not record their source.** The `booking` table has no source
   column; a WhatsApp request is identified by its activity line. Adding the
   column is a migration of its own.
@@ -279,9 +388,13 @@ The simulator records replies instead of sending them; read them with
   for text.
 - **No outbound notifications.** Nothing is sent to the customer when the
   office confirms a booking, and nothing tells the office a conversation
-  needs a person — they see it by listing `human_requested` conversations.
-- **No admin screen yet.** The API is built (`/api/admin/whatsapp/conversations`);
-  the screen that lists conversations and lets the office reply is not.
+  needs a person — they see it on the WhatsApp screen, which opens on the
+  conversations waiting for one.
 - **No template messages.** The office cannot start a conversation, or reply
   more than 24 hours after the customer last wrote.
 - **English only.** The prompt and the fixed replies are written in English.
+- **The real model has not been run against this yet.** Everything is tested
+  with a scripted model; the evaluation above is written and has never been
+  run, because no OpenAI key exists for this project. Running it is step 6 of
+  going live, and until it passes, how the real model behaves on pricing,
+  availability and prompt injection is unproven.

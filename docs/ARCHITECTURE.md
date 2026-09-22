@@ -212,7 +212,7 @@ operations and publishing. `admin` adds site settings.
 ## What is still not real
 
 - **WhatsApp is switched off in production.** It is built and tested, and
-  waits on a Meta-approved business account, a Twilio sender, an Anthropic key
+  waits on a Meta-approved business account, a Twilio sender, an OpenAI key
   and migration `0004_whatsapp` — see [WHATSAPP.md](WHATSAPP.md#going-live).
 - **Nothing is sent to anybody.** A status change, a recorded quote or a note
   is written to the book of record and no further: no email reaches a
