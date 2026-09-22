@@ -15,6 +15,7 @@
     "@CC-City-Chauffeurs/core": "workspace:*",
     "@CC-City-Chauffeurs/db": "workspace:*",
     "@CC-City-Chauffeurs/env": "workspace:*",
+    "@CC-City-Chauffeurs/whatsapp": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
