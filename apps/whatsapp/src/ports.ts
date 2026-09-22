@@ -289,6 +289,25 @@ export type RecordedInbound =
   /** Seen before. Nothing written, nothing queued, nothing sent. */
   | { outcome: "duplicate" };
 
+/**
+ * A reply that was written down but never got out — the process stopped
+ * between recording it and the provider accepting it.
+ */
+export type UndeliveredMessage = {
+  id: string;
+  conversationId: string;
+  to: E164;
+  body: string;
+};
+
+/** What was left half-done when the process last stopped. */
+export type InterruptedWork = {
+  /** Runs that were being worked on, put back in the queue. */
+  requeuedRuns: string[];
+  /** Replies recorded but not sent, oldest first. */
+  undelivered: UndeliveredMessage[];
+};
+
 export type ToolCallRecord = {
   name: string;
   ok: boolean;
@@ -347,6 +366,18 @@ export interface ConversationStore {
   markUndelivered(messageId: string, code: string, detail: string): Promise<void>;
   /** Runs still queued, oldest first — for picking up after a restart. */
   queuedRuns(): Promise<string[]>;
+  /**
+   * Picks up what the last process was in the middle of: a run it had taken
+   * goes back in the queue, and a reply it had written down but not sent is
+   * handed back to be sent.
+   *
+   * Only safe because one process runs the channel. A second process would
+   * find the first one's live work here and take it away mid-turn; before
+   * there can be two, this has to become "mine, and older than a timeout".
+   */
+  recoverInterrupted(): Promise<InterruptedWork>;
+  /** How many assistant runs this conversation has had since `since` — the ceiling on what one conversation may spend. */
+  runsSince(conversationId: string, since: Date): Promise<number>;
   /**
    * A reply typed by a person in the office. Recorded before it is sent, so
    * the transcript shows what was said even if delivery fails.
