@@ -14,6 +14,6 @@ export { normalisePhone, tryNormalisePhone, stripWhatsAppPrefix, InvalidPhoneNum
 export * from "./providers/index";
 export type { ChatModel, ModelMessage, ModelRequest, ModelResponse, ModelTool } from "./agent/model";
 export { ModelUnavailableError } from "./agent/model";
-export { AnthropicModel, type AnthropicModelOptions } from "./agent/anthropic";
+export { OpenAIModel, DEFAULT_MODEL, type OpenAIModelOptions, type OpenAIEffort } from "./agent/openai";
 export { ScriptedModel, says, calls, callsMany, fails, refuses, type ScriptStep } from "./agent/scripted";
 export { cityChauffeursTools } from "./tools/city-chauffeurs";
