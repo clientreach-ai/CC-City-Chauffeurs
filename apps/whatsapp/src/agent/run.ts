@@ -14,6 +14,7 @@
 
 import type { ConversationState, ToolCallRecord, TurnUsage } from "../ports";
 import { FALLBACK_REPLY, HANDOFF_REPLY } from "./guardrails";
+import { checkReply } from "./reply";
 import { ModelUnavailableError, type ChatModel, type ModelMessage, type ModelToolResult } from "./model";
 import { SYSTEM } from "./prompt";
 import { runTool, toModelTool, type Tool, type ToolContext } from "../tools/tool";
@@ -29,6 +30,8 @@ export type TurnOutcome = {
   toolCalls: ToolCallRecord[];
   usage: TurnUsage;
   errorCode: string | null;
+  /** What the checks in `reply.ts` had to put right, for the run's record. */
+  corrections: string[];
 };
 
 export async function runAgentTurn(input: {
@@ -46,20 +49,29 @@ export async function runAgentTurn(input: {
   const toolCalls: ToolCallRecord[] = [];
   const usage: TurnUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
 
-  const finish = (reply: string, extra: { errorCode?: string | null; iterations: number }): TurnOutcome => ({
-    reply: reply.length > MAX_REPLY ? `${reply.slice(0, MAX_REPLY - 1)}…` : reply,
-    state: context.state,
-    handoff: context.handoff,
-    iterations: extra.iterations,
-    toolCalls,
-    usage,
-    errorCode: extra.errorCode ?? null,
-  });
+  /**
+   * Nothing reaches the customer without the checks in `reply.ts`: a
+   * reference must be one that exists, a record made this turn must be
+   * named, and a request must not read as a confirmed booking.
+   */
+  const finish = (reply: string, extra: { errorCode?: string | null; iterations: number }): TurnOutcome => {
+    const checked = checkReply(reply, { created: context.createdFor, references: context.state.references });
+    return {
+      reply: checked.text.length > MAX_REPLY ? `${checked.text.slice(0, MAX_REPLY - 1)}…` : checked.text,
+      state: context.state,
+      handoff: context.handoff,
+      iterations: extra.iterations,
+      toolCalls,
+      usage,
+      errorCode: extra.errorCode ?? null,
+      corrections: checked.corrections,
+    };
+  };
 
   /** Nothing usable came back: tell the customer, and put a person on it. */
   const giveUp = (errorCode: string, iterations: number) => {
     context.handoff ??= { reason: "cannot_help", summary: `The assistant could not answer (${errorCode}).` };
-    return finish(withReference(FALLBACK_REPLY, context), { errorCode, iterations });
+    return finish(FALLBACK_REPLY, { errorCode, iterations });
   };
 
   for (let iteration = 1; iteration <= input.maxIterations; iteration += 1) {
@@ -114,13 +126,10 @@ export async function runAgentTurn(input: {
 
     // Handing over ends the turn in words the application chooses, not the
     // model's: the customer is told a person is coming, and nothing else.
-    if (context.handoff) return finish(withReference(HANDOFF_REPLY, context), { iterations: iteration });
+    if (context.handoff) return finish(HANDOFF_REPLY, { iterations: iteration });
   }
 
   return giveUp("iteration_limit", input.maxIterations);
 }
 
-/** A reference created earlier in this turn is never lost to a handover or a failure. */
-function withReference(reply: string, context: ToolContext) {
-  return context.createdFor ? `${reply} Your reference is ${context.createdFor.reference}.` : reply;
-}
+
