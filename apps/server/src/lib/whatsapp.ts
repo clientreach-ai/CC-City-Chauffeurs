@@ -64,8 +64,8 @@ async function build(mode: WhatsAppMode): Promise<WhatsAppChannel> {
   const model =
     env.WHATSAPP_AI_PROVIDER === "scripted"
       ? new whatsapp.ScriptedModel()
-      : new whatsapp.AnthropicModel({
-          apiKey: env.ANTHROPIC_API_KEY,
+      : new whatsapp.OpenAIModel({
+          apiKey: env.OPENAI_API_KEY,
           model: env.WHATSAPP_AI_MODEL,
           effort: env.WHATSAPP_AI_EFFORT,
         });

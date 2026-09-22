@@ -19,7 +19,7 @@
 
 import { env } from "@CC-City-Chauffeurs/env/server";
 import {
-  AnthropicModel,
+  OpenAIModel,
   createWhatsAppChannel,
   normalisePhone,
   SimulatorProvider,
@@ -49,8 +49,8 @@ if (!LOCAL_HOSTS.has(databaseHost())) {
   process.exit(1);
 }
 
-if (!env.ANTHROPIC_API_KEY) {
-  console.error("ANTHROPIC_API_KEY is not set — the assistant has nothing to think with.");
+if (!env.OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY is not set — the assistant has nothing to think with.");
   process.exit(1);
 }
 
@@ -63,7 +63,7 @@ const channel = createWhatsAppChannel({
   provider,
   store: createWhatsAppStore({ provider: provider.name }),
   backend: createWhatsAppBackend(),
-  model: new AnthropicModel({ apiKey: env.ANTHROPIC_API_KEY, model: env.WHATSAPP_AI_MODEL, effort: env.WHATSAPP_AI_EFFORT }),
+  model: new OpenAIModel({ apiKey: env.OPENAI_API_KEY, model: env.WHATSAPP_AI_MODEL, effort: env.WHATSAPP_AI_EFFORT }),
   config: { webhookUrl: "http://localhost/api/whatsapp/simulator", ourNumber },
   // The channel's events, where a developer can see them without the text.
   log: {

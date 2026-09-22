@@ -2,6 +2,8 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+import { DEFAULT_WHATSAPP_MODEL, whatsappConfigProblems } from "./whatsapp";
+
 /**
  * A comma-separated list of origins: the website and the admin run on
  * different ports in development and different subdomains in production, and
@@ -82,43 +84,33 @@ export const env = createEnv({
      * if the simulator is on at all.
      */
     WHATSAPP_SIMULATOR_SECRET: z.string().min(16).optional(),
-    /** `scripted` answers from a fixed script with no model behind it — for local runs without an API key. */
-    WHATSAPP_AI_PROVIDER: z.enum(["anthropic", "scripted"]).default("anthropic"),
-    WHATSAPP_AI_MODEL: z.string().min(1).default("claude-opus-5"),
-    WHATSAPP_AI_EFFORT: z.enum(["low", "medium", "high"]).default("medium"),
-    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    /**
+     * `scripted` answers from a fixed script with no model behind it — for
+     * local runs without a key, and refused in production.
+     */
+    WHATSAPP_AI_PROVIDER: z.enum(["openai", "scripted"]).default("openai"),
+    /**
+     * Any OpenAI model the Responses API serves. The default is a capable
+     * model at a price that suits short conversations; it must be one that
+     * takes the `reasoning` parameter unless WHATSAPP_AI_EFFORT is `none`.
+     */
+    WHATSAPP_AI_MODEL: z.string().min(1).default(DEFAULT_WHATSAPP_MODEL),
+    /**
+     * How much the model may think before answering. `low` suits a short
+     * WhatsApp reply; `none` sends no reasoning setting at all, for a model
+     * that has none.
+     */
+    WHATSAPP_AI_EFFORT: z.enum(["none", "low", "medium", "high"]).default("low"),
+    OPENAI_API_KEY: z.string().min(1).optional(),
   },
   /**
-   * The WhatsApp settings depend on one another, and a half-configured
-   * channel should stop the server at boot with a sentence saying what is
-   * missing — not start, take a customer's message, and fail on the reply.
+   * The WhatsApp settings are checked together, by the rules in
+   * `./whatsapp.ts`, so a half-configured channel never reaches a customer.
    */
   createFinalSchema: (shape) =>
     z.object(shape).superRefine((value, context) => {
-      const missing = (name: string, why: string) =>
-        context.addIssue({ code: "custom", path: [name], message: `${name} is required ${why}.` });
-
-      if (value.WHATSAPP_PROVIDER === "disabled") return;
-      const why = `when WHATSAPP_PROVIDER is ${value.WHATSAPP_PROVIDER}`;
-      if (!value.WHATSAPP_NUMBER) missing("WHATSAPP_NUMBER", why);
-      if (value.WHATSAPP_PROVIDER === "twilio") {
-        // Twilio signs the address it was given. The simulator signs only the
-        // body, so it can do without and falls back to API_URL.
-        if (!value.WHATSAPP_WEBHOOK_URL) missing("WHATSAPP_WEBHOOK_URL", why);
-        if (!value.TWILIO_ACCOUNT_SID) missing("TWILIO_ACCOUNT_SID", why);
-        if (!value.TWILIO_AUTH_TOKEN) missing("TWILIO_AUTH_TOKEN", why);
-      }
-      // Unsigned, the simulator takes a message from anybody who can reach
-      // it — fine on a laptop, not on the internet.
-      if (
-        value.WHATSAPP_PROVIDER === "simulator" &&
-        value.NODE_ENV === "production" &&
-        !value.WHATSAPP_SIMULATOR_SECRET
-      ) {
-        missing("WHATSAPP_SIMULATOR_SECRET", "to run the simulator in production");
-      }
-      if (value.WHATSAPP_AI_PROVIDER === "anthropic" && !value.ANTHROPIC_API_KEY) {
-        missing("ANTHROPIC_API_KEY", "when WHATSAPP_AI_PROVIDER is anthropic");
+      for (const problem of whatsappConfigProblems(value)) {
+        context.addIssue({ code: "custom", path: [problem.path], message: problem.message });
       }
     }),
   runtimeEnv: process.env,
