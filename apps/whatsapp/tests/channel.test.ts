@@ -594,3 +594,102 @@ describe("what the customer is finally told", () => {
     expect(backend.created[0]).toMatchObject({ kind: "booking", reference: "BKG-2101" });
   });
 });
+
+describe("handing the conversation back to the assistant", () => {
+  /** A conversation with a person, after the customer asked for one. */
+  async function withAPerson(script: ScriptStep[] = []) {
+    const whatsapp = channel([says("Hello."), ...script]);
+    await say(whatsapp, "m1", "Hi");
+    await say(whatsapp, "m2", "Can I speak to someone please?");
+    const conversationId = [...store.conversations.keys()][0]!;
+    return { whatsapp, conversationId };
+  }
+
+  test("a message sent while a person had the conversation is answered on the way back", async () => {
+    const { whatsapp, conversationId } = await withAPerson([says("The S-Class seats three.")]);
+    // The customer writes again; nothing is queued, because a person has it.
+    const waiting = await say(whatsapp, "m3", "Can you also tell me about the S Class?");
+    expect(waiting.runIds).toEqual([]);
+
+    const { runIds } = await whatsapp.setStatus(conversationId, "ai_active");
+
+    expect(runIds).toHaveLength(1);
+    for (const runId of runIds) await whatsapp.processRun(runId);
+    expect(lastSent()).toBe("The S-Class seats three.");
+    // The message that was waiting is the one the run answered.
+    expect(store.runs.get(runIds[0]!)!.triggeringMessageId).toBe(
+      store.messages.find((message) => message.body.includes("S Class"))!.id,
+    );
+  });
+
+  test("a message the office answered itself is not answered again", async () => {
+    const { whatsapp, conversationId } = await withAPerson();
+    await say(whatsapp, "m3", "Can you also tell me about the S Class?");
+    await whatsapp.sendOperatorMessage(conversationId, "It seats three — Faheem.");
+    const asked = model.requests.length;
+
+    const { runIds } = await whatsapp.setStatus(conversationId, "ai_active");
+
+    expect(runIds).toEqual([]);
+    expect(model.requests).toHaveLength(asked);
+  });
+
+  test("nothing waiting queues nothing", async () => {
+    const { whatsapp, conversationId } = await withAPerson();
+    await whatsapp.sendOperatorMessage(conversationId, "Faheem here — how can we help?");
+
+    expect((await whatsapp.setStatus(conversationId, "ai_active")).runIds).toEqual([]);
+  });
+
+  test("handing back twice queues one run, not two", async () => {
+    const { whatsapp, conversationId } = await withAPerson([says("The S-Class seats three.")]);
+    await say(whatsapp, "m3", "Can you also tell me about the S Class?");
+
+    const first = await whatsapp.setStatus(conversationId, "ai_active");
+    const again = await whatsapp.setStatus(conversationId, "ai_active");
+
+    expect(first.runIds).toHaveLength(1);
+    expect(again.runIds).toEqual([]);
+    expect([...store.runs.values()].filter((run) => run.triggeringMessageId === store.messages[4]!.id)).toHaveLength(1);
+  });
+
+  test("a message already answered by the assistant is not answered twice", async () => {
+    const whatsapp = channel([says("Hello.")]);
+    await say(whatsapp, "m1", "Hi");
+    const conversationId = [...store.conversations.keys()][0]!;
+    // Taken over and handed straight back, with nothing said in between.
+    await whatsapp.setStatus(conversationId, "human_active");
+
+    expect((await whatsapp.setStatus(conversationId, "ai_active")).runIds).toEqual([]);
+  });
+
+  test("closing a conversation queues nothing, whatever is waiting", async () => {
+    const { whatsapp, conversationId } = await withAPerson();
+    await say(whatsapp, "m3", "Hello? Anyone?");
+
+    expect((await whatsapp.setStatus(conversationId, "closed")).runIds).toEqual([]);
+  });
+
+  test("the run is the ordinary one: it reads everything still waiting, and records once", async () => {
+    const { whatsapp, conversationId } = await withAPerson([
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow" }),
+      calls("create_enquiry"),
+      says("That is with the team."),
+    ]);
+    await say(whatsapp, "m3", "Heathrow please");
+    await say(whatsapp, "m4", "My name is Amelia Hughes — go ahead");
+
+    const { runIds } = await whatsapp.setStatus(conversationId, "ai_active");
+    for (const runId of runIds) await whatsapp.processRun(runId);
+
+    // One run for the two messages that were waiting, and one enquiry.
+    expect(runIds).toHaveLength(1);
+    expect(backend.created).toHaveLength(1);
+    const asked = model.requests
+      .at(-1)!
+      .messages.filter((message) => message.role === "user")
+      .map((message) => (message as { text: string }).text);
+    expect(asked).toContain("Heathrow please");
+    expect(asked).toContain("My name is Amelia Hughes — go ahead");
+  });
+});

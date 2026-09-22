@@ -481,3 +481,94 @@ describe("Scenario 8 — the server restarts mid-conversation", () => {
     expect(only(await rows("select delivery from whatsapp_message where direction = 'outbound'")).delivery).toBe("sent");
   });
 });
+
+describe("Scenario 9 — the office hands the conversation back", () => {
+  /**
+   * Puts the conversation with a person, the way a customer asking for one
+   * does. That request is itself a turn, so it leaves one run behind — the
+   * counts below are about what the hand-back adds to it.
+   */
+  async function handedOver() {
+    await customerSays("SM1", "I want to speak to someone.");
+    const conversationId = only(await rows("select id from whatsapp_conversation")).id as string;
+    expect(only(await rows("select status from whatsapp_conversation")).status).toBe("human_requested");
+    expect(await runCount()).toBe(1);
+    return conversationId;
+  }
+
+  const runCount = async () => (await rows("select id from whatsapp_agent_run")).length;
+
+  test("a message sent while a person had it is answered on the way back", async () => {
+    start([]);
+    const conversationId = await handedOver();
+
+    // The customer writes again. Nothing is queued: a person has it.
+    const waiting = await customerSays("SM2", "Can you also tell me about the S Class?");
+    expect(waiting.runIds).toEqual([]);
+    expect(await runCount()).toBe(1);
+
+    await whatsapp.sendOperatorMessage(conversationId, "One moment — I will check.");
+    // ... and again, after the office spoke.
+    await customerSays("SM3", "Thanks — how many does it seat?");
+
+    model.push(calls("get_vehicle", { vehicle: "S Class" }), says("The Mercedes S-Class seats three."));
+    const { runIds } = await whatsapp.setStatus(conversationId, "ai_active");
+    expect(runIds).toHaveLength(1);
+    for (const runId of runIds) await whatsapp.processRun(runId);
+
+    expect(lastReply()).toBe("The Mercedes S-Class seats three.");
+    const run = only(
+      await rows("select status, triggering_message_id from whatsapp_agent_run order by created_at desc limit 1"),
+    );
+    expect(run.status).toBe("succeeded");
+    // The newest waiting message triggered it, and the turn read both.
+    const newest = only(await rows("select id from whatsapp_message where body like '%how many does it seat%'"));
+    expect(run.triggering_message_id).toBe(newest.id);
+    const asked = model.requests.at(-1)!.messages.filter((message) => message.role === "user");
+    expect(asked.map((message) => (message as { text: string }).text)).toContain("Can you also tell me about the S Class?");
+  });
+
+  test("a message the office answered itself is left alone, and handing back twice queues nothing twice", async () => {
+    start([]);
+    const conversationId = await handedOver();
+    await customerSays("SM2", "Can you also tell me about the S Class?");
+    await whatsapp.sendOperatorMessage(conversationId, "It seats three — Faheem.");
+
+    expect((await whatsapp.setStatus(conversationId, "ai_active")).runIds).toEqual([]);
+    expect((await whatsapp.setStatus(conversationId, "ai_active")).runIds).toEqual([]);
+    // Nothing beyond the run the handover itself made, and the model unasked.
+    expect(await runCount()).toBe(1);
+    expect(model.requests).toHaveLength(0);
+  });
+
+  test("handing back twice for one waiting message makes one run, and one enquiry", async () => {
+    start([]);
+    const conversationId = await handedOver();
+    await customerSays("SM2", "Please send an enquiry — Heathrow pickup, Amelia Hughes.");
+
+    model.push(
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow" }),
+      calls("create_enquiry"),
+      says("Your enquiry is with the team."),
+    );
+    const first = await whatsapp.setStatus(conversationId, "ai_active");
+    const again = await whatsapp.setStatus(conversationId, "ai_active");
+    for (const runId of [...first.runIds, ...again.runIds]) await whatsapp.processRun(runId);
+
+    expect(first.runIds).toHaveLength(1);
+    expect(again.runIds).toEqual([]);
+    expect(await runCount()).toBe(2);
+    expect(await rows("select id from enquiry")).toHaveLength(1);
+    // One reply to the handover, one to the enquiry: none of it twice.
+    expect(provider.sent).toHaveLength(2);
+  });
+
+  test("closing a conversation with a message waiting queues nothing", async () => {
+    start([]);
+    const conversationId = await handedOver();
+    await customerSays("SM2", "Hello? Anyone there?");
+
+    expect((await whatsapp.setStatus(conversationId, "closed")).runIds).toEqual([]);
+    expect(await runCount()).toBe(1);
+  });
+});

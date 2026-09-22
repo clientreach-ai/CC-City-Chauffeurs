@@ -385,6 +385,16 @@ export interface ConversationStore {
   recordOperatorMessage(conversationId: string, body: string): Promise<{ messageId: string }>;
   /** Moves a conversation between the assistant and a person, or closes it. */
   setStatus(conversationId: string, status: ConversationStatus): Promise<void>;
+  /**
+   * Queues an assistant run for one message the customer is still waiting on
+   * — used when the office hands a conversation back to the assistant.
+   *
+   * `null` when there is nothing to do: a run for that message already
+   * exists, whatever state it is in, or the conversation is not the
+   * assistant's to answer. The unique triggering message is what makes it
+   * safe to ask twice.
+   */
+  queueRun(conversationId: string, messageId: string): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------- errors

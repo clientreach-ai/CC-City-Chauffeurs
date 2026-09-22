@@ -333,6 +333,35 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
     });
   }
 
+  /**
+   * The office moving a conversation, and what that leaves behind.
+   *
+   * While a person had the conversation the customer may have written again,
+   * and nothing was queued for it — correctly, because the assistant does
+   * not answer over a person. Handing the conversation back has to pick that
+   * message up, or it would sit there unanswered until the customer wrote
+   * again, which they may never do.
+   *
+   * "Still waiting" is the same question a turn asks: inbound, after the last
+   * turn the assistant finished, and after the last thing the office said —
+   * so a message the office answered itself is not answered twice. One run is
+   * queued, for the newest of them, which is the run that reads them all; and
+   * the unique triggering message means asking twice queues nothing twice.
+   */
+  async function changeStatus(conversationId: string, status: ConversationStatus): Promise<{ runIds: string[] }> {
+    await store.setStatus(conversationId, status);
+    if (status !== "ai_active") return { runIds: [] };
+
+    const conversation = await store.getConversation(conversationId);
+    const pending = waitingForAnswer(await store.history(conversationId, config.historyLimit), conversation);
+    if (!pending.length) return { runIds: [] };
+
+    const runId = await store.queueRun(conversationId, pending.at(-1)!.id);
+    if (!runId) return { runIds: [] };
+    log.info("whatsapp_handed_back", { conversationId, runId, waiting: pending.length });
+    return { runIds: [runId] };
+  }
+
   async function deliver(
     messageId: string,
     target: { id: string; phone: E164 },
@@ -431,7 +460,7 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
     processRun,
     resumeQueued,
     sendOperatorMessage,
-    setStatus: (conversationId, status) => exclusively(conversationId, () => store.setStatus(conversationId, status)),
+    setStatus: (conversationId, status) => exclusively(conversationId, () => changeStatus(conversationId, status)),
   };
 }
 
