@@ -111,16 +111,32 @@ Next, on its own origin, behind a session.
 
 ### Photographs
 
-The database stores the site's own photography as site-relative paths
-(`/media/fleet-cullinan.jpg`), so records survive a rebuild, a redeploy and a
-change of domain — none of which a `/_next/static/…` URL would. The website
-serves those directly. The admin is another origin, so it resolves them
-against the website at the point of rendering; what is stored is never
-rewritten.
+Every photograph lives in a Cloudflare R2 bucket and is served from the
+bucket's public address. The database stores that absolute address in every
+`ImageRef`, and the media library keeps the object key beside it so a
+photograph can be replaced or removed in the bucket when its record is.
 
-An uploaded photograph is different: it goes to the API, which stores it and
-returns an absolute URL, and that is what the database keeps. `lib/uploads.ts`
-is the seam — swapping it for R2 or S3 changes that file and nothing else.
+`apps/server/src/lib/storage.ts` is the seam. An upload goes to the API, which
+checks the bytes are an image, reads the real dimensions from the header,
+writes the file under a fresh key and returns the address. A key is never
+written twice: a page already pointing at a photograph never finds it
+changed underneath, so the address can be cached forever.
+
+The bucket may be shared with other projects, so everything this site stores
+sits under `R2_PREFIX` (`city-chauffeurs/…`) and nothing outside it is ever
+listed, written or deleted. The website's own photography sits at the path it
+had under `public/` — `/media/fleet-cullinan.jpg` became
+`<bucket>/city-chauffeurs/media/fleet-cullinan.jpg` — put there once by
+`apps/server/scripts/migrate-media-to-r2.ts`, which can be run again to fill
+any gaps. The files stay in `apps/web/public` as the seed's source; the seed
+writes bucket addresses.
+
+The **Media** screen in the admin is the whole collection: upload, describe,
+replace and delete. Two rules hold there, enforced by the API. A photograph a
+page still shows cannot be deleted — `GET /media/usage` says where each one
+is used, by walking every `ImageRef` on the website. And replacing a
+photograph rewrites every reference to it in one transaction, keeping each
+page's own description, so a change lands everywhere at once or nowhere.
 
 ## `apps/web` — the website
 
@@ -192,5 +208,3 @@ operations and publishing. `admin` adds site settings.
   quotes, and one cannot be published without a first name, a role, a district
   and a record that the customer agreed — fake reviews are an offence under
   the Digital Markets, Competition and Consumers Act 2024.
-- **Uploads are stored on the API's own disk.** Fine for one server; the seam
-  for object storage is `apps/server/src/lib/uploads.ts`.

@@ -24,6 +24,12 @@ const AREAS: { match: RegExp; tags: string[] }[] = [
   { match: /^\/testimonials/, tags: ["testimonials", "homepage"] },
   { match: /^\/homepage/, tags: ["homepage"] },
   { match: /^\/settings/, tags: ["site-settings", "homepage"] },
+  /**
+   * Replacing a photograph rewrites it wherever it is used, which can be any
+   * page. Uploading, describing or deleting one changes nothing the website
+   * shows, so only the replacement purges.
+   */
+  { match: /^\/media\/[^/]+\/replace$/, tags: ["fleet", "services", "gallery", "homepage", "site-settings"] },
 ];
 
 const MUTATIONS = new Set(["POST", "PATCH", "PUT", "DELETE"]);

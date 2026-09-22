@@ -89,6 +89,16 @@ export function setTestEnvironment() {
   process.env.CORS_ORIGIN ??= "http://localhost:3001";
   process.env.SITE_URL ??= "http://localhost:3001";
   process.env.API_URL ??= "http://localhost:3000";
+  // Never reached: the tests replace the storage module before anything
+  // writes to it. Set outright rather than defaulted, because `bun test`
+  // loads the developer's own .env and the real bucket's address would
+  // otherwise leak into assertions about keys and addresses.
+  process.env.R2_ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
+  process.env.R2_PUBLIC_ACCESS_KEY_ID = "test-access-key";
+  process.env.R2_PUBLIC_SECRET_ACCESS_KEY = "test-secret-key";
+  process.env.R2_BUCKET = "test-bucket";
+  process.env.R2_PUBLIC_BASE_URL = "https://files.example.test";
+  process.env.R2_PREFIX = "test-site";
   process.env.NODE_ENV = "test";
 }
 

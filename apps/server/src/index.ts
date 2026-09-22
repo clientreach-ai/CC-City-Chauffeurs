@@ -5,10 +5,6 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { join, normalize } from "node:path";
-
 import { errorResponse } from "./lib/errors";
 import { revalidateSite } from "./lib/revalidate";
 import { requireUser, sameSiteWrites, withSession, type Variables } from "./lib/session";
@@ -20,7 +16,6 @@ import { operationRoutes } from "./routes/operations";
 import { publicRoutes } from "./routes/public";
 import { serviceRoutes } from "./routes/services";
 import { testimonialRoutes } from "./routes/testimonials";
-import { UPLOAD_DIR } from "./lib/uploads";
 
 /**
  * The API.
@@ -49,42 +44,6 @@ app.use(
 app.onError((error, c) => errorResponse(error, c));
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
-
-/**
- * Uploaded photographs. Served from here because this is where they were
- * stored; with object storage in front they would be served by the CDN and
- * this route would go away.
- */
-app.get("/uploads/:name", async (c) => {
-  const name = c.req.param("name");
-  // Nothing but a bare filename may be read out of the upload directory.
-  if (name !== normalize(name) || name.includes("/") || name.startsWith(".")) {
-    return c.notFound();
-  }
-  const path = join(UPLOAD_DIR, name);
-  const info = await stat(path).catch(() => null);
-  if (!info?.isFile()) return c.notFound();
-
-  const types: Record<string, string> = {
-    ".jpg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".avif": "image/avif",
-  };
-  const extension = name.slice(name.lastIndexOf("."));
-  return new Response(createReadStream(path) as unknown as ReadableStream, {
-    headers: {
-      "Content-Type": types[extension] ?? "application/octet-stream",
-      "Content-Length": String(info.size),
-      // Served as the image it was sniffed to be, and nothing else: a file
-      // that is somehow not one can neither be re-typed nor run as a page.
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; sandbox",
-      // The name is unique per upload, so this can never go stale.
-      "Cache-Control": "public, max-age=31536000, immutable",
-    },
-  });
-});
 
 app.route("/api/public", publicRoutes);
 
