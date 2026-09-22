@@ -80,6 +80,7 @@ async function main() {
       seed.media.map((asset) => ({
         id: asset.id,
         src: asset.src,
+        key: asset.key,
         width: asset.width,
         height: asset.height,
         alt: asset.alt,

@@ -23,8 +23,14 @@ import type {
   VehicleFeature,
 } from "@CC-City-Chauffeurs/core/types";
 
-/** What the static-image loader returns — Next's `StaticImageData` shape. */
-type StaticImageData = { src: string; width: number; height: number };
+import { storedKey, storedSrc } from "./assets";
+
+/**
+ * What the static-image loader returns — Next's `StaticImageData` shape,
+ * plus the key the photograph is stored under. The key is optional only to
+ * the type checker, which sees Next's own shape; the loader always sets it.
+ */
+type StaticImageData = { src: string; key?: string; width: number; height: number };
 
 /**
  * The database seed, built from the public site's own data files.
@@ -238,6 +244,7 @@ function buildMedia(): MediaAsset[] {
     assets.push({
       id: `site-${key}`,
       src: image.src,
+      key: image.key ?? null,
       width: image.width,
       height: image.height,
       alt: "",
@@ -250,7 +257,8 @@ function buildMedia(): MediaAsset[] {
 
   assets.push({
     id: "site-share-card",
-    src: shareImage.url,
+    src: storedSrc(shareImage.url),
+    key: storedKey(shareImage.url),
     width: shareImage.width,
     height: shareImage.height,
     alt: shareImage.alt,
@@ -264,7 +272,8 @@ function buildMedia(): MediaAsset[] {
     const filename = image.src.split("/").pop() ?? image.src;
     assets.push({
       id: `gallery-${filename.replace(/\.\w+$/, "")}`,
-      src: image.src,
+      src: storedSrc(image.src),
+      key: storedKey(image.src),
       width: image.width,
       height: image.height,
       alt: image.alt,
@@ -327,7 +336,7 @@ export function buildContentSeed(): ContentSeed {
       const id = `gallery-${filename.replace(/\.\w+$/, "")}`;
       return {
         id,
-        image: { src: image.src, width: image.width, height: image.height, alt: image.alt, assetId: id },
+        image: { src: storedSrc(image.src), width: image.width, height: image.height, alt: image.alt, assetId: id },
         caption: "",
         location: image.place,
         vehicleId: fleetIds.has(image.subject) ? image.subject : null,
@@ -388,7 +397,7 @@ export function buildContentSeed(): ContentSeed {
         defaultDescription:
           "A luxury, discreet way of travelling — without the hassle. Chauffeur services across London, the UK and Europe.",
         shareImage: {
-          src: shareImage.url,
+          src: storedSrc(shareImage.url),
           width: shareImage.width,
           height: shareImage.height,
           alt: shareImage.alt,

@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { plugin } from "bun";
 
+import { storedKey, storedSrc } from "./assets";
+
 /** `apps/web/src` — what the website's own `@/…` imports point at. */
 const WEB_SRC = resolve(fileURLToPath(import.meta.url), "../../../../../apps/web/src");
 
@@ -13,7 +15,8 @@ const WEB_SRC = resolve(fileURLToPath(import.meta.url), "../../../../../apps/web
  * `content/media.ts` statically imports photographs, which Next turns into
  * `StaticImageData`. Outside Next there is no such loader, so this plugin
  * supplies one: it reads the real intrinsic size out of the file and returns
- * the same shape, with the site-relative path the database stores.
+ * the same shape, with the address the database stores — the photograph's
+ * place in the bucket — and the key it is stored under beside it.
  *
  * Reading the content files as they are — rather than transcribing them — is
  * the point: the seeded database is the live site, not an approximation of
@@ -67,9 +70,11 @@ plugin({
 
     build.onLoad({ filter: /\.(jpe?g|png|webp|avif)$/ }, (args) => {
       const { width, height } = imageSize(args.path);
+      const path = `/media/${basename(args.path)}`;
       const data = {
-        // Where the file is served from, now that it lives in `public/media`.
-        src: `/media/${basename(args.path)}`,
+        // Where the file is served from: its place in the bucket.
+        src: storedSrc(path),
+        key: storedKey(path),
         width,
         height,
         blurDataURL: "",
