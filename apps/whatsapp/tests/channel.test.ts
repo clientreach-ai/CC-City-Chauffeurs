@@ -441,3 +441,156 @@ describe("staying on subject", () => {
     expect(model.requests[1]!.system).toBe(request.system);
   });
 });
+
+describe("after a restart", () => {
+  test("a run that was being answered is answered again", async () => {
+    const whatsapp = channel([says("Hello there.")]);
+    const { runIds } = await whatsapp.ingest({ body: inbound("m1", "Hi"), headers: new Headers() });
+    // Taken, and then the process stopped: claimed, never completed.
+    await store.claimRun(runIds[0]!);
+    expect(provider.sent).toHaveLength(0);
+
+    await whatsapp.resumeQueued();
+
+    expect(lastSent()).toBe("Hello there.");
+    expect(store.runs.get(runIds[0]!)!.status).toBe("succeeded");
+  });
+
+  test("a reply written down but never sent goes out, before any new turn", async () => {
+    const whatsapp = channel([says("Hello there.")]);
+    await say(whatsapp, "m1", "Hi");
+    // As if the process had stopped between recording the reply and sending it.
+    const reply = store.messages.find((message) => message.direction === "outbound")!;
+    reply.delivery = "pending";
+    provider.sent.length = 0;
+
+    await whatsapp.resumeQueued();
+
+    expect(provider.sent).toEqual([{ to: CUSTOMER, body: "Hello there." }]);
+    expect(reply.delivery).toBe("sent");
+  });
+
+  test("a queued run nobody had started is still answered", async () => {
+    const whatsapp = channel([says("Hello there.")]);
+    await whatsapp.ingest({ body: inbound("m1", "Hi"), headers: new Headers() });
+
+    await whatsapp.resumeQueued();
+
+    expect(lastSent()).toBe("Hello there.");
+  });
+
+  test("an enquiry made before the interruption is not made twice", async () => {
+    const script: ScriptStep[] = [
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow" }),
+      calls("create_enquiry"),
+      says("Your reference is ENQ-1101."),
+    ];
+    const whatsapp = channel(script);
+    const { runIds } = await whatsapp.ingest({ body: inbound("m1", "Heathrow please, Amelia Hughes"), headers: new Headers() });
+    await store.claimRun(runIds[0]!);
+    // The turn had already recorded the enquiry when the process stopped.
+    await backend.createEnquiry({
+      customer: { name: "Amelia Hughes", phone: CUSTOMER, email: "" },
+      journey: { service: "", vehicleId: null, pickup: "Heathrow", dropoff: "", date: "", time: "", passengers: null, luggage: "", flight: "", notes: "" },
+      submissionId: `wa:${store.messages[0]!.id}:enquiry`,
+    });
+    expect(backend.created).toHaveLength(1);
+
+    model.push(...script);
+    await whatsapp.resumeQueued();
+
+    // The submission id is the message's, so the second attempt found the
+    // record the first one made.
+    expect(backend.created).toHaveLength(1);
+    expect(lastSent()).toContain(backend.created[0]!.reference);
+  });
+});
+
+describe("what one conversation may cost", () => {
+  /** Fills the hour with turns, without running any of them. */
+  function alreadyHad(turns: number, conversationId: string) {
+    for (let index = 0; index < turns; index += 1) {
+      store.runs.set(`spent-${index}`, {
+        id: `spent-${index}`,
+        conversationId,
+        triggeringMessageId: "m0",
+        status: "succeeded",
+        createdAt: new Date(),
+      });
+    }
+  }
+
+  test("an ordinary conversation is never in the way of it", async () => {
+    const whatsapp = channel([says("Hello."), says("Of course."), says("Certainly.")]);
+    await say(whatsapp, "m1", "Hi");
+    await say(whatsapp, "m2", "What cars do you have?");
+    await say(whatsapp, "m3", "Thanks");
+
+    expect(provider.sent).toHaveLength(3);
+    expect(model.requests).toHaveLength(3);
+  });
+
+  test("a conversation that has gone on all hour is handed to a person, without asking the model", async () => {
+    const whatsapp = channel([says("Hello.")]);
+    await say(whatsapp, "m1", "Hi");
+    const conversationId = [...store.conversations.keys()][0]!;
+    alreadyHad(40, conversationId);
+    const asked = model.requests.length;
+
+    await say(whatsapp, "m2", "and again");
+
+    expect(lastSent()).toContain("passing the conversation to a member of the City Chauffeurs team");
+    expect(model.requests).toHaveLength(asked);
+    expect(store.conversations.get(conversationId)!.status).toBe("human_requested");
+  });
+
+  test("and once it is with a person, nothing more is spent at all", async () => {
+    const whatsapp = channel([says("Hello.")]);
+    await say(whatsapp, "m1", "Hi");
+    alreadyHad(40, [...store.conversations.keys()][0]!);
+    await say(whatsapp, "m2", "and again");
+    const asked = model.requests.length;
+    const sent = provider.sent.length;
+
+    await say(whatsapp, "m3", "hello?");
+    await say(whatsapp, "m4", "anyone?");
+
+    expect(model.requests).toHaveLength(asked);
+    expect(provider.sent).toHaveLength(sent);
+    // The messages are kept for the person taking over.
+    expect(store.messages.filter((message) => message.direction === "inbound")).toHaveLength(4);
+  });
+});
+
+describe("what the customer is finally told", () => {
+  test("a reference the model invented never reaches them", async () => {
+    const whatsapp = channel([says("All done — your reference is ENQ-4242.")]);
+    await say(whatsapp, "m1", "Did my enquiry go through?");
+
+    expect(lastSent()).not.toContain("ENQ-4242");
+    expect(lastSent()).toContain("a member of the team will reply here");
+  });
+
+  test("a reference the model forgot is added", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow" }),
+      calls("create_enquiry"),
+      says("Thank you — that is with the team now."),
+    ]);
+    await say(whatsapp, "m1", "Heathrow please, Amelia Hughes");
+
+    expect(lastSent()).toBe("Thank you — that is with the team now. Your reference is ENQ-1101.");
+  });
+
+  test("a booking request is never left sounding confirmed", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow", date: "2027-02-14" }),
+      calls("create_booking_request"),
+      says("Your car is booked for the 14th. Reference BKG-2101."),
+    ]);
+    await say(whatsapp, "m1", "Book me a car on 14 Feb from Heathrow, Amelia Hughes");
+
+    expect(lastSent()).toContain("This is a request, not a confirmed booking");
+    expect(backend.created[0]).toMatchObject({ kind: "booking", reference: "BKG-2101" });
+  });
+});
