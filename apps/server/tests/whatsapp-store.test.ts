@@ -66,7 +66,7 @@ async function record(message = inbound(), customerId: string | null = null) {
 
 const finished = (over: Record<string, unknown> = {}) => ({
   outcome: "succeeded" as const,
-  model: "claude-opus-5",
+  model: "gpt-5.4-mini",
   iterations: 2,
   toolCalls: [{ name: "list_fleet", ok: true, errorCode: null, durationMs: 12 }],
   usage: { inputTokens: 1200, outputTokens: 80, cacheReadTokens: 900 },
@@ -262,7 +262,7 @@ describe("completing a turn", () => {
 
     const run = only(await rows("select * from whatsapp_agent_run"));
     expect(run.status).toBe("succeeded");
-    expect(run.model).toBe("claude-opus-5");
+    expect(run.model).toBe("gpt-5.4-mini");
     expect(run.iterations).toBe(2);
     expect(run.tool_calls).toEqual([{ name: "list_fleet", ok: true, errorCode: null, durationMs: 12 }]);
     expect(run.input_tokens).toBe(1200);
@@ -414,5 +414,115 @@ describe("delivery and the office", () => {
     const detail = await repository.getConversationDetail(first.conversation.id);
     expect(detail.messages).toHaveLength(1);
     expect(detail.phone).toBe(AMELIA);
+  });
+});
+
+describe("picking up after a restart", () => {
+  test("a run that was being worked on goes back in the queue", async () => {
+    const { runId } = await record();
+    await store.claimRun(runId!);
+    expect(await store.queuedRuns()).toEqual([]);
+
+    const recovered = await store.recoverInterrupted();
+
+    expect(recovered.requeuedRuns).toEqual([runId!]);
+    expect(await store.queuedRuns()).toEqual([runId!]);
+    // Claimable again, which is what lets the turn run a second time.
+    expect(await store.claimRun(runId!)).not.toBeNull();
+    expect(only(await rows("select started_at from whatsapp_agent_run")).started_at).not.toBeNull();
+  });
+
+  test("a run nobody had started is left exactly as it was", async () => {
+    const { runId } = await record();
+
+    const recovered = await store.recoverInterrupted();
+
+    expect(recovered.requeuedRuns).toEqual([]);
+    expect(await store.queuedRuns()).toEqual([runId!]);
+  });
+
+  test("a run that finished is not run again", async () => {
+    const { runId, conversation } = await record();
+    await store.claimRun(runId!);
+    await store.completeTurn({
+      runId: runId!,
+      conversationId: conversation.id,
+      state: conversation.state,
+      status: "ai_active",
+      customerId: null,
+      handoff: null,
+      reply: "Of course — which day?",
+      run: finished(),
+    });
+
+    expect((await store.recoverInterrupted()).requeuedRuns).toEqual([]);
+    expect(await store.queuedRuns()).toEqual([]);
+  });
+
+  test("a reply written down but never sent comes back, with somewhere to send it", async () => {
+    const { runId, conversation } = await record();
+    await store.claimRun(runId!);
+    const { replyMessageId } = await store.completeTurn({
+      runId: runId!,
+      conversationId: conversation.id,
+      state: conversation.state,
+      status: "ai_active",
+      customerId: null,
+      handoff: null,
+      reply: "Of course — which day?",
+      run: finished(),
+    });
+
+    const { undelivered } = await store.recoverInterrupted();
+
+    expect(undelivered).toEqual([
+      { id: replyMessageId!, conversationId: conversation.id, to: AMELIA, body: "Of course — which day?" },
+    ]);
+  });
+
+  test("a reply already sent, and one already given up on, are both left alone", async () => {
+    const { runId, conversation } = await record();
+    await store.claimRun(runId!);
+    const { replyMessageId } = await store.completeTurn({
+      runId: runId!,
+      conversationId: conversation.id,
+      state: conversation.state,
+      status: "ai_active",
+      customerId: null,
+      handoff: null,
+      reply: "Of course — which day?",
+      run: finished(),
+    });
+    await store.markDelivered(replyMessageId!, "SM99999999999999999999999999999999");
+
+    expect((await store.recoverInterrupted()).undelivered).toEqual([]);
+
+    const { messageId: operatorMessage } = await store.recordOperatorMessage(conversation.id, "Faheem here.");
+    await store.markUndelivered(operatorMessage, "twilio_63016", "Outside the window.");
+    expect((await store.recoverInterrupted()).undelivered).toEqual([]);
+  });
+
+  test("an inbound message is never mistaken for something to send", async () => {
+    await record();
+    expect((await store.recoverInterrupted()).undelivered).toEqual([]);
+  });
+});
+
+describe("what a conversation has already cost", () => {
+  test("its own turns are counted, and only recent ones", async () => {
+    const { conversation } = await record();
+    await record(inbound());
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    expect(await store.runsSince(conversation.id, hourAgo)).toBe(2);
+    expect(await store.runsSince(conversation.id, new Date(Date.now() + 1000))).toBe(0);
+  });
+
+  test("another conversation's turns are not this one's", async () => {
+    const { conversation } = await record();
+    await record(inbound({ from: "+447700900999" as E164 }));
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    expect(await store.runsSince(conversation.id, hourAgo)).toBe(1);
   });
 });

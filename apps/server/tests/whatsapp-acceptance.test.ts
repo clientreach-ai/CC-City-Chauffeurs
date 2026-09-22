@@ -381,3 +381,103 @@ describe("observability", () => {
     expect(JSON.stringify(run.tool_calls)).not.toContain("cars do you have");
   });
 });
+
+describe("Scenario 8 — the server restarts mid-conversation", () => {
+  /** The run is taken and the process stops: what a deploy does to a turn in flight. */
+  async function interrupt() {
+    const store = factories.createWhatsAppStore({ provider: provider.name });
+    const runId = only(await rows("select id from whatsapp_agent_run")).id as string;
+    await store.claimRun(runId);
+    return { store, runId };
+  }
+
+  test("the customer is answered after the restart, not left in silence", async () => {
+    start([says("Hello, welcome to City Chauffeurs.")]);
+    await whatsapp.ingest({
+      body: JSON.stringify({ messages: [{ id: "SM1", from: AMELIA, to: OURS, name: "Amelia", type: "text", text: "Hi" }] }),
+      headers: new Headers(),
+    });
+    await interrupt();
+    expect(provider.sent).toHaveLength(0);
+
+    // Boot: the same thing the server does on startup.
+    model.push(says("Hello, welcome to City Chauffeurs."));
+    await whatsapp.resumeQueued();
+
+    expect(lastReply()).toBe("Hello, welcome to City Chauffeurs.");
+    expect(only(await rows("select status from whatsapp_agent_run")).status).toBe("succeeded");
+  });
+
+  test("an enquiry the interrupted turn had already made is found, not made again", async () => {
+    const script = [
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow" }),
+      calls("create_enquiry"),
+      says("Your enquiry is recorded."),
+    ];
+    start(script);
+    await whatsapp.ingest({
+      body: JSON.stringify({ messages: [{ id: "SM1", from: AMELIA, to: OURS, name: "Amelia", type: "text", text: "Heathrow please, Amelia Hughes" }] }),
+      headers: new Headers(),
+    });
+    await interrupt();
+
+    // The turn had recorded the enquiry before the process stopped — the same
+    // submission id it will use again, because it comes from the message.
+    const messageId = only(await rows("select id from whatsapp_message where direction = 'inbound'")).id as string;
+    const first = await factories.createWhatsAppBackend().createEnquiry({
+      customer: { name: "Amelia Hughes", phone: AMELIA as E164, email: "" },
+      journey: { service: "", vehicleId: null, pickup: "Heathrow", dropoff: "", date: "", time: "", passengers: null, luggage: "", flight: "", notes: "" },
+      submissionId: `wa:${messageId}:enquiry`,
+    });
+
+    model.push(...script);
+    await whatsapp.resumeQueued();
+
+    const enquiries = await rows("select reference from enquiry");
+    expect(enquiries).toHaveLength(1);
+    expect(enquiries[0]!.reference).toBe(first.reference);
+    expect(lastReply()).toContain(first.reference);
+  });
+
+  test("a booking request the interrupted turn had already made is not made again", async () => {
+    const script = [
+      calls("record_journey_details", { name: "Amelia Hughes", pickup: "The Savoy", date: "2027-02-14" }),
+      calls("create_booking_request"),
+      says("Your booking request is recorded."),
+    ];
+    start(script);
+    await whatsapp.ingest({
+      body: JSON.stringify({ messages: [{ id: "SM1", from: AMELIA, to: OURS, name: "Amelia", type: "text", text: "Request the Savoy on 14 Feb, Amelia Hughes" }] }),
+      headers: new Headers(),
+    });
+    await interrupt();
+
+    const messageId = only(await rows("select id from whatsapp_message where direction = 'inbound'")).id as string;
+    const first = await factories.createWhatsAppBackend().createBookingRequest({
+      customer: { name: "Amelia Hughes", phone: AMELIA as E164, email: "" },
+      journey: { service: "", vehicleId: null, pickup: "The Savoy", dropoff: "", date: "2027-02-14", time: "", passengers: null, luggage: "", flight: "", notes: "" },
+      submissionId: `wa:${messageId}:booking`,
+    });
+
+    model.push(...script);
+    await whatsapp.resumeQueued();
+
+    const bookings = await rows("select reference, status from booking");
+    expect(bookings).toHaveLength(1);
+    expect(bookings[0]).toMatchObject({ reference: first.reference, status: "pending" });
+  });
+
+  test("a reply recorded but never sent goes out when the server comes back", async () => {
+    start([says("Hello, welcome to City Chauffeurs.")]);
+    await customerSays("SM1", "Hi");
+    // As if the process had stopped between writing the reply and sending it.
+    await database.client.exec("update whatsapp_message set delivery = 'pending', sent_at = null where direction = 'outbound'");
+    provider.sent.length = 0;
+
+    await whatsapp.resumeQueued();
+
+    expect(provider.sent).toHaveLength(1);
+    expect(lastReply()).toBe("Hello, welcome to City Chauffeurs.");
+    expect(only(await rows("select delivery from whatsapp_message where direction = 'outbound'")).delivery).toBe("sent");
+  });
+});
