@@ -168,7 +168,9 @@ describe("the office's conversations", () => {
       .use(requireUser)
       .route("/api/admin", new Hono().route("/", whatsappAdminRoutes(async () => channel)));
     admin.onError((error, c) => errorResponse(error, c));
-  });
+    // Loading the modules can take a moment on a busy machine — the suites
+    // run side by side — and the default five seconds is not always enough.
+  }, 60_000);
 
   /** A conversation with a customer waiting for a person. */
   async function waiting() {
