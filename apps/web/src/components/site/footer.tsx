@@ -155,6 +155,18 @@ export function Footer({
           <p className="label-xs text-white/50">
             © {new Date().getFullYear()} {business.companyName}. All rights reserved.
           </p>
+          {/* Between the two, and centred in the space they leave */}
+          <p className="label-xs text-white/50 sm:flex-1 sm:text-center">
+            Built by{" "}
+            <a
+              href="https://www.clientreach.ai/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="link-quiet text-white/70 hover:text-white"
+            >
+              ClientReach AI
+            </a>
+          </p>
           <p className="label-xs text-white/50">{business.tagline}</p>
         </div>
       </div>
