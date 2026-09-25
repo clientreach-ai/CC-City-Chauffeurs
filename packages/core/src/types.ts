@@ -444,11 +444,20 @@ export type Enquiry = Timestamps & {
 
 export type BookingStatus = "pending" | "confirmed" | "in-progress" | "completed" | "cancelled";
 
+/**
+ * Where a booking came from. Derived rather than stored: a booking made from
+ * an enquiry carries that enquiry, and one the assistant recorded carries a
+ * submission id of its own, so the column the enquiry table has is not
+ * needed here.
+ */
+export type BookingOrigin = "enquiry" | "whatsapp" | "office";
+
 export type Booking = Timestamps & {
   id: string;
   reference: string;
   customerId: string | null;
   enquiryId: string | null;
+  origin: BookingOrigin;
   service: string;
   vehicleId: string | null;
   date: CalendarDate;

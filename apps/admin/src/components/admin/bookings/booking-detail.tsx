@@ -140,13 +140,15 @@ export function BookingDetail({ id }: { id: string }) {
                 { label: "Service", value: serviceLabel(booking.service) },
                 { label: "Vehicle", value: vehicleName(booking.vehicleId) || "To be assigned" },
                 {
-                  label: "From enquiry",
+                  label: "Came from",
                   value: booking.enquiryId ? (
                     <GuardedLink href={adminRoutes.enquiry(booking.enquiryId)} className="underline-offset-4 hover:underline">
                       {enquiry?.reference ?? "Open the enquiry"}
                     </GuardedLink>
+                  ) : booking.origin === "whatsapp" ? (
+                    "Requested on WhatsApp"
                   ) : (
-                    "Booked directly"
+                    "Taken by the office"
                   ),
                 },
               ]}
