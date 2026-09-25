@@ -9,6 +9,7 @@ import {
 } from "@CC-City-Chauffeurs/core/schemas";
 import { Hono } from "hono";
 
+import { bookingConfirmed } from "../lib/notifications";
 import { authorName, requires, type Variables } from "../lib/session";
 import * as operations from "../repositories/operations";
 
@@ -99,7 +100,14 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
 
   .patch("/bookings/:id/status", requires("operations.edit"), async (c) => {
     const { status } = bookingStatusUpdateSchema.parse(await c.req.json());
-    return c.json(await operations.updateBookingStatus(c.req.param("id"), status));
+    const booking = await operations.updateBookingStatus(c.req.param("id"), status);
+    // The customer hears from us when a person has actually confirmed it,
+    // and only where we hold an address for them.
+    if (status === "confirmed" && booking.customerId) {
+      const record = await operations.getCustomer(booking.customerId).catch(() => null);
+      if (record) bookingConfirmed(booking, { name: record.customer.name, email: record.customer.email });
+    }
+    return c.json(booking);
   })
 
   .patch("/bookings/:id/notes", requires("operations.edit"), async (c) => {

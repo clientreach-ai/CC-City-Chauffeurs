@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { CmsNotFoundError } from "@CC-City-Chauffeurs/core";
 import * as content from "../repositories/content";
 import * as fleet from "../repositories/fleet";
+import { enquiryRecorded } from "../lib/notifications";
 import * as gallery from "../repositories/gallery";
 import * as operations from "../repositories/operations";
 import * as services from "../repositories/services";
@@ -175,13 +176,15 @@ export const publicRoutes = new Hono()
   .get("/testimonials", async (c) => c.json(published(await testimonials.getTestimonials())))
 
   /**
-   * The enquiry form. It records an enquiry and does nothing else — no email
-   * is sent, no message is dispatched. The response carries the reference so
-   * the visitor has something to quote.
+   * The enquiry form. It records the enquiry, answers the visitor with the
+   * reference, and tells the office afterwards — the alert is sent after the
+   * response so nobody waits on a mail server, and a mail server having a
+   * bad morning cannot cost the client an enquiry.
    */
   .post("/enquiries", publicWriteGuard, async (c) => {
     const input = publicEnquirySchema.parse(await c.req.json());
     if (trapped(input)) return c.json({ reference: "" }, 201);
     const enquiry = await operations.createPublicEnquiry(input);
+    enquiryRecorded(enquiry);
     return c.json({ reference: enquiry.reference }, 201);
   });
