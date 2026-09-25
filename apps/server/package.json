@@ -20,12 +20,14 @@
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.32",
+    "nodemailer": "^10.0.10",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@CC-City-Chauffeurs/config": "workspace:*",
     "@electric-sql/pglite": "^0.5.8",
     "@types/bun": "catalog:",
+    "@types/nodemailer": "^8.0.2",
     "tsdown": "^0.22.14",
     "typescript": "catalog:"
   }
