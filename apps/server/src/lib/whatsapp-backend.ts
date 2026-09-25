@@ -17,6 +17,7 @@ import {
 } from "@CC-City-Chauffeurs/whatsapp/ports";
 import { ZodError } from "zod";
 
+import { bookingRequested, enquiryRecorded } from "./notifications";
 import * as fleet from "../repositories/fleet";
 import * as operations from "../repositories/operations";
 import * as services from "../repositories/services";
@@ -175,6 +176,8 @@ export function createWhatsAppBackend(): Backend {
           { ...input, submissionId },
           { source: "whatsapp" },
         );
+        // The office hears about it the same way it hears about the website's.
+        enquiryRecorded(enquiry);
         return { reference: enquiry.reference };
       });
     },
@@ -201,6 +204,7 @@ export function createWhatsAppBackend(): Backend {
         const booking = await operations.createBooking(input, {
           request: { channel: "whatsapp", submissionId },
         });
+        bookingRequested(booking, contactOf(customer));
         return { reference: booking.reference };
       });
     },
