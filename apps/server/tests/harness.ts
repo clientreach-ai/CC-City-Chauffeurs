@@ -102,6 +102,13 @@ export function setTestEnvironment() {
   process.env.R2_BUCKET = "test-bucket";
   process.env.R2_PUBLIC_BASE_URL = "https://files.example.test";
   process.env.R2_PREFIX = "test-site";
+  // Set outright for the same reason as the bucket above: `bun test` loads
+  // the developer's own .env, and a test must never post to a real mailbox
+  // or quote a real address back in an assertion.
+  process.env.MAIL_PROVIDER = "off";
+  process.env.MAIL_FROM = "City Chauffeurs <bookings@citychauffeurs.example>";
+  process.env.OFFICE_EMAIL = "office@citychauffeurs.example";
+  process.env.ADMIN_URL = "https://admin.example";
   process.env.NODE_ENV = "test";
 }
 
