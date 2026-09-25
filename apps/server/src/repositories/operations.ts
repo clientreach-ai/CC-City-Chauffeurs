@@ -86,6 +86,9 @@ function toBooking(row: BookingRow, activity: ActivityEntry[]): Booking {
     reference: row.reference,
     customerId: row.customerId,
     enquiryId: row.enquiryId,
+    // The assistant's own requests carry `wa:<message>:booking`; everything
+    // else with no enquiry behind it was typed by the office.
+    origin: row.enquiryId ? "enquiry" : row.submissionId?.startsWith("wa:") ? "whatsapp" : "office",
     service: row.service,
     vehicleId: row.vehicleId,
     date: row.date,
