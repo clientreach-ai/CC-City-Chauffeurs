@@ -328,7 +328,7 @@ describe("delivery", () => {
   });
 
   test("a message that arrives while the last is being answered is answered after it", async () => {
-    const whatsapp = channel([says("Hello! How can I help?"), says("Certainly — where from?")]);
+    const whatsapp = channel([says("Hello! How can I help?"), says("Certainly, where from?")]);
 
     // Hold the model's first answer until the second message has landed —
     // the real race: the first turn has read its history and is thinking.
@@ -355,7 +355,7 @@ describe("delivery", () => {
     await firstTurn;
     await whatsapp.processRun(two.runIds[0]!);
 
-    expect(provider.sent.map((message) => message.body)).toEqual(["Hello! How can I help?", "Certainly — where from?"]);
+    expect(provider.sent.map((message) => message.body)).toEqual(["Hello! How can I help?", "Certainly, where from?"]);
     // The second turn saw the first reply before the second message.
     const shown = model.requests[1]!.messages.map((message) => message.role);
     expect(shown.at(-1)).toBe("user");
@@ -575,11 +575,12 @@ describe("what the customer is finally told", () => {
     const whatsapp = channel([
       calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow" }),
       calls("create_enquiry"),
+      // Written with the dash a model reaches for; the customer must not see it.
       says("Thank you — that is with the team now."),
     ]);
     await say(whatsapp, "m1", "Heathrow please, Amelia Hughes");
 
-    expect(lastSent()).toBe("Thank you — that is with the team now. Your reference is ENQ-1101.");
+    expect(lastSent()).toBe("Thank you, that is with the team now. Your reference is ENQ-1101.");
   });
 
   test("a booking request is never left sounding confirmed", async () => {
