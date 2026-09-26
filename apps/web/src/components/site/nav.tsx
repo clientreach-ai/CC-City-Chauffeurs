@@ -97,11 +97,15 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
     }
   }, [open]);
 
-  // Close everything when the route changes
-  useEffect(() => {
+  // Close everything when the route changes — adjusted during render, as
+  // React recommends for state that follows a prop, rather than in an effect
+  // that would paint the open menu over the new page for one frame first.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setOpen(false);
     setOpenGroup(null);
-  }, [pathname]);
+  }
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);

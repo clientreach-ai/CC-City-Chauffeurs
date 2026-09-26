@@ -6,6 +6,7 @@
     "dev": "next dev --port 3002",
     "build": "next build",
     "check-types": "tsc --noEmit",
+    "lint": "eslint .",
     "start": "next start --port 3002"
   },
   "dependencies": {
@@ -29,6 +30,8 @@
     "@types/node": "^26.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.4",
     "tailwindcss": "catalog:",
     "typescript": "catalog:"
   }

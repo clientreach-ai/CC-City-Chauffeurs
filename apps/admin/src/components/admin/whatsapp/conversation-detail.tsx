@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, CircleX, MessageCircle, Send } from "lucide-react";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { cn } from "@CC-City-Chauffeurs/ui/lib/utils";
 
@@ -33,7 +33,6 @@ import {
   sendReply,
   updateConversationStatus,
   SERVICE_WINDOW_HOURS,
-  type ConversationDetail as Conversation,
   type ConversationMessage,
   type ConversationStatus,
 } from "@/lib/api/whatsapp";
@@ -94,11 +93,24 @@ function Message({ message, name }: { message: ConversationMessage; name: string
   );
 }
 
+/**
+ * The time, to the minute, as a clock the screen subscribes to. Reading
+ * `Date.now()` while rendering is impure — the same render could answer
+ * differently — and it would only move when something else re-rendered.
+ */
+const subscribeToMinutes = (tick: () => void) => {
+  const timer = setInterval(tick, 30_000);
+  return () => clearInterval(timer);
+};
+const currentMinute = () => Math.floor(Date.now() / 60_000) * 60_000;
+const noClockOnServer = () => 0;
+
 export function ConversationDetail({ id }: { id: string }) {
   const { can } = usePreferences();
   const confirm = useConfirm();
   const { data: conversation, loading, error, reload } = useCmsQuery(`whatsapp:${id}`, () => getConversation(id), { refreshMs: 15_000 });
   const [reply, setReply] = useState("");
+  const now = useSyncExternalStore(subscribeToMinutes, currentMinute, noClockOnServer);
   const [replyError, setReplyError] = useState<string | undefined>();
   /** A message recorded but refused by WhatsApp — shown until the next attempt. */
   const [refusal, setRefusal] = useState<string | undefined>();
@@ -140,7 +152,7 @@ export function ConversationDetail({ id }: { id: string }) {
   // The same 24-hour rule the server applies, said before the reply is typed
   // rather than after it is refused. The server remains the authority.
   const lastInbound = conversation.lastInboundAt ? new Date(conversation.lastInboundAt).getTime() : 0;
-  const outsideWindow = Date.now() - lastInbound > SERVICE_WINDOW_HOURS * 3_600_000;
+  const outsideWindow = now - lastInbound > SERVICE_WINDOW_HOURS * 3_600_000;
 
   const send = async () => {
     setSending(true);

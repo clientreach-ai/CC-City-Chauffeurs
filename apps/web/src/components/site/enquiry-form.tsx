@@ -352,6 +352,10 @@ export function EnquiryForm({
     const date = params.get("date");
     const passengers = params.get("passengers");
     if (!service && !vehicle && !date && !passengers) return;
+    // The one sanctioned setState-in-an-effect: the query string exists only
+    // in the browser, and reading it during render would give the server and
+    // the browser different forms to hydrate.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((previous) => ({
       ...previous,
       ...(service ? { service } : {}),
@@ -359,7 +363,9 @@ export function EnquiryForm({
       ...(date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? { date } : {}),
       ...(passengers && /^\d{1,2}$/.test(passengers) ? { passengers } : {}),
     }));
-    // Prefill is a one-off on arrival; later edits belong to the visitor.
+    // Prefill is a one-off on arrival; later edits belong to the visitor, so
+    // this must not re-run when the (page-constant) option lists re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const set = <K extends FieldKey>(key: K) => (value: FormState[K]) => {

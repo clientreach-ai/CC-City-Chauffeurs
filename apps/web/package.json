@@ -6,6 +6,7 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "check-types": "tsc --noEmit",
+    "lint": "eslint .",
     "start": "next start",
     "optimise:photos": "node scripts/optimise-photography.mjs",
     "warm:images": "node scripts/warm-images.mjs"
@@ -32,6 +33,8 @@
     "@types/node": "^26.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.4",
     "sharp": "^0.35.4",
     "tailwindcss": "catalog:",
     "typescript": "catalog:"

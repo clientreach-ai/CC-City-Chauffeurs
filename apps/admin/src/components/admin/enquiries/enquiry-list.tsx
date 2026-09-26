@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { CircleCheck, CircleX, ExternalLink, MessageSquareText, PoundSterling } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useLookups } from "@/components/admin/lookups";
 import { usePreferences } from "@/components/admin/shell/preferences";
@@ -21,23 +21,20 @@ import type { Enquiry, EnquiryStatus } from "@CC-City-Chauffeurs/core";
 
 import { changeStatus, LostDialog, QuoteDialog } from "./enquiry-actions";
 
-export function EnquiryList() {
+export function EnquiryList({ initialStatus }: { initialStatus?: string }) {
   const router = useRouter();
   const { can } = usePreferences();
   const { serviceLabel, services, vehicleName } = useLookups();
   const { data, loading, error, reload } = useCmsQuery("enquiries:list", getEnquiries);
-  const [status, setStatus] = useState<EnquiryStatus | "all">("all");
+  const [status, setStatus] = useState<EnquiryStatus | "all">(() =>
+    enquiryStatuses.some((option) => option.value === initialStatus)
+      ? (initialStatus as EnquiryStatus)
+      : "all",
+  );
   const [service, setService] = useState<string | "all">("all");
   const [query, setQuery] = useState("");
   const [quoting, setQuoting] = useState<Enquiry | null>(null);
   const [losing, setLosing] = useState<Enquiry | null>(null);
-
-  // Links from the dashboard carry ?status=; read once after arrival so the
-  // page itself can stay static.
-  useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get("status");
-    if (enquiryStatuses.some((option) => option.value === value)) setStatus(value as EnquiryStatus);
-  }, []);
 
   const enquiries = data ?? [];
   const filtered = enquiries.filter((enquiry) => {
