@@ -110,17 +110,18 @@ already been answered, or which has a newer message waiting, stands down.
 
 ### The tools
 
-Nine, deliberately narrow (`apps/whatsapp/src/tools/city-chauffeurs.ts`). The
+Ten, deliberately narrow (`apps/whatsapp/src/tools/city-chauffeurs.ts`). The
 model has no SQL and no route to anything else.
 
 | Tool | Does |
 |---|---|
 | `get_fleet`, `get_vehicle` | The published fleet — names, descriptions, confirmed capacities, the website's indicative rates |
-| `get_services`, `get_service` | Published services, what each includes, what the office needs to quote it |
+| `get_services`, `get_service` | Published services, what each includes, what the office needs to quote it — and the things the enquiry form offers without a page behind them, such as self-drive supercar hire. The assistant says the company does them and takes the details; it is told not to invent what they involve |
 | `record_journey_details` | Adds what the customer said to the journey: resolves "the S Class" to the real vehicle, checks a date exists and has not passed, a time is HH:MM, passengers are 1–50. Refused values come back with a reason; a refused value never overwrites a good one |
 | `create_enquiry` | Records an enquiry from the recorded journey — takes **no arguments**, so what reaches the office is what was validated, not what the model wrote last |
 | `create_booking_request` | The same, as a `pending` booking. Needs a name, a date and a pickup |
 | `get_enquiry_status` | The status of an enquiry made from this number. Another customer's reference answers exactly like one that does not exist |
+| `get_booking_status` | The same for a booking, and whether the office has actually confirmed it. Until it has, the assistant is told in the result itself not to call it booked |
 | `handoff_to_human` | Hands over, with a reason and a summary for the office |
 
 There is no tool to confirm a booking, check a car is free, quote a price, or

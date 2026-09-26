@@ -779,3 +779,105 @@ describe("telling the office a person is needed", () => {
     expect(provider.sent).toHaveLength(1);
   });
 });
+
+describe("what the company does without publishing a page", () => {
+  test("self-drive supercar hire is something we do, not something we deny", async () => {
+    const whatsapp = channel([
+      calls("get_services"),
+      says("Yes, we do self-drive supercar hire. May I take the details?"),
+    ]);
+    await say(whatsapp, "m1", "Do you do self-drive supercar hire?");
+
+    const shown = JSON.parse(
+      (model.requests.at(-1)!.messages.find((message) => message.role === "tool_results") as { results: { content: string }[] })
+        .results[0]!.content,
+    );
+    expect(shown.data.alsoOffered).toContain("Supercar hire (self-drive)");
+    // And the assistant is told not to invent what is involved.
+    expect(shown.data.note).toContain("Do not state what they are");
+  });
+
+  test("asked about it directly, the answer says we do it and there is nothing published", async () => {
+    const whatsapp = channel([
+      calls("get_service", { service: "supercar hire" }),
+      says("We do, and the team will go through what is involved."),
+    ]);
+    await say(whatsapp, "m1", "Tell me about supercar hire");
+
+    const shown = JSON.parse(
+      (model.requests.at(-1)!.messages.find((message) => message.role === "tool_results") as { results: { content: string }[] })
+        .results[0]!.content,
+    );
+    expect(shown.ok).toBe(true);
+    expect(shown.data).toMatchObject({ name: "Supercar hire (self-drive)", offeredButNotPublished: true });
+  });
+
+  test("it can be recorded on an enquiry, the way the website's form records it", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { name: "Amelia Hughes", service: "supercar hire", pickup: "Mayfair" }),
+      calls("create_enquiry"),
+      says("That is with the team."),
+    ]);
+    await say(whatsapp, "m1", "Self-drive supercar hire from Mayfair please, Amelia Hughes");
+
+    expect(backend.created[0]).toMatchObject({ kind: "enquiry", journey: { service: "supercar-hire" } });
+  });
+
+  test("something we do not do at all is still refused", async () => {
+    const whatsapp = channel([calls("get_service", { service: "helicopter charter" }), says("I am afraid not.")]);
+    await say(whatsapp, "m1", "Do you do helicopter charter?");
+
+    const shown = JSON.parse(
+      (model.requests.at(-1)!.messages.find((message) => message.role === "tool_results") as { results: { content: string }[] })
+        .results[0]!.content,
+    );
+    expect(shown.ok).toBe(false);
+    expect(shown.error.code).toBe("not_found");
+  });
+});
+
+describe("asking after a booking", () => {
+  /** A booking request this number made earlier. */
+  async function requested(whatsapp: ReturnType<typeof channel>) {
+    await say(whatsapp, "m1", "Request the S Class from Heathrow on 14 Feb, Amelia Hughes");
+    return backend.created[0]!.reference;
+  }
+
+  test("a customer is told it is a request until the office says otherwise", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { name: "Amelia Hughes", vehicle: "S Class", pickup: "Heathrow", date: "2027-02-14" }),
+      calls("create_booking_request"),
+      says("Your request is with the team."),
+    ]);
+    const reference = await requested(whatsapp);
+
+    model.push(calls("get_booking_status", { reference }), says("It is still a request; the team will confirm it."));
+    await say(whatsapp, "m2", `Is ${reference} confirmed yet?`);
+
+    const shown = JSON.parse(
+      (model.requests.at(-1)!.messages.find((message) => message.role === "tool_results") as { results: { content: string }[] })
+        .results[0]!.content,
+    );
+    expect(shown.data).toMatchObject({ reference, confirmed: false, vehicle: "Mercedes S-Class" });
+    expect(shown.data.note).toContain("do not tell the customer it is booked");
+  });
+
+  test("somebody else's reference looks exactly like one that does not exist", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { name: "Amelia Hughes", vehicle: "S Class", pickup: "Heathrow", date: "2027-02-14" }),
+      calls("create_booking_request"),
+      says("Your request is with the team."),
+    ]);
+    const reference = await requested(whatsapp);
+
+    model.push(calls("get_booking_status", { reference }), says("I cannot find that one."));
+    await say(whatsapp, "m9", `What about ${reference}?`, { from: "+447700900999" });
+
+    const shown = JSON.parse(
+      (model.requests.at(-1)!.messages.find((message) => message.role === "tool_results") as { results: { content: string }[] })
+        .results[0]!.content,
+    );
+    expect(shown.ok).toBe(false);
+    expect(shown.error.code).toBe("not_found");
+  });
+});

@@ -16,9 +16,11 @@
 import { z } from "zod";
 
 import {
+  everythingOffered,
   helpfulToAsk,
   mergeJourney,
   missingFor,
+  resolveService,
   resolveVehicle,
   toRequestJourney,
 } from "../conversation/journey";
@@ -71,23 +73,36 @@ export const getVehicle = defineTool({
   },
 });
 
+const SELF_DRIVE_NOTE =
+  "Self-drive supercar hire has requirements of its own, such as the driver's licence, age, a deposit and insurance. Do not state what they are: say the team goes through them with the customer.";
+
 export const getServices = defineTool({
   name: "get_services",
-  description: "Every chauffeur service City Chauffeurs offers, with a one-line summary of each. Call this before saying what the company does.",
+  description:
+    "Everything City Chauffeurs offers. `services` have a page you can describe with get_service. `alsoOffered` are the other things the enquiry form takes, which have no published page: the company does them, and you can take the details, but there is nothing to describe. Call this before saying what the company does, or whether it does something.",
   input: nothing,
   async run(context) {
-    const { services } = await context.catalogue();
-    return success({ services: services.map(({ name, summary }) => ({ name, summary })) });
+    const { services, options } = await context.catalogue();
+    const published = new Set(services.map((service) => service.slug));
+    const extra = options.filter((option) => !published.has(option.value));
+    return success({
+      services: services.map(({ name, summary }) => ({ name, summary })),
+      alsoOffered: extra.map((option) => option.label),
+      note: extra.length
+        ? `The company does everything in alsoOffered; there is simply no page for it. Say yes, then take the journey details as an enquiry. ${SELF_DRIVE_NOTE}`
+        : undefined,
+    });
   },
 });
 
 export const getService = defineTool({
   name: "get_service",
   description:
-    "Full details of one service — what it includes, what the office needs to quote it, and which vehicles are offered for it.",
+    "Full details of one service: what it includes, what the office needs to quote it, and which vehicles are offered for it. A thing the company does without a published page answers here too, saying so.",
   input: z.object({ service: z.string().min(1).max(80).describe("The service's name, as listed by get_services.") }).strict(),
   async run(context, input) {
-    const { services } = await context.catalogue();
+    const catalogue = await context.catalogue();
+    const { services } = catalogue;
     const key = input.service.toLowerCase().replace(/[^a-z0-9]/g, "");
     // Punctuation alone squashes to nothing, and every name "includes" nothing.
     const found = key && services.find(
@@ -95,7 +110,23 @@ export const getService = defineTool({
         service.slug === input.service ||
         service.name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key),
     );
-    if (!found) return failure("not_found", `No service matches. The services are: ${services.map((service) => service.name).join(", ")}.`);
+    if (!found) {
+      // It may still be something the company does without publishing a page.
+      const offered = resolveService(input.service, catalogue);
+      if (offered) {
+        return success({
+          name: offered.name,
+          offeredButNotPublished: true,
+          note: `City Chauffeurs does this. There is no published page, so you have no details to give: take the journey details and record it as an enquiry, and let the team confirm what is involved. ${
+            offered.slug === "supercar-hire" ? SELF_DRIVE_NOTE : ""
+          }`.trim(),
+        });
+      }
+      return failure(
+        "not_found",
+        `Nothing we offer matches. We offer: ${everythingOffered(catalogue).map((item) => item.name).join(", ")}.`,
+      );
+    }
     const detail = await context.backend.getService(found.slug);
     if (!detail) return failure("not_found", "That service is not currently offered.");
     return success({
@@ -218,6 +249,24 @@ export const getEnquiryStatus = defineTool({
   },
 });
 
+export const getBookingStatus = defineTool({
+  name: "get_booking_status",
+  description:
+    "Where one of this customer's own booking requests stands, by its reference (BKG-2100). Only bookings made from this WhatsApp number can be found. `confirmed` is the only thing that says whether the office has actually agreed to it: until then it is a request, whatever else it says.",
+  input: z.object({ reference: z.string().min(3).max(20).describe("The booking reference, e.g. BKG-2100.") }).strict(),
+  async run(context, input) {
+    const found = await context.backend.findBooking(input.reference.trim().toUpperCase(), context.conversation.phone);
+    // Another customer's reference answers exactly as one that does not exist.
+    if (!found) return failure("not_found", "No booking with that reference was made from this number.");
+    return success({
+      ...found,
+      note: found.confirmed
+        ? "The office has confirmed this booking."
+        : "This is still a request. The office has not confirmed it, so do not tell the customer it is booked.",
+    });
+  },
+});
+
 export const handoffToHuman = defineTool({
   name: "handoff_to_human",
   description:
@@ -238,6 +287,7 @@ export const handoffToHuman = defineTool({
 export const cityChauffeursTools: Tool[] = [
   createBookingRequest,
   createEnquiry,
+  getBookingStatus,
   getEnquiryStatus,
   getFleet,
   getService,

@@ -15,7 +15,7 @@
 
 import { PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core";
 
-import type { FleetVehicle, JourneyDraft, RequestJourney, ServiceSummary } from "../ports";
+import type { EnquiryOption, FleetVehicle, JourneyDraft, RequestJourney, ServiceSummary } from "../ports";
 
 export type JourneyInput = {
   service?: string;
@@ -37,6 +37,12 @@ export type Refusal = { field: keyof JourneyInput; reason: string };
 export type Catalogue = {
   fleet: FleetVehicle[];
   services: ServiceSummary[];
+  /**
+   * What the website's enquiry form offers beyond the published services —
+   * self-drive supercar hire, a supercar experience, "something else". The
+   * business takes these; it just does not publish a page for them.
+   */
+  options: EnquiryOption[];
   /** "YYYY-MM-DD", as the business sees today. */
   today: string;
 };
@@ -83,13 +89,33 @@ export function resolveVehicle(
   return { unknown: true };
 }
 
-function resolveService(said: string, services: ServiceSummary[]): ServiceSummary | null {
+/** A service the customer can ask for, whether or not it has a page. */
+type Offered = { slug: string; name: string };
+
+/**
+ * Everything on offer, published pages first.
+ *
+ * The enquiry form's list repeats the nine services under friendlier labels
+ * ("Wedding" for "Weddings"), so a published service wins where both match
+ * and the extras are what the pages do not cover.
+ */
+export function everythingOffered(catalogue: Pick<Catalogue, "services" | "options">): Offered[] {
+  const offered = new Map<string, Offered>();
+  for (const service of catalogue.services) offered.set(service.slug, { slug: service.slug, name: service.name });
+  for (const option of catalogue.options) {
+    if (!offered.has(option.value)) offered.set(option.value, { slug: option.value, name: option.label });
+  }
+  return [...offered.values()];
+}
+
+export function resolveService(said: string, catalogue: Pick<Catalogue, "services" | "options">): Offered | null {
   const key = squash(said);
   // Punctuation alone squashes to nothing, and every name "includes" nothing.
   if (!key) return null;
+  const offered = everythingOffered(catalogue);
   return (
-    services.find((service) => service.slug === said || squash(service.name) === key) ??
-    services.find((service) => squash(service.name).includes(key) || squash(service.slug).includes(key)) ??
+    offered.find((service) => service.slug === said || squash(service.name) === key) ??
+    offered.find((service) => squash(service.name).includes(key) || squash(service.slug).includes(key)) ??
     null
   );
 }
@@ -131,12 +157,12 @@ export function mergeJourney(
   }
 
   if (input.service !== undefined) {
-    const service = resolveService(input.service, catalogue.services);
+    const service = resolveService(input.service, catalogue);
     if (service) next.service = service.slug;
     else
       refused.push({
         field: "service",
-        reason: `No service matches "${input.service}". The services are: ${catalogue.services.map((item) => item.name).join(", ")}.`,
+        reason: `Nothing we offer matches "${input.service}". We offer: ${everythingOffered(catalogue).map((item) => item.name).join(", ")}.`,
       });
   }
 

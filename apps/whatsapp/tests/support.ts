@@ -267,6 +267,16 @@ export class FakeBackend implements Backend {
   async listServices() {
     return SERVICES;
   }
+  async listEnquiryOptions() {
+    // As the client's own form offers them: the services under friendlier
+    // labels, plus the two the website has no page for.
+    return [
+      ...SERVICES.map((service) => ({ value: service.slug, label: service.name })),
+      { value: "supercar-hire", label: "Supercar hire (self-drive)" },
+      { value: "supercar-experience", label: "Supercar experience (chauffeur-driven)" },
+      { value: "other", label: "Something else" },
+    ];
+  }
   async getService(slug: string) {
     const service = SERVICES.find((item) => item.slug === slug);
     if (!service) return null;
@@ -297,6 +307,23 @@ export class FakeBackend implements Backend {
     const found = this.created.find((item) => item.reference === reference && item.customer.phone === phone);
     return found ? { reference, status: "New", createdAt: "2027-01-10T09:00:00.000Z" } : null;
   }
+  async findBooking(reference: string, phone: E164) {
+    const found = this.created.find(
+      (item) => item.kind === "booking" && item.reference === reference && item.customer.phone === phone,
+    );
+    if (!found) return null;
+    return {
+      reference,
+      status: "Requested",
+      confirmed: false,
+      date: found.journey.date,
+      time: found.journey.time,
+      pickup: found.journey.pickup,
+      dropoff: found.journey.dropoff,
+      vehicle: found.journey.vehicleId ? (FLEET.find((car) => car.id === found.journey.vehicleId)?.name ?? null) : null,
+    };
+  }
+
   async matchCustomer(phone: E164) {
     return this.customers.get(phone) ?? null;
   }
