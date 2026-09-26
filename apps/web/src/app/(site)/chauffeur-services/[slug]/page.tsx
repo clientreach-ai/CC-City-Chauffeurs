@@ -14,7 +14,7 @@ import {
   VehicleStrip,
 } from "@/components/site/sections";
 import type { Service } from "@CC-City-Chauffeurs/core";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { routes } from "@/content/site";
 import { jsonLd } from "@/lib/json-ld";
 import { getService, getServices, getSite } from "@/lib/site-data";

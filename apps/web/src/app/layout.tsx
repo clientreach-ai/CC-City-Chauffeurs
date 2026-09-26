@@ -1,9 +1,7 @@
-import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
 import "../index.css";
-import { shareImage } from "@/content/seo";
-import { site } from "@/content/site";
+import { siteMetadata } from "@/lib/metadata";
 
 /** Display face — light weight, high contrast, set uppercase at large sizes. */
 const cormorant = Cormorant_Garamond({
@@ -21,23 +19,8 @@ const manrope = Manrope({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  // Resolves every relative canonical and social URL against the live domain.
-  metadataBase: new URL(site.url),
-  title: "CC City Chauffeurs | Luxury Chauffeur Service, London",
-  description:
-    "A luxury, discreet way of travelling — without the hassle. Chauffeur services across London, the UK and Europe.",
-  applicationName: site.legalName,
-  openGraph: {
-    siteName: site.legalName,
-    locale: "en_GB",
-    type: "website",
-    images: [shareImage],
-  },
-  twitter: { card: "summary_large_image", images: [shareImage] },
-  // Phone numbers on the page are real links already; stop iOS restyling them.
-  formatDetection: { telephone: false },
-};
+/** Base URL, default title and description, and share card — from the admin's SEO settings. */
+export const generateMetadata = siteMetadata;
 
 export default function RootLayout({
   children,

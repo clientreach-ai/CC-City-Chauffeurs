@@ -1,13 +1,16 @@
 import type { MetadataRoute } from "next";
 
-import { site } from "@/content/site";
+import { siteUrlOf } from "@/lib/metadata";
+import { getSite } from "@/lib/site-data";
 
-export default function robots(): MetadataRoute.Robots {
+/** Points at the same domain the sitemap lists — the one set in the admin. */
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const site = await getSite();
   return {
     rules: {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: `${site.url}/sitemap.xml`,
+    sitemap: `${siteUrlOf(site?.settings.seo)}/sitemap.xml`,
   };
 }
