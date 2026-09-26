@@ -76,7 +76,7 @@ describe("naming a vehicle", () => {
 });
 
 describe("the draft", () => {
-  const catalogue = { fleet: FLEET, services: SERVICES, today: "2027-01-10" };
+  const catalogue = { fleet: FLEET, services: SERVICES, options: [{ value: "supercar-hire", label: "Supercar hire (self-drive)" }], today: "2027-01-10" };
 
   test("a refused value never replaces a good one", () => {
     const first = mergeJourney({}, { date: "2027-02-14" }, catalogue);

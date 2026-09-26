@@ -98,7 +98,10 @@ What the server gained for WhatsApp, and why:
 7. **Commit.** The reply, the updated journey, the status and the run's
    record (model, tool calls, tokens, time) are written together.
 8. **Send.** Through Twilio, retried once if Twilio says it is worth it. The
-   message is marked sent or undelivered — never assumed.
+   message is marked sent or undelivered, never assumed.
+9. **Tell somebody, where it matters.** An enquiry or a booking request the
+   assistant recorded is emailed to the office, and so is a conversation that
+   now needs a person. Sent after the record, and never able to undo it.
 
 Two messages sent together ("Heathrow to Mayfair tomorrow" / "3 of us") get
 one reply that answers both, not two replies racing each other. Each
@@ -107,17 +110,18 @@ already been answered, or which has a newer message waiting, stands down.
 
 ### The tools
 
-Nine, deliberately narrow (`apps/whatsapp/src/tools/city-chauffeurs.ts`). The
+Ten, deliberately narrow (`apps/whatsapp/src/tools/city-chauffeurs.ts`). The
 model has no SQL and no route to anything else.
 
 | Tool | Does |
 |---|---|
 | `get_fleet`, `get_vehicle` | The published fleet — names, descriptions, confirmed capacities, the website's indicative rates |
-| `get_services`, `get_service` | Published services, what each includes, what the office needs to quote it |
+| `get_services`, `get_service` | Published services, what each includes, what the office needs to quote it — and the things the enquiry form offers without a page behind them, such as self-drive supercar hire. The assistant says the company does them and takes the details; it is told not to invent what they involve |
 | `record_journey_details` | Adds what the customer said to the journey: resolves "the S Class" to the real vehicle, checks a date exists and has not passed, a time is HH:MM, passengers are 1–50. Refused values come back with a reason; a refused value never overwrites a good one |
 | `create_enquiry` | Records an enquiry from the recorded journey — takes **no arguments**, so what reaches the office is what was validated, not what the model wrote last |
 | `create_booking_request` | The same, as a `pending` booking. Needs a name, a date and a pickup |
 | `get_enquiry_status` | The status of an enquiry made from this number. Another customer's reference answers exactly like one that does not exist |
+| `get_booking_status` | The same for a booking, and whether the office has actually confirmed it. Until it has, the assistant is told in the result itself not to call it booked |
 | `handoff_to_human` | Hands over, with a reason and a summary for the office |
 
 There is no tool to confirm a booking, check a car is free, quote a price, or
@@ -153,8 +157,13 @@ From there a person with `operations.edit` can reply, which sends the
 message through Twilio and records it in the transcript as the office's.
 They can also hand the conversation back to the assistant, or close it. That
 is the whole of it: enough for a customer who asked for a person to get one,
-not a second inbox to live in. Nothing notifies the office yet — somebody has
-to look.
+not a second inbox to live in.
+
+The office does not have to be watching that screen. The moment a
+conversation stops being the assistant's, an email goes out saying who is
+waiting, why, what they last wrote and where to answer them. The channel
+only announces it — how a business is reached is the server's business, and
+the channel would hand over just the same with nobody listening.
 
 When the office replies the conversation becomes `human_active`. The office
 can hand it back to the assistant with
@@ -405,10 +414,11 @@ The simulator records replies instead of sending them; read them with
   column is a migration of its own.
 - **Text only.** Voice notes, photos and locations get a fixed reply asking
   for text.
-- **No outbound notifications.** Nothing is sent to the customer when the
-  office confirms a booking, and nothing tells the office a conversation
-  needs a person — they see it on the WhatsApp screen, which opens on the
-  conversations waiting for one.
+- **The customer is written to only twice.** An enquiry or booking request
+  reaches the office by email, and a handover does too; a customer hears from
+  us when the office confirms their booking, and only where we hold an
+  address. Nothing else is sent to anybody: a recorded quote reaches nobody,
+  and no chauffeur is dispatched.
 - **No template messages.** The office cannot start a conversation, or reply
   more than 24 hours after the customer last wrote.
 - **English only.** The prompt and the fixed replies are written in English.

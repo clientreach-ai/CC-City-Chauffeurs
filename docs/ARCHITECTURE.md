@@ -214,10 +214,12 @@ operations and publishing. `admin` adds site settings.
 - **WhatsApp is switched off in production.** It is built and tested, and
   waits on a Meta-approved business account, a Twilio sender, an OpenAI key
   and migration `0004_whatsapp` — see [WHATSAPP.md](WHATSAPP.md#going-live).
-- **Nothing is sent to anybody.** A status change, a recorded quote or a note
-  is written to the book of record and no further: no email reaches a
-  customer, no chauffeur is dispatched. Every screen offering one of these
-  says so.
+- **Almost nothing is sent to anybody.** Two emails now go out — the office
+  hears that an enquiry or a booking request has arrived, and a customer
+  hears once the office has confirmed their booking (see
+  `apps/server/src/lib/notifications.ts`). Everything else is still written
+  to the book of record and no further: a recorded quote reaches nobody, and
+  no chauffeur is dispatched. Every screen offering one of those says so.
 - **No testimonials are published.** The client has not supplied attributable
   quotes, and one cannot be published without a first name, a role, a district
   and a record that the customer agreed — fake reviews are an offence under

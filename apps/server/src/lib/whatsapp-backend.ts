@@ -1,4 +1,5 @@
 import {
+  bookingStatuses,
   CmsValidationError,
   enquiryStatuses,
   labelFor,
@@ -17,6 +18,8 @@ import {
 } from "@CC-City-Chauffeurs/whatsapp/ports";
 import { ZodError } from "zod";
 
+import { bookingRequested, enquiryRecorded } from "./notifications";
+import * as content from "../repositories/content";
 import * as fleet from "../repositories/fleet";
 import * as operations from "../repositories/operations";
 import * as services from "../repositories/services";
@@ -127,6 +130,11 @@ export function createWhatsAppBackend(): Backend {
       return published(await services.getServices()).map(toSummary);
     },
 
+    /** The same list the website's enquiry form shows a visitor. */
+    async listEnquiryOptions() {
+      return content.getEnquiryServices();
+    },
+
     async getService(slug): Promise<ServiceDetail | null> {
       const [serviceRows, vehicles] = await Promise.all([services.getServices(), fleet.getVehicles()]);
       const service = published(serviceRows).find((item) => item.slug === slug);
@@ -175,6 +183,8 @@ export function createWhatsAppBackend(): Backend {
           { ...input, submissionId },
           { source: "whatsapp" },
         );
+        // The office hears about it the same way it hears about the website's.
+        enquiryRecorded(enquiry);
         return { reference: enquiry.reference };
       });
     },
@@ -201,6 +211,7 @@ export function createWhatsAppBackend(): Backend {
         const booking = await operations.createBooking(input, {
           request: { channel: "whatsapp", submissionId },
         });
+        bookingRequested(booking, contactOf(customer));
         return { reference: booking.reference };
       });
     },
@@ -212,6 +223,27 @@ export function createWhatsAppBackend(): Backend {
         reference: enquiry.reference,
         status: labelFor(enquiryStatuses, enquiry.status),
         createdAt: enquiry.createdAt,
+      };
+    },
+
+    /**
+     * Where a booking stands. `confirmed` is the whole point: a request the
+     * office has not agreed to yet must never read as a booking, however the
+     * status happens to be labelled.
+     */
+    async findBooking(reference, phone) {
+      const booking = await operations.bookingForPhone(reference, phone);
+      if (!booking) return null;
+      const vehicles = booking.vehicleId ? await fleet.getVehicles() : [];
+      return {
+        reference: booking.reference,
+        status: labelFor(bookingStatuses, booking.status),
+        confirmed: booking.status !== "pending" && booking.status !== "cancelled",
+        date: booking.date,
+        time: booking.time,
+        pickup: booking.pickup,
+        dropoff: booking.destination,
+        vehicle: vehicles.find((vehicle) => vehicle.id === booking.vehicleId)?.name ?? null,
       };
     },
 
