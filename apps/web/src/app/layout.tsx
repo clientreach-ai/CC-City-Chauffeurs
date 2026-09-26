@@ -59,10 +59,16 @@ export default function RootLayout({
         {/*
           Marks the document as scripted before first paint, so scroll-reveal
           styles only ever hide content that JavaScript can bring back.
+
+          "Scripted" is a promise the bundle still has to keep. If it never
+          runs — a chunk that failed on a weak signal, a blocked script — the
+          hidden sections would stay hidden, the enquiry form among them. So
+          once the page has loaded, a reveal that has not reported in (see
+          `Reveal`) takes the class back off and everything simply shows.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `document.documentElement.classList.add("js")`,
+            __html: `document.documentElement.classList.add("js");addEventListener("load",function(){setTimeout(function(){if(!window.__revealReady)document.documentElement.classList.remove("js")},3000)})`,
           }}
         />
       </head>
