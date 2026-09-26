@@ -41,7 +41,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Name at least one tag." }, { status: 400 });
   }
 
-  // "max" drops every cached entry for the tag, however it was cached.
-  for (const tag of tags) revalidateTag(tag, "max");
+  // `expire: 0`, not "max": "max" serves the old copy to the next visitor
+  // while refreshing in the background, so an editor checking their change
+  // would see the page they just replaced. With no stale window, the next
+  // request waits for the fresh read instead — one slower page per edit.
+  for (const tag of tags) revalidateTag(tag, { expire: 0 });
   return NextResponse.json({ revalidated: tags });
 }

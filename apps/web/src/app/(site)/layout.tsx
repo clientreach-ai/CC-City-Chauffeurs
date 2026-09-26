@@ -7,6 +7,7 @@ import { brand } from "@/content/brand";
 import { routes, type NavGroup } from "@/content/site";
 import { mailLink, telLink, whatsappLink } from "@/lib/contact";
 import { jsonLd } from "@/lib/json-ld";
+import { absoluteUrl, siteUrlOf } from "@/lib/metadata";
 import { getServices, getSite } from "@/lib/site-data";
 
 /**
@@ -69,7 +70,7 @@ export default async function SiteLayout({
    * name, contact details, London base and the areas served. No ratings,
    * opening hours or price range — none of them are established yet.
    */
-  const siteUrl = settings.seo.siteUrl.replace(/\/+$/, "");
+  const siteUrl = siteUrlOf(settings.seo);
   const businessSchema = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -79,8 +80,12 @@ export default async function SiteLayout({
     url: siteUrl,
     telephone: settings.contact.phoneE164,
     email: settings.contact.email,
-    ...(settings.seo.shareImage ? { image: `${siteUrl}${settings.seo.shareImage.src}` } : {}),
-    logo: `${siteUrl}${brand.logo.src}`,
+    // The share card is stored as an absolute object-store URL or a
+    // site-relative path; either resolves to one absolute address.
+    ...(settings.seo.shareImage?.src
+      ? { image: absoluteUrl(settings.seo.shareImage.src, siteUrl) }
+      : {}),
+    logo: absoluteUrl(brand.logo.src, siteUrl),
     address: {
       "@type": "PostalAddress",
       ...(settings.business.address ? { streetAddress: settings.business.address } : {}),

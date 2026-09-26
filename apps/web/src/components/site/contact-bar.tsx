@@ -24,6 +24,9 @@ export function ContactBar({ links }: { links: ContactLinks }) {
 
   return (
     <div
+      // Slid off-screen, it is out of the tab order and the accessibility
+      // tree too — not merely out of sight.
+      inert={!visible}
       className={`fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-obsidian/95 backdrop-blur-[2px] transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] sm:hidden ${
         visible ? "translate-y-0" : "translate-y-full"
       }`}

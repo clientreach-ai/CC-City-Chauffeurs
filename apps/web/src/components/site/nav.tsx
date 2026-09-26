@@ -20,15 +20,22 @@ export type NavBusiness = {
   whatsapp: string;
 };
 import { PhoneIcon, WhatsAppIcon } from "./icons";
+import { useFocusTrap } from "./use-focus-trap";
 import { shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 
+/**
+ * Drawn at h-6 (174px wide) on a phone and h-9 (261px) from `sm`, so `sizes`
+ * names those widths rather than one generous guess. Eager, because it is at
+ * the top of every page and lazy-loading it only delays the first paint.
+ */
 function Wordmark({ alt, className = "" }: { alt: string; className?: string }) {
   return (
     <Image
       src={brand.logo}
       alt={alt}
-      sizes="300px"
-      className={`h-7 w-auto sm:h-9 ${className}`}
+      sizes="(min-width: 640px) 261px, 174px"
+      loading="eager"
+      className={`h-6 w-auto sm:h-9 ${className}`}
     />
   );
 }
@@ -41,7 +48,22 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
+
+  useFocusTrap(menuRef, open);
+
+  // A desktop dropdown closes on Escape, handing focus back to its button.
+  useEffect(() => {
+    if (!openGroup) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      document.getElementById(`nav-button-${openGroup}`)?.focus();
+      setOpenGroup(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openGroup]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 64);
@@ -75,11 +97,15 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
     }
   }, [open]);
 
-  // Close everything when the route changes
-  useEffect(() => {
+  // Close everything when the route changes — adjusted during render, as
+  // React recommends for state that follows a prop, rather than in an effect
+  // that would paint the open menu over the new page for one frame first.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setOpen(false);
     setOpenGroup(null);
-  }, [pathname]);
+  }
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -120,6 +146,14 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
                   key={group.label}
                   className="relative"
                   onMouseEnter={() => setOpenGroup(group.label)}
+                  // Tabbing out of the button and its panel closes the panel.
+                  onBlur={(event) => {
+                    const next = event.relatedTarget as Node | null;
+                    const panel = document.getElementById(`nav-panel-${group.label}`);
+                    if (!event.currentTarget.contains(next) && !panel?.contains(next)) {
+                      setOpenGroup((current) => (current === group.label ? null : current));
+                    }
+                  }}
                 >
                   {/*
                     A disclosure button, not a link. It carries a chevron so it
@@ -129,10 +163,13 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
                     The destination itself is the "Overview" link inside.
                   */}
                   <button
+                    id={`nav-button-${group.label}`}
                     type="button"
                     onClick={() => setOpenGroup(expanded ? null : group.label)}
                     aria-expanded={expanded}
-                    aria-haspopup="true"
+                    // A disclosure of links, not an ARIA menu: `aria-haspopup`
+                    // would promise arrow-key menu behaviour it does not have.
+                    aria-controls={`nav-panel-${group.label}`}
                     className={`label-xs flex h-11 items-center gap-2 transition-colors duration-400 hover:text-white ${
                       here || expanded ? "text-white" : "text-white/70"
                     }`}
@@ -187,10 +224,13 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
             })}
           </nav>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             {/* Call and WhatsApp as a matched pair of quiet icon buttons —
-                recognisable marks, drawn in the site's own white and silver. */}
-            <div className="flex items-center gap-2">
+                recognisable marks, drawn in the site's own white and silver.
+                Below 360px the bar cannot hold them beside the logo and the
+                menu button, and the menu button is the one that must stay:
+                both numbers are inside the menu and in the contact bar. */}
+            <div className="hidden items-center gap-2 min-[360px]:flex">
               <a
                 href={business.tel}
                 aria-label={`Call ${business.name} on ${business.phoneDisplay}`}
@@ -238,7 +278,15 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
         {groups.map((group) => (
           <div
             key={`panel-${group.label}`}
+            id={`nav-panel-${group.label}`}
             onMouseEnter={() => setOpenGroup(group.label)}
+            onBlur={(event) => {
+              const next = event.relatedTarget as Node | null;
+              const button = document.getElementById(`nav-button-${group.label}`);
+              if (!event.currentTarget.contains(next) && next !== button) {
+                setOpenGroup((current) => (current === group.label ? null : current));
+              }
+            }}
             className={`absolute inset-x-0 top-full hidden border-t border-hairline bg-obsidian/97 backdrop-blur-[2px] transition-[opacity,visibility] duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:block ${
               openGroup === group.label
                 ? "visible opacity-100"
@@ -282,6 +330,7 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
 
       {/* Full-screen menu — the same editorial language, nothing decorative */}
       <div
+        ref={menuRef}
         className={`fixed inset-0 z-60 overflow-y-auto bg-obsidian text-white transition-opacity duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:hidden ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}

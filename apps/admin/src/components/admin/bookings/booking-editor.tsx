@@ -134,8 +134,21 @@ export function BookingEditor() {
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [clashes, setClashes] = useState<Booking[]>([]);
-  const [match, setMatch] = useState<Customer | null>(null);
+  /*
+   * Each lookup's answer is kept with the question it answered. What is on
+   * screen is the answer only while the question still matches the form, so a
+   * stale answer disappears the moment the car, date, number or address
+   * changes — before the new one arrives — without the effects having to
+   * clear anything.
+   */
+  const [clashAnswer, setClashAnswer] = useState<{ key: string; found: Booking[] }>({
+    key: "",
+    found: [],
+  });
+  const [matchAnswer, setMatchAnswer] = useState<{ key: string; found: Customer | null }>({
+    key: "",
+    found: null,
+  });
 
   const dirty = !saved && JSON.stringify(form) !== JSON.stringify(emptyBooking());
   useUnsavedChanges(dirty);
@@ -147,34 +160,25 @@ export function BookingEditor() {
    * something to read, not a gate.
    */
   const { vehicleId, date } = form;
+  const clashKey = vehicleId && ISO_DATE.test(date) ? `${vehicleId}|${date}` : "";
+  const clashes = clashKey && clashAnswer.key === clashKey ? clashAnswer.found : [];
   useEffect(() => {
-    if (!vehicleId || !ISO_DATE.test(date)) {
-      setClashes([]);
-      return;
-    }
-    /**
-     * Cleared the moment the number changes, not when the answer comes back.
-     * The round trip takes a second or two, and for that second the old
-     * answer is a statement about a number nobody has typed — long enough to
-     * correct a digit and save while the screen still names the wrong person.
-     */
-    setMatch(null);
-
+    if (!clashKey) return;
     let live = true;
     const timer = setTimeout(() => {
       getBookingClashesFor(vehicleId, date)
         .then((found) => {
-          if (live) setClashes(found);
+          if (live) setClashAnswer({ key: clashKey, found });
         })
         .catch(() => {
-          if (live) setClashes([]);
+          if (live) setClashAnswer({ key: clashKey, found: [] });
         });
     }, 400);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [vehicleId, date]);
+  }, [clashKey, vehicleId, date]);
 
   /**
    * Whose record this booking would join, asked the same way and for the same
@@ -185,30 +189,36 @@ export function BookingEditor() {
    *
    * Only asked once there is enough to match on, and never allowed to fail
    * loudly: a lookup that does not answer must not stop a booking being taken.
+   *
+   * The old answer stops showing the moment the number or address changes,
+   * not when the new answer comes back. The round trip takes a second or two,
+   * and for that second the old answer is a statement about a number nobody
+   * has typed — long enough to correct a digit and save while the screen
+   * still names the wrong person.
    */
   const { phone, email } = form;
+  const number = phone.trim();
+  const address = email.trim();
+  const matchKey =
+    digitsOf(number).length >= 7 || EMAIL.test(address) ? `${number}|${address}` : "";
+  const match = matchKey && matchAnswer.key === matchKey ? matchAnswer.found : null;
   useEffect(() => {
-    const number = phone.trim();
-    const address = email.trim();
-    if (digitsOf(number).length < 7 && !EMAIL.test(address)) {
-      setMatch(null);
-      return;
-    }
+    if (!matchKey) return;
     let live = true;
     const timer = setTimeout(() => {
       getCustomerMatch(number, address)
         .then((found) => {
-          if (live) setMatch(found);
+          if (live) setMatchAnswer({ key: matchKey, found });
         })
         .catch(() => {
-          if (live) setMatch(null);
+          if (live) setMatchAnswer({ key: matchKey, found: null });
         });
     }, 400);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [phone, email]);
+  }, [matchKey, number, address]);
 
   const canEdit = can("operations.edit");
 

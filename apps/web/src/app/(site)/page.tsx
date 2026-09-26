@@ -9,14 +9,15 @@ import { Services } from "@/components/site/services";
 import { Statement } from "@/components/site/statement";
 import { Testimonials } from "@/components/site/testimonials";
 import { getFleet, getHomepage, getSite, type HomepageBand } from "@/lib/site-data";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata = pageMetadata({
-  title: "Luxury Chauffeur Service London | CC City Chauffeurs",
-  description:
-    "Luxury chauffeur service in London — private chauffeurs, airport transfers, weddings and corporate travel across Mayfair, Knightsbridge, the UK and Europe.",
-  path: "/",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Luxury Chauffeur Service London | CC City Chauffeurs",
+    description:
+      "Luxury chauffeur service in London — private chauffeurs, airport transfers, weddings and corporate travel across Mayfair, Knightsbridge, the UK and Europe.",
+    path: "/",
+  });
 
 /**
  * The homepage is a first impression, not the whole site. Each band says one

@@ -4,6 +4,8 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+  # Ships prebuilt binaries; its install script is only a fallback download.
+  unrs-resolver: false
 catalog:
   dotenv: ^17.4.2
   zod: ^4.4.3

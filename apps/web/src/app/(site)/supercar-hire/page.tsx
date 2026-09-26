@@ -11,15 +11,16 @@ import {
 } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "Supercar Hire London | Self-Drive | CC City Chauffeurs",
-  description:
-    "Self-drive supercar hire in London — Lamborghini Urus, Huracán and Revuelto. Subject to driver eligibility and insurance requirements. Terms on enquiry.",
-  path: "/supercar-hire",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Supercar Hire London | Self-Drive | CC City Chauffeurs",
+    description:
+      "Self-drive supercar hire in London — Lamborghini Urus, Huracán and Revuelto. Subject to driver eligibility and insurance requirements. Terms on enquiry.",
+    path: "/supercar-hire",
+  });
 
 const conditions = [
   {
