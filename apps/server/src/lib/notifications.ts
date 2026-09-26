@@ -75,6 +75,61 @@ const CAME_FROM: Record<string, string> = {
   referral: "a referral",
 };
 
+/** Why the assistant stopped, in the words the office uses. */
+const HANDED_OVER: Record<string, string> = {
+  customer_asked: "They asked for a person",
+  complaint: "A complaint",
+  urgent: "Something urgent",
+  existing_booking: "About a booking they already have",
+  cannot_help: "The assistant could not help",
+  other: "Handed over",
+};
+
+/**
+ * A customer waiting for a person.
+ *
+ * The assistant has just told them a member of the team will reply here.
+ * This is the only thing standing between that sentence and it being true,
+ * so it says who is waiting, why, and where to answer them.
+ */
+export function conversationNeedsAPerson(waiting: {
+  conversationId: string;
+  phone: string;
+  customerName: string | null;
+  profileName: string | null;
+  reason: string;
+  summary: string;
+  lastMessage: string;
+}): void {
+  if (!env.OFFICE_EMAIL) return;
+  const who = waiting.customerName ?? waiting.profileName ?? waiting.phone;
+  afterResponse(async () => {
+    const text = [
+      `${who} is waiting for a member of the team on WhatsApp.`,
+      "",
+      `Why         ${HANDED_OVER[waiting.reason] ?? waiting.reason}`,
+      `Number      ${waiting.phone}`,
+      ...(waiting.customerName ? [`On file as  ${waiting.customerName}`] : []),
+      ...(waiting.profileName && waiting.profileName !== waiting.customerName
+        ? [`WhatsApp    ${waiting.profileName}`]
+        : []),
+      "",
+      "The assistant left this note:",
+      waiting.summary,
+      ...(waiting.lastMessage ? ["", "They last wrote:", waiting.lastMessage] : []),
+      "",
+      adminLink(`/whatsapp/${waiting.conversationId}`),
+      "",
+      "They have been told a member of the team will reply here. The assistant will not answer again until the conversation is handed back to it.",
+    ].join("\n");
+
+    await post(
+      { to: env.OFFICE_EMAIL!, subject: `WhatsApp: ${who} is waiting for a person`, text },
+      { about: "needs_a_person", conversationId: waiting.conversationId, reason: waiting.reason },
+    );
+  });
+}
+
 /**
  * A new enquiry, from the website or from WhatsApp.
  *
