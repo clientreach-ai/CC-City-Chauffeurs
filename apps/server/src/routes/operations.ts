@@ -10,7 +10,10 @@ import {
 import { Hono } from "hono";
 
 import { bookingConfirmed } from "../lib/notifications";
+import { z } from "zod";
+
 import { authorName, requires, type Variables } from "../lib/session";
+import * as analytics from "../repositories/analytics";
 import * as operations from "../repositories/operations";
 
 /**
@@ -20,6 +23,9 @@ import * as operations from "../repositories/operations";
  * no chauffeur is dispatched: the admin is the book of record, and the
  * screens say so beside every action.
  */
+/** The only thing a caller chooses about the charts. */
+const grainSchema = z.enum(["day", "week", "month", "year"]);
+
 export const operationRoutes = new Hono<{ Variables: Variables }>()
   .get("/overview", requires("operations.view"), async (c) => c.json(await operations.getOverview()))
 
@@ -97,6 +103,15 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
   .get("/bookings/:id", requires("operations.view"), async (c) =>
     c.json(await operations.getBooking(c.req.param("id"))),
   )
+
+  /**
+   * The overview's charts. The database does the counting, so this answers in
+   * a few dozen numbers however many enquiries there are.
+   */
+  .get("/analytics", requires("operations.view"), async (c) => {
+    const grain = grainSchema.parse(c.req.query("grain") ?? "month");
+    return c.json(await analytics.getAnalytics(grain));
+  })
 
   .patch("/bookings/:id/status", requires("operations.edit"), async (c) => {
     const { status } = bookingStatusUpdateSchema.parse(await c.req.json());

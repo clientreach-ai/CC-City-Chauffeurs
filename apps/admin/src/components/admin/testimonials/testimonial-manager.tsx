@@ -12,7 +12,7 @@ import { Dialog, useConfirm } from "@/components/admin/ui/dialog";
 import { Checkbox, ChoiceCards, ErrorSummary, Field, FieldRow, Select, TextArea, TextInput } from "@/components/admin/ui/form";
 import { move, ReorderButtons } from "@/components/admin/ui/list-editors";
 import { ActionMenu, type MenuAction } from "@/components/admin/ui/menu";
-import { EmptyState, ErrorState, LoadingRows, Notice, PageBody, PageHeader } from "@/components/admin/ui/page";
+import { EmptyState, ErrorState, LoadingRows, PageBody, PageHeader } from "@/components/admin/ui/page";
 import { notify } from "@/components/admin/ui/toast";
 import { useLeaveGuard, useUnsavedChanges } from "@/components/admin/ui/unsaved";
 import { formatDate, todayISO } from "@CC-City-Chauffeurs/core";
@@ -99,7 +99,7 @@ export function TestimonialManager() {
       <PageHeader
         eyebrow="Website"
         title="Testimonials"
-        description="Quotes from real customers, attributed by first name, role and district. The homepage shows its testimonials band only once at least one is published."
+        description="A testimonial can only be published with the customer's first name, role and district, and a record that they agreed to it being used. The homepage shows its testimonials band only once at least one is published."
         actions={
           <Button variant="primary" onClick={() => setEditing("new")}>
             <Plus aria-hidden />
@@ -107,13 +107,6 @@ export function TestimonialManager() {
           </Button>
         }
       />
-
-      <Notice className="mb-8" title="Only real, attributable quotes">
-        The previous site carried invented testimonials, and fake reviews are enforceable against the business under
-        the Digital Markets, Competition and Consumers Act 2024 (PRD §4.3). A testimonial can only be published with the
-        customer’s first name, role and district, and a record that they agreed to it being used. There are none on the
-        live site today.
-      </Notice>
 
       {testimonials.length ? (
         <div role="group" aria-label="Filter by status" className="mb-5 flex flex-wrap gap-2">
