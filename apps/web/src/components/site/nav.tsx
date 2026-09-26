@@ -22,13 +22,19 @@ export type NavBusiness = {
 import { PhoneIcon, WhatsAppIcon } from "./icons";
 import { shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 
+/**
+ * Drawn at h-6 (174px wide) on a phone and h-9 (261px) from `sm`, so `sizes`
+ * names those widths rather than one generous guess. Eager, because it is at
+ * the top of every page and lazy-loading it only delays the first paint.
+ */
 function Wordmark({ alt, className = "" }: { alt: string; className?: string }) {
   return (
     <Image
       src={brand.logo}
       alt={alt}
-      sizes="300px"
-      className={`h-7 w-auto sm:h-9 ${className}`}
+      sizes="(min-width: 640px) 261px, 174px"
+      loading="eager"
+      className={`h-6 w-auto sm:h-9 ${className}`}
     />
   );
 }
@@ -187,10 +193,13 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
             })}
           </nav>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             {/* Call and WhatsApp as a matched pair of quiet icon buttons —
-                recognisable marks, drawn in the site's own white and silver. */}
-            <div className="flex items-center gap-2">
+                recognisable marks, drawn in the site's own white and silver.
+                Below 360px the bar cannot hold them beside the logo and the
+                menu button, and the menu button is the one that must stay:
+                both numbers are inside the menu and in the contact bar. */}
+            <div className="hidden items-center gap-2 min-[360px]:flex">
               <a
                 href={business.tel}
                 aria-label={`Call ${business.name} on ${business.phoneDisplay}`}
