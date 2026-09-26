@@ -16,6 +16,8 @@ import { formatAge, formatShortDate, formatWhen } from "@CC-City-Chauffeurs/core
 import { useCmsQuery } from "@/lib/query";
 import { getOverview, type Overview } from "@/lib/api/operations";
 import { getConversations } from "@/lib/api/whatsapp";
+
+import { Insights } from "./insights";
 import type { Enquiry } from "@CC-City-Chauffeurs/core";
 
 const longDate = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -91,6 +93,8 @@ export function Dashboard() {
       {operations ? <WaitingOnWhatsApp enabled={operations} /> : null}
 
       {operations ? <Pipeline data={data} loading={loading} /> : null}
+
+      {operations ? <Insights /> : null}
 
       <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
         {operations ? (

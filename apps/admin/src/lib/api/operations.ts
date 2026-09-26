@@ -177,4 +177,25 @@ export async function getOverview() {
   return api.get<Overview>("/overview");
 }
 
+/** How wide each bar on the overview's charts is. */
+export type Grain = "day" | "week" | "month" | "year";
+
+export type Analytics = {
+  grain: Grain;
+  buckets: { start: string; enquiries: number; bookings: number }[];
+  headline: { enquiries: number; bookings: number; confirmed: number; conversion: number | null };
+  sources: { label: string; value: number }[];
+  services: { label: string; value: number }[];
+  vehicles: { label: string; value: number }[];
+  outcomes: { label: string; value: number }[];
+};
+
+/**
+ * The counting is done by the database, so this is a few dozen numbers
+ * however many enquiries there are.
+ */
+export async function getAnalytics(grain: Grain) {
+  return api.get<Analytics>(`/analytics?grain=${grain}`);
+}
+
 export type { Vehicle };
