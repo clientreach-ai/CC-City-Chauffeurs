@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useFocusTrap } from "./use-focus-trap";
+
 /**
  * A photograph as this grid draws it. The page maps the CMS's records into
  * this shape, so the grid stays a presentation component that knows nothing
@@ -186,6 +188,7 @@ export function GalleryGrid({
     index: number;
   } | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   /** One group per vehicle, in the order the filters declare. */
@@ -228,8 +231,17 @@ export function GalleryGrid({
     [],
   );
 
+  /*
+   * Keyed on whether the lightbox is open, not on which photograph it shows.
+   * Keyed on the photograph, every arrow press tore this down and set it up
+   * again — sending focus back to the thumbnail behind the dialog, scrolling
+   * its track, and then back to Close.
+   */
+  const isOpen = lightbox !== null;
+  useFocusTrap(dialogRef, isOpen);
+
   useEffect(() => {
-    if (!lightbox) return;
+    if (!isOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
       if (event.key === "ArrowRight") step(1);
@@ -241,9 +253,10 @@ export function GalleryGrid({
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
-      returnFocusRef.current?.focus();
+      // Back to the thumbnail, without scrolling its track to find it.
+      returnFocusRef.current?.focus({ preventScroll: true });
     };
-  }, [lightbox, close, step]);
+  }, [isOpen, close, step]);
 
   const current = lightbox ? lightbox.images[lightbox.index] : null;
 
@@ -303,6 +316,7 @@ export function GalleryGrid({
       {/* Lightbox */}
       {current && lightbox ? (
         <div
+          ref={dialogRef}
           className="fixed inset-0 z-70 flex flex-col bg-obsidian/98 backdrop-blur-[3px]"
           role="dialog"
           aria-modal="true"

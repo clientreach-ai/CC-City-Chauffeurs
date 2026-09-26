@@ -20,6 +20,7 @@ export type NavBusiness = {
   whatsapp: string;
 };
 import { PhoneIcon, WhatsAppIcon } from "./icons";
+import { useFocusTrap } from "./use-focus-trap";
 import { shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 
 /**
@@ -47,7 +48,22 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
   const [mobileGroup, setMobileGroup] = useState<string | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
+
+  useFocusTrap(menuRef, open);
+
+  // A desktop dropdown closes on Escape, handing focus back to its button.
+  useEffect(() => {
+    if (!openGroup) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      document.getElementById(`nav-button-${openGroup}`)?.focus();
+      setOpenGroup(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openGroup]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 64);
@@ -126,6 +142,14 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
                   key={group.label}
                   className="relative"
                   onMouseEnter={() => setOpenGroup(group.label)}
+                  // Tabbing out of the button and its panel closes the panel.
+                  onBlur={(event) => {
+                    const next = event.relatedTarget as Node | null;
+                    const panel = document.getElementById(`nav-panel-${group.label}`);
+                    if (!event.currentTarget.contains(next) && !panel?.contains(next)) {
+                      setOpenGroup((current) => (current === group.label ? null : current));
+                    }
+                  }}
                 >
                   {/*
                     A disclosure button, not a link. It carries a chevron so it
@@ -135,10 +159,13 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
                     The destination itself is the "Overview" link inside.
                   */}
                   <button
+                    id={`nav-button-${group.label}`}
                     type="button"
                     onClick={() => setOpenGroup(expanded ? null : group.label)}
                     aria-expanded={expanded}
-                    aria-haspopup="true"
+                    // A disclosure of links, not an ARIA menu: `aria-haspopup`
+                    // would promise arrow-key menu behaviour it does not have.
+                    aria-controls={`nav-panel-${group.label}`}
                     className={`label-xs flex h-11 items-center gap-2 transition-colors duration-400 hover:text-white ${
                       here || expanded ? "text-white" : "text-white/70"
                     }`}
@@ -247,7 +274,15 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
         {groups.map((group) => (
           <div
             key={`panel-${group.label}`}
+            id={`nav-panel-${group.label}`}
             onMouseEnter={() => setOpenGroup(group.label)}
+            onBlur={(event) => {
+              const next = event.relatedTarget as Node | null;
+              const button = document.getElementById(`nav-button-${group.label}`);
+              if (!event.currentTarget.contains(next) && next !== button) {
+                setOpenGroup((current) => (current === group.label ? null : current));
+              }
+            }}
             className={`absolute inset-x-0 top-full hidden border-t border-hairline bg-obsidian/97 backdrop-blur-[2px] transition-[opacity,visibility] duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:block ${
               openGroup === group.label
                 ? "visible opacity-100"
@@ -291,6 +326,7 @@ export function Nav({ groups, business }: { groups: readonly NavGroup[]; busines
 
       {/* Full-screen menu — the same editorial language, nothing decorative */}
       <div
+        ref={menuRef}
         className={`fixed inset-0 z-60 overflow-y-auto bg-obsidian text-white transition-opacity duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] lg:hidden ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}

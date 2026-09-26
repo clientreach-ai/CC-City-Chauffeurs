@@ -210,6 +210,16 @@
     padding-bottom: 3px;
   }
 
+  /* The text is 16px tall, under the 24px a finger needs (WCAG 2.5.8). An
+     invisible margin of hit area around it makes the target 28px without
+     moving anything on the page. Stacked links sit 14px apart, so two
+     neighbours' areas never overlap. */
+  .link-quiet::before {
+    content: "";
+    position: absolute;
+    inset: -6px -4px;
+  }
+
   .link-quiet::after {
     content: "";
     position: absolute;
