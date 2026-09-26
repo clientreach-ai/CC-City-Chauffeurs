@@ -46,10 +46,21 @@ export function createQueryClient() {
   });
 }
 
-export function useCmsQuery<T>(key: string, load: () => Promise<T>): QueryState<T> {
+export function useCmsQuery<T>(
+  key: string,
+  load: () => Promise<T>,
+  /**
+   * `refreshMs` reloads on a timer. Only for a screen somebody sits in front
+   * of waiting for something to arrive — a WhatsApp conversation, or the
+   * count of customers waiting for a person. Everything else reloads when
+   * the window is focused, which is enough.
+   */
+  options: { refreshMs?: number } = {},
+): QueryState<T> {
   const query = useQuery({
     queryKey: ["admin", key],
     queryFn: load,
+    ...(options.refreshMs ? { refetchInterval: options.refreshMs } : {}),
   });
 
   const refetch = query.refetch;

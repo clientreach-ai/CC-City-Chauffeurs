@@ -15,9 +15,41 @@ import { GuardedLink } from "@/components/admin/ui/unsaved";
 import { formatAge, formatShortDate, formatWhen } from "@CC-City-Chauffeurs/core";
 import { useCmsQuery } from "@/lib/query";
 import { getOverview, type Overview } from "@/lib/api/operations";
+import { getConversations } from "@/lib/api/whatsapp";
 import type { Enquiry } from "@CC-City-Chauffeurs/core";
 
 const longDate = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
+
+/**
+ * Customers on WhatsApp who have been told a member of the team will reply.
+ * Shown only when there are any, and only to somebody who can act on it.
+ */
+function WaitingOnWhatsApp({ enabled }: { enabled: boolean }) {
+  const { data } = useCmsQuery(
+    "dashboard:whatsapp-waiting",
+    async () => (enabled ? (await getConversations("human_requested").catch(() => [])).length : 0),
+    { refreshMs: 30_000 },
+  );
+  const waiting = data ?? 0;
+  if (!waiting) return null;
+
+  return (
+    <GuardedLink
+      href={adminRoutes.whatsapp}
+      className="group flex items-center justify-between gap-4 border-t border-hairline py-4 transition-colors hover:bg-white/3"
+    >
+      <span className="label-xs text-white">
+        {waiting === 1
+          ? "One customer is waiting for a person on WhatsApp"
+          : `${waiting} customers are waiting for a person on WhatsApp`}
+      </span>
+      <span className="label-xs flex items-center gap-2 text-white/60 group-hover:text-white">
+        Open WhatsApp
+        <ArrowRight aria-hidden className="size-3.5" />
+      </span>
+    </GuardedLink>
+  );
+}
 
 function route(enquiry: Enquiry) {
   const { pickup, dropoff } = enquiry.journey;
@@ -55,6 +87,8 @@ export function Dashboard() {
       />
 
       {error ? <ErrorState error={error} onRetry={reload} /> : null}
+
+      {operations ? <WaitingOnWhatsApp enabled={operations} /> : null}
 
       {operations ? <Pipeline data={data} loading={loading} /> : null}
 
