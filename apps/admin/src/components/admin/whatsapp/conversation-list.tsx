@@ -29,7 +29,7 @@ export function ConversationList() {
   const { data, loading, error, reload } = useCmsQuery("whatsapp:list", () => getConversations(), { refreshMs: 30_000 });
   // Conversations waiting for a person are the reason this screen exists, so
   // that is what it opens on.
-  const [status, setStatus] = useState<ConversationStatus | "all">("human_requested");
+  const [status, setStatus] = useState<ConversationStatus | "all">("all");
   const [query, setQuery] = useState("");
 
   // WhatsApp switched off means the routes are not mounted, so a read 404s.
@@ -133,8 +133,8 @@ export function ConversationList() {
         onChange={setStatus}
         className="mt-6 mb-5"
         options={[
-          ...conversationStatuses.map((option) => ({ ...option, count: counts[option.value] })),
           { value: "all" as const, label: "All", count: conversations.length },
+          ...conversationStatuses.map((option) => ({ ...option, count: counts[option.value] })),
         ]}
       />
 
