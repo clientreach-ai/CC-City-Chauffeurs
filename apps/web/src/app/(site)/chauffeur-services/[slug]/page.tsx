@@ -15,6 +15,7 @@ import {
 } from "@/components/site/sections";
 import type { Service } from "@CC-City-Chauffeurs/core";
 import { pageMetadata } from "@/lib/metadata";
+import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { jsonLd } from "@/lib/json-ld";
 import { getService, getServices, getSite } from "@/lib/site-data";
@@ -117,8 +118,14 @@ export default async function ServicePage({
       ]}
       display={service.headline}
       standfirst={service.standfirst}
-      image={service.heroImage ?? { src: "", width: 0, height: 0 }}
-      imageAlt={service.heroImage?.alt ?? service.name}
+      // A service published without a photograph borrows the services
+      // page's own, rather than handing next/image an empty address.
+      image={service.heroImage?.src ? service.heroImage : media.cullinanPeninsulaNight}
+      imageAlt={
+        service.heroImage?.src
+          ? service.heroImage.alt || service.name
+          : "Rolls-Royce Cullinan waiting outside The Peninsula in London"
+      }
       facts={service.facts}
       actions={
         <>

@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -146,6 +147,10 @@ function newSubmissionId() {
   }
   return `sub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
+
+/** For `useSyncExternalStore`: today's date is read, never subscribed to. */
+const neverChanges = () => () => {};
+const noDateOnServer = () => undefined;
 
 function serviceLabel(value: string, services: ServiceOptionItem[]) {
   return services.find((option) => option.value === value)?.label ?? value;
@@ -310,6 +315,13 @@ export function EnquiryForm({
   const [attempted, setAttempted] = useState(false);
   const [submission, setSubmission] = useState<Submission>({ state: "editing" });
   const [copied, setCopied] = useState(false);
+  /*
+   * The earliest date the picker offers. Set in the browser, not while
+   * rendering: this page is generated ahead of time, so a date computed during
+   * render is the day it was built — and in the server's timezone, not the
+   * visitor's.
+   */
+  const minDate = useSyncExternalStore(neverChanges, todayISO, noDateOnServer);
   /** The honeypot's value. Kept out of `FormState`, which is what a person fills in. */
   const [honeypot, setHoneypot] = useState("");
 
@@ -551,7 +563,7 @@ export function EnquiryForm({
       <input
         {...aria("date")}
         type="date"
-        min={todayISO()}
+        min={minDate}
         required={req("date")}
         value={form.date}
         onChange={(e) => set("date")(e.target.value)}

@@ -37,12 +37,6 @@ export const contact = {
   emailHref: "mailto:enquiries@city-chauffeurs.com",
 } as const;
 
-/** Opens WhatsApp with an optional prefilled message. */
-export function whatsappUrl(message?: string) {
-  const base = `https://wa.me/${contact.whatsappNumber}`;
-  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
-}
-
 export const WHATSAPP_INTRO =
   "Hello City Chauffeurs, I'd like to enquire about a chauffeur booking.";
 
