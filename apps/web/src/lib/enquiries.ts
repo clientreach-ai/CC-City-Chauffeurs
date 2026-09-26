@@ -1,5 +1,3 @@
-import { env } from "@CC-City-Chauffeurs/env/web";
-
 /**
  * Sending an enquiry from the website.
  *
@@ -17,7 +15,12 @@ import { env } from "@CC-City-Chauffeurs/env/web";
  * a failure nobody ever fixes.
  */
 
-const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/public`;
+/**
+ * Read straight from `process.env`, which Next inlines at build time. This
+ * runs in the browser, and importing the validated `env` here shipped all of
+ * Zod to every visitor to re-check a URL `next.config.ts` had already checked.
+ */
+const BASE = `${(process.env.NEXT_PUBLIC_SERVER_URL ?? "").replace(/\/+$/, "")}/api/public`;
 
 /** What the form asks for: who is asking, and about what journey. */
 export type EnquiryPayload = {

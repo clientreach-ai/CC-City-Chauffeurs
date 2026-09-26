@@ -378,6 +378,10 @@
      routes (login, dashboard) follow the app theme and keep the default. */
   html:has([data-site]) {
     @apply scrollbar-brand;
+    /* The site is dark whatever the system theme — native controls and the
+       ground behind an overscroll included — as the admin is below. */
+    color-scheme: dark;
+    background-color: var(--color-ink);
   }
 
   /* The admin is always on the brand's black ground, whatever the system

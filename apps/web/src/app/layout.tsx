@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
 import "../index.css";
-import Providers from "@/components/providers";
 import { shareImage } from "@/content/seo";
 import { site } from "@/content/site";
 
@@ -50,8 +49,11 @@ export default function RootLayout({
       lang="en-GB"
       // Smooth scrolling is for in-page anchors; page changes jump to the top.
       data-scroll-behavior="smooth"
+      // The inline script below adds "js" before React hydrates.
       suppressHydrationWarning
-      className={`${cormorant.variable} ${manrope.variable}`}
+      // One theme: the site is designed on black and has no light variant, so
+      // the shared UI tokens are pinned to their dark values.
+      className={`dark ${cormorant.variable} ${manrope.variable}`}
     >
       <head>
         {/*
@@ -65,7 +67,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );
