@@ -26,7 +26,7 @@ export function who(conversation: ConversationSummary) {
 }
 
 export function ConversationList() {
-  const { data, loading, error, reload } = useCmsQuery("whatsapp:list", () => getConversations());
+  const { data, loading, error, reload } = useCmsQuery("whatsapp:list", () => getConversations(), { refreshMs: 30_000 });
   // Conversations waiting for a person are the reason this screen exists, so
   // that is what it opens on.
   const [status, setStatus] = useState<ConversationStatus | "all">("human_requested");

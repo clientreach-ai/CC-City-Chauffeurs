@@ -34,6 +34,7 @@ import { SITE_URL } from "@/lib/api/client";
 import { useCmsQuery } from "@/lib/query";
 import { roles, type Capability } from "@CC-City-Chauffeurs/core";
 import { getEnquiries } from "@/lib/api/operations";
+import { getConversations } from "@/lib/api/whatsapp";
 
 import { usePreferences } from "./preferences";
 import { adminRoutes } from "./routes";
@@ -80,6 +81,21 @@ function useNewEnquiries(enabled: boolean) {
 }
 
 /**
+ * Customers who have been told a member of the team will reply, and are
+ * waiting. Refreshed on a timer, because this is the number somebody needs
+ * to see without thinking to look — and it is zero when WhatsApp is not set
+ * up at all, which is what the 404 means.
+ */
+function useWaitingForAPerson(enabled: boolean) {
+  const { data } = useCmsQuery(
+    "sidebar:whatsapp-waiting",
+    async () => (enabled ? (await getConversations("human_requested").catch(() => [])).length : 0),
+    { refreshMs: 30_000 },
+  );
+  return data ?? 0;
+}
+
+/**
  * The navigation itself, shared by the desktop sidebar and the mobile
  * drawer. `collapsed` draws icons only, with the label as a tooltip.
  */
@@ -87,6 +103,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: bool
   const pathname = usePathname();
   const { can } = usePreferences();
   const unanswered = useNewEnquiries(can("operations.view"));
+  const waiting = useWaitingForAPerson(can("operations.view"));
 
   const active = (item: NavItem) => (item.exact ? pathname === item.href : pathname.startsWith(item.href));
 
@@ -108,7 +125,8 @@ export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: bool
               {items.map((item) => {
                 const here = active(item);
                 const Icon = item.icon;
-                const count = item.href === adminRoutes.enquiries ? unanswered : 0;
+                const count =
+                  item.href === adminRoutes.enquiries ? unanswered : item.href === adminRoutes.whatsapp ? waiting : 0;
                 const link = (
                   <GuardedLink
                     href={item.href}

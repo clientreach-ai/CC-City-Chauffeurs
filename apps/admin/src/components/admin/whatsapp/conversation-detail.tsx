@@ -97,7 +97,7 @@ function Message({ message, name }: { message: ConversationMessage; name: string
 export function ConversationDetail({ id }: { id: string }) {
   const { can } = usePreferences();
   const confirm = useConfirm();
-  const { data: conversation, loading, error, reload } = useCmsQuery(`whatsapp:${id}`, () => getConversation(id));
+  const { data: conversation, loading, error, reload } = useCmsQuery(`whatsapp:${id}`, () => getConversation(id), { refreshMs: 15_000 });
   const [reply, setReply] = useState("");
   const [replyError, setReplyError] = useState<string | undefined>();
   /** A message recorded but refused by WhatsApp — shown until the next attempt. */
