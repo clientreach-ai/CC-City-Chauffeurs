@@ -2,6 +2,7 @@ import { env } from "@CC-City-Chauffeurs/env/server";
 import type { ChannelLogger, WhatsAppChannel } from "@CC-City-Chauffeurs/whatsapp/channel-types";
 import type { E164 } from "@CC-City-Chauffeurs/whatsapp/ports";
 
+import { conversationNeedsAPerson } from "./notifications";
 import { createWhatsAppStore } from "../repositories/whatsapp";
 import { createWhatsAppBackend } from "./whatsapp-backend";
 
@@ -78,6 +79,8 @@ async function build(mode: WhatsAppMode): Promise<WhatsAppChannel> {
     // The channel's own default for "today" is already London's date.
     config: { webhookUrl, ourNumber },
     log,
+    // The one promise the assistant makes that the office has to keep.
+    announce: { needsAPerson: conversationNeedsAPerson },
   });
 }
 

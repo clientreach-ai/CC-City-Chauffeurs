@@ -198,6 +198,51 @@ describe("the customer's confirmation", () => {
   });
 });
 
+describe("a customer waiting for a person", () => {
+  const waiting = {
+    conversationId: "wac-1",
+    phone: "+447700900321",
+    customerName: "Amelia Hughes",
+    profileName: "Amelia",
+    reason: "customer_asked",
+    summary: "She would rather speak to somebody about a wedding car.",
+    lastMessage: "Could I speak to someone please?",
+  };
+
+  test("is put in front of the office, with why, what they said, and where to answer", async () => {
+    notifications.conversationNeedsAPerson(waiting);
+
+    const [sent] = await delivered();
+    expect(sent!.to).toBe("office@citychauffeurs.example");
+    expect(sent!.subject).toBe("WhatsApp: Amelia Hughes is waiting for a person");
+    expect(sent!.text).toContain("They asked for a person");
+    expect(sent!.text).toContain("+447700900321");
+    expect(sent!.text).toContain("She would rather speak to somebody about a wedding car.");
+    expect(sent!.text).toContain("Could I speak to someone please?");
+    expect(sent!.text).toContain("https://admin.example/whatsapp/wac-1");
+    // So nobody waits for the assistant to pick it back up by itself.
+    expect(sent!.text).toContain("will not answer again until the conversation is handed back");
+  });
+
+  test("is named by whatever we know them as", async () => {
+    notifications.conversationNeedsAPerson({ ...waiting, customerName: null });
+    expect((await delivered())[0]!.subject).toBe("WhatsApp: Amelia is waiting for a person");
+
+    post.clear();
+    notifications.conversationNeedsAPerson({ ...waiting, customerName: null, profileName: null });
+    expect((await delivered())[0]!.subject).toBe("WhatsApp: +447700900321 is waiting for a person");
+  });
+
+  test("reads properly whatever the assistant handed over for", async () => {
+    notifications.conversationNeedsAPerson({ ...waiting, reason: "complaint" });
+    expect((await delivered())[0]!.text).toContain("A complaint");
+
+    post.clear();
+    notifications.conversationNeedsAPerson({ ...waiting, reason: "urgent" });
+    expect((await delivered())[0]!.text).toContain("Something urgent");
+  });
+});
+
 describe("when the post cannot go out", () => {
   test("the enquiry is still recorded, and the failure is only a failure to tell", async () => {
     post.failNext({ ok: false, code: "smtp_econnrefused", detail: "connect ECONNREFUSED" });

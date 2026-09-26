@@ -98,7 +98,10 @@ What the server gained for WhatsApp, and why:
 7. **Commit.** The reply, the updated journey, the status and the run's
    record (model, tool calls, tokens, time) are written together.
 8. **Send.** Through Twilio, retried once if Twilio says it is worth it. The
-   message is marked sent or undelivered — never assumed.
+   message is marked sent or undelivered, never assumed.
+9. **Tell somebody, where it matters.** An enquiry or a booking request the
+   assistant recorded is emailed to the office, and so is a conversation that
+   now needs a person. Sent after the record, and never able to undo it.
 
 Two messages sent together ("Heathrow to Mayfair tomorrow" / "3 of us") get
 one reply that answers both, not two replies racing each other. Each
@@ -153,8 +156,13 @@ From there a person with `operations.edit` can reply, which sends the
 message through Twilio and records it in the transcript as the office's.
 They can also hand the conversation back to the assistant, or close it. That
 is the whole of it: enough for a customer who asked for a person to get one,
-not a second inbox to live in. Nothing notifies the office yet — somebody has
-to look.
+not a second inbox to live in.
+
+The office does not have to be watching that screen. The moment a
+conversation stops being the assistant's, an email goes out saying who is
+waiting, why, what they last wrote and where to answer them. The channel
+only announces it — how a business is reached is the server's business, and
+the channel would hand over just the same with nobody listening.
 
 When the office replies the conversation becomes `human_active`. The office
 can hand it back to the assistant with
@@ -405,10 +413,11 @@ The simulator records replies instead of sending them; read them with
   column is a migration of its own.
 - **Text only.** Voice notes, photos and locations get a fixed reply asking
   for text.
-- **No outbound notifications.** Nothing is sent to the customer when the
-  office confirms a booking, and nothing tells the office a conversation
-  needs a person — they see it on the WhatsApp screen, which opens on the
-  conversations waiting for one.
+- **The customer is written to only twice.** An enquiry or booking request
+  reaches the office by email, and a handover does too; a customer hears from
+  us when the office confirms their booking, and only where we hold an
+  address. Nothing else is sent to anybody: a recorded quote reaches nobody,
+  and no chauffeur is dispatched.
 - **No template messages.** The office cannot start a conversation, or reply
   more than 24 hours after the customer last wrote.
 - **English only.** The prompt and the fixed replies are written in English.

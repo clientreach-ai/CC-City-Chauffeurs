@@ -694,3 +694,88 @@ describe("handing the conversation back to the assistant", () => {
     expect(asked).toContain("My name is Amelia Hughes — go ahead");
   });
 });
+
+describe("telling the office a person is needed", () => {
+  /** What the server would receive, recorded instead of emailed. */
+  function watched(script: ScriptStep[] = []) {
+    const waiting: Parameters<NonNullable<Parameters<typeof createWhatsAppChannel>[0]["announce"]>["needsAPerson"]>[0][] = [];
+    model = new ScriptedModel(script);
+    const whatsapp = createWhatsAppChannel({
+      provider,
+      store,
+      backend,
+      model,
+      config: { webhookUrl: "https://api.example/whatsapp", ourNumber: OUR_NUMBER, today: () => "2027-01-10" },
+      announce: { needsAPerson: (info) => void waiting.push(info) },
+    });
+    return { whatsapp, waiting };
+  }
+
+  test("a customer asking for a person is announced, with why and what they said", async () => {
+    const { whatsapp, waiting } = watched();
+    await say(whatsapp, "m1", "I'd like to speak to someone please.");
+
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]).toMatchObject({
+      phone: CUSTOMER,
+      reason: "customer_asked",
+      lastMessage: "I'd like to speak to someone please.",
+      profileName: "Amelia",
+    });
+    expect(waiting[0]!.summary.length).toBeGreaterThan(0);
+    expect(waiting[0]!.conversationId).toBe([...store.conversations.keys()][0]!);
+  });
+
+  test("an assistant that fails is announced too, so nobody is left waiting on it", async () => {
+    const { whatsapp, waiting } = watched([fails("model_unreachable")]);
+    await say(whatsapp, "m1", "What cars do you have?");
+
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]!.reason).toBe("cannot_help");
+  });
+
+  test("an ordinary conversation announces nothing", async () => {
+    const { whatsapp, waiting } = watched([says("We have the Mercedes S-Class.")]);
+    await say(whatsapp, "m1", "What cars do you have?");
+
+    expect(waiting).toEqual([]);
+  });
+
+  test("it is announced once, not on every message that follows", async () => {
+    const { whatsapp, waiting } = watched();
+    await say(whatsapp, "m1", "Can I speak to a person?");
+    await say(whatsapp, "m2", "Hello?");
+    await say(whatsapp, "m3", "Anyone there?");
+
+    expect(waiting).toHaveLength(1);
+  });
+
+  test("a channel given nobody to tell still hands over", async () => {
+    const whatsapp = channel();
+    await say(whatsapp, "m1", "I want to speak to someone.");
+
+    expect(store.conversations.get([...store.conversations.keys()][0]!)!.status).toBe("human_requested");
+  });
+
+  test("a teller that throws does not cost the handover", async () => {
+    model = new ScriptedModel();
+    const whatsapp = createWhatsAppChannel({
+      provider,
+      store,
+      backend,
+      model,
+      config: { webhookUrl: "https://api.example/whatsapp", ourNumber: OUR_NUMBER },
+      announce: {
+        needsAPerson: () => {
+          throw new Error("the post room is on fire");
+        },
+      },
+    });
+
+    await say(whatsapp, "m1", "I want to speak to someone.");
+
+    const conversation = store.conversations.get([...store.conversations.keys()][0]!)!;
+    expect(conversation.status).toBe("human_requested");
+    expect(provider.sent).toHaveLength(1);
+  });
+});

@@ -20,7 +20,7 @@
  *   and hands the conversation to a person.
  */
 
-import type { ChannelDependencies, ChannelLogger, IngestResult, WhatsAppChannel } from "./channel-types";
+import type { ChannelAnnouncements, ChannelDependencies, ChannelLogger, IngestResult, WhatsAppChannel } from "./channel-types";
 import { escalationFor, FALLBACK_REPLY, HANDOFF_REPLY, TOO_MANY_REPLY, UNSUPPORTED_REPLY, URGENT_REPLY } from "./agent/guardrails";
 import type { ModelMessage } from "./agent/model";
 import { buildContext } from "./agent/prompt";
@@ -58,6 +58,8 @@ const masked = (phone: string) => `…${phone.slice(-4)}`;
 export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChannel {
   const { provider, store, backend, model } = deps;
   const log = deps.log ?? silent;
+  /** Nobody told, unless the server said how. */
+  const announce: ChannelAnnouncements = deps.announce ?? { needsAPerson() {} };
   const config = {
     historyLimit: 30,
     maxIterations: 8,
@@ -257,6 +259,25 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
       durationMs: elapsed(),
       replyChars: outcome.reply.length,
     });
+
+    if (handedOver && outcome.handoff) {
+      // After the record, and never allowed to interfere with it: the
+      // customer has been promised a person, so the telling is the office's
+      // to receive, not this turn's to fail over.
+      try {
+        announce.needsAPerson({
+          conversationId,
+          phone: conversation.phone,
+          customerName: customer?.name ?? null,
+          profileName: conversation.profileName,
+          reason: outcome.handoff.reason,
+          summary: outcome.handoff.summary,
+          lastMessage: pending.filter((message) => message.kind === "text").map((message) => message.body).join("\n"),
+        });
+      } catch (error) {
+        log.error("whatsapp_announce_failed", { conversationId, error: error instanceof Error ? error.name : "unknown" });
+      }
+    }
 
     if (replyMessageId) await deliver(replyMessageId, conversation, outcome.reply);
   }

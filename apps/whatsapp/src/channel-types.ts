@@ -44,6 +44,31 @@ export type ChannelLogger = {
   error(event: string, fields: Record<string, unknown>): void;
 };
 
+/**
+ * Somebody outside the conversation who needs to know.
+ *
+ * The assistant tells a customer that a member of the team will reply here,
+ * which is a promise the office cannot keep if nobody tells them. The
+ * channel has no idea how a business is reached — that is the server's
+ * business — so it says what happened and leaves the telling to whoever
+ * implements this.
+ */
+export type ChannelAnnouncements = {
+  /** A conversation has stopped being the assistant's and is waiting for a person. */
+  needsAPerson(waiting: {
+    conversationId: string;
+    phone: string;
+    /** The name on file, where the customer is known to the business. */
+    customerName: string | null;
+    /** What WhatsApp calls them, which is only ever a hint. */
+    profileName: string | null;
+    reason: string;
+    summary: string;
+    /** The last thing the customer said, which is usually the whole story. */
+    lastMessage: string;
+  }): void;
+};
+
 export type ChannelDependencies = {
   provider: WhatsAppProvider;
   store: ConversationStore;
@@ -51,6 +76,8 @@ export type ChannelDependencies = {
   model: ChatModel;
   config: ChannelConfig;
   log?: ChannelLogger;
+  /** Left out, a handover is recorded and nobody is told. */
+  announce?: ChannelAnnouncements;
 };
 
 export type IngestResult = {
