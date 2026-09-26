@@ -1,4 +1,5 @@
-import "@CC-City-Chauffeurs/env/web";
+import { allowImagesFrom } from "@CC-City-Chauffeurs/env/images";
+import { env } from "@CC-City-Chauffeurs/env/web";
 import type { NextConfig } from "next";
 
 
@@ -19,6 +20,8 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Nothing gains from being told which framework served the page.
+  poweredByHeader: false,
   typedRoutes: true,
   reactCompiler: true,
 
@@ -55,14 +58,12 @@ const nextConfig: NextConfig = {
     // variants are dropped first once it is reached.
     maximumDiskCacheSize: 1_000_000_000,
     /**
-     * The site's own photography is served from `public/`, but a photograph
-     * uploaded through the admin is served by the API, which is another
-     * origin.
+     * Interior-page heroes are imported from `public/`. Every other
+     * photograph — the admin's uploads included — lives in the R2 bucket, so
+     * that is the one remote origin allowed. See `packages/env/src/images.ts`
+     * for why nothing wider is.
      */
-    remotePatterns: [
-      { protocol: "http", hostname: "localhost" },
-      { protocol: "https", hostname: "**" },
-    ],
+    remotePatterns: allowImagesFrom(env.MEDIA_URL),
   },
 };
 

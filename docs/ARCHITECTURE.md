@@ -138,6 +138,13 @@ is used, by walking every `ImageRef` on the website. And replacing a
 photograph rewrites every reference to it in one transaction, keeping each
 page's own description, so a change lands everywhere at once or nowhere.
 
+The image optimiser on the website and the admin fetches from the bucket's
+public address only — `MEDIA_URL`, which is `R2_PUBLIC_BASE_URL/R2_PREFIX`
+(`packages/env/src/images.ts`). An allow-list any wider turns `/_next/image`
+into a public image proxy. Serve the bucket from a custom domain in
+production: the `r2.dev` address is rate-limited and not cached, and
+Cloudflare does not support it for a live site.
+
 ## `apps/web` — the website
 
 Every page renders published records fetched from `/api/public/*`. Reads are

@@ -8,7 +8,8 @@
     "./web": "./src/web.ts",
     "./admin": "./src/admin.ts",
     "./whatsapp": "./src/whatsapp.ts",
-    "./mail": "./src/mail.ts"
+    "./mail": "./src/mail.ts",
+    "./images": "./src/images.ts"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",

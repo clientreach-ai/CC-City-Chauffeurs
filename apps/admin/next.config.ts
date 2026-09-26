@@ -1,4 +1,5 @@
 import { env } from "@CC-City-Chauffeurs/env/admin";
+import { allowImagesFrom } from "@CC-City-Chauffeurs/env/images";
 import type { NextConfig } from "next";
 
 /** The API, with any trailing slash taken off so paths join cleanly. */
@@ -52,14 +53,12 @@ const nextConfig: NextConfig = {
     qualities: [75, 80],
     formats: ["image/avif", "image/webp"],
     /**
-     * The admin previews the website's own photography, which the website
-     * serves. In development that is another port; in production another
-     * subdomain — either way it is a remote host from here.
+     * The admin previews photographs from the R2 bucket, where every one of
+     * them lives, and from the website, which a site-relative path still
+     * resolves against (see `resolveImageSrc`). Nothing else — see
+     * `packages/env/src/images.ts`.
      */
-    remotePatterns: [
-      { protocol: "http", hostname: "localhost" },
-      { protocol: "https", hostname: "**" },
-    ],
+    remotePatterns: allowImagesFrom(env.NEXT_PUBLIC_SITE_URL, env.MEDIA_URL),
   },
 };
 
