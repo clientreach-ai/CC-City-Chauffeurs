@@ -37,7 +37,7 @@ export function VehicleEntry({ vehicle, wide }: { vehicle: VehicleEntryData; wid
               src={image}
               alt={vehicle.imageAlt ?? vehicle.name}
               fill
-              quality={85}
+              quality={80}
               sizes="(max-width: 1024px) 100vw, 50vw"
               placeholder={blur}
               unoptimized={local}

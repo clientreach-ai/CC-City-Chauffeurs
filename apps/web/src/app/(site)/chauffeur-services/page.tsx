@@ -65,7 +65,7 @@ export default async function ChauffeurServicesPage() {
                     src={feature.heroImage.src}
                     alt={feature.heroImage.alt}
                     fill
-                    quality={85}
+                    quality={80}
                     sizes="(max-width: 1024px) 100vw, 58vw"
                     className="object-cover transition-transform duration-[1600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-[1.02]"
                   />

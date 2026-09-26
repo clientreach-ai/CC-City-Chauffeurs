@@ -35,8 +35,8 @@ export function Hero({ section, settings }: { section: HeroSection; settings: Si
             src={section.image.src}
             alt={section.image.alt}
             fill
-            priority
-            quality={90}
+            preload
+            quality={80}
             sizes="100vw"
             className="object-cover object-[34%_center] sm:object-[center_38%]"
           />

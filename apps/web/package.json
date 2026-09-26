@@ -6,7 +6,9 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "check-types": "tsc --noEmit",
-    "start": "next start"
+    "start": "next start",
+    "optimise:photos": "node scripts/optimise-photography.mjs",
+    "warm:images": "node scripts/warm-images.mjs"
   },
   "dependencies": {
     "@CC-City-Chauffeurs/core": "workspace:*",

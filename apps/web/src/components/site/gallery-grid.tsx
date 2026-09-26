@@ -335,7 +335,7 @@ export function GalleryGrid({
               height={current.height}
               sizes="92vw"
               className="enter-image max-h-[72svh] w-auto max-w-full object-contain"
-              priority
+              loading="eager"
             />
 
             <button

@@ -12,7 +12,7 @@ export default function NotFound() {
           src={media.cullinanCanaryWharf}
           alt="Rolls-Royce Cullinan at Canary Wharf at night"
           fill
-          priority
+          preload
           sizes="100vw"
           placeholder="blur"
           className="object-cover"

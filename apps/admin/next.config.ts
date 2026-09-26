@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
-    qualities: [75, 85, 90],
+    qualities: [75, 80],
     formats: ["image/avif", "image/webp"],
     /**
      * The admin previews the website's own photography, which the website
