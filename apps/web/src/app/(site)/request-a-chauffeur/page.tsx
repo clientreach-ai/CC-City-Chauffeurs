@@ -5,17 +5,18 @@ import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
 import { QuietLink, SectionHead, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import { media } from "@/content/media";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { routes } from "@/content/site";
 import { contactDetails, mailLink, telLink, whatsappLink } from "@/lib/contact";
 import { getFleet, getSite } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "Request a Chauffeur | CC City Chauffeurs, London",
-  description:
-    "Request a chauffeur from CC City Chauffeurs. Send the journey — date, route, passengers and vehicle — and the office replies with availability and a price.",
-  path: "/request-a-chauffeur",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Request a Chauffeur | CC City Chauffeurs, London",
+    description:
+      "Request a chauffeur from CC City Chauffeurs. Send the journey — date, route, passengers and vehicle — and the office replies with availability and a price.",
+    path: "/request-a-chauffeur",
+  });
 
 /**
  * The one way in.

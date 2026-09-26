@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import { site } from "@/content/site";
+import { siteUrlOf } from "@/lib/metadata";
 import { getServices, getSite } from "@/lib/site-data";
 
 /** Rebuilt every hour, so a newly published service page gets listed. */
@@ -8,8 +8,7 @@ export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [settings, services] = await Promise.all([getSite(), getServices()]);
-  const base = (settings?.settings.seo.siteUrl ?? site.url).replace(/\/+$/, "");
-  const now = new Date();
+  const base = siteUrlOf(settings?.settings.seo);
 
   const staticPaths = [
     { path: "", priority: 1 },
@@ -24,9 +23,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   return [
+    // No lastModified on these: stamping them with the time the sitemap was
+    // generated tells a crawler every page changed hourly, which it learns
+    // to ignore.
     ...staticPaths.map(({ path, priority }) => ({
       url: `${base}${path}`,
-      lastModified: now,
       changeFrequency: "monthly" as const,
       priority,
     })),

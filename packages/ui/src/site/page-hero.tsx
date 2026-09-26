@@ -55,8 +55,8 @@ export function PageHero({
           src={image}
           alt={imageAlt}
           fill
-          priority
-          quality={85}
+          preload
+          quality={80}
           sizes="100vw"
           placeholder={"blurDataURL" in image && image.blurDataURL ? "blur" : "empty"}
           unoptimized={image.src.startsWith("data:")}

@@ -14,15 +14,16 @@ import { VehicleEntry, type VehicleEntryData } from "@CC-City-Chauffeurs/ui/site
 import { EnquiryBand, Section, StatementBand } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "The Fleet | Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
-  description:
-    "The CC City Chauffeurs fleet — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, and Lamborghini.",
-  path: "/fleet",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "The Fleet | Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
+    description:
+      "The CC City Chauffeurs fleet — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, and Lamborghini.",
+    path: "/fleet",
+  });
 
 /** Published every minute from the admin's own records. */
 export const revalidate = 60;
@@ -111,10 +112,17 @@ export default async function FleetPage() {
       </section>
 
       {categories.map((category, categoryIndex) => (
-        <section key={category.id} id={category.id} className="bg-ink text-white">
+        <section
+          key={category.id}
+          id={category.id}
+          aria-labelledby={`${category.id}-title`}
+          className="bg-ink text-white"
+        >
           <div className={`${shell} pt-16 pb-6 lg:pt-24`}>
             <div className="flex flex-wrap items-baseline justify-between gap-4 pb-10">
-              <SectionLabel index={numeral(categoryIndex)}>{category.title}</SectionLabel>
+              <SectionLabel as="h2" id={`${category.id}-title`} index={numeral(categoryIndex)}>
+                {category.title}
+              </SectionLabel>
               <p className="label-xs text-white/55">{category.summary}</p>
             </div>
 

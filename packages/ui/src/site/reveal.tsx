@@ -28,6 +28,10 @@ export function Reveal({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Tells the page's fallback (the root layout's inline script) that
+    // reveals are running, so it leaves the hidden sections to them.
+    (window as Window & { __revealReady?: boolean }).__revealReady = true;
+
     const node = ref.current;
     if (!node) return;
 

@@ -7,7 +7,7 @@
  * to keep a 4000px master in the repository when nothing renders above 2400.
  *
  * This rewrites each JPEG in place at a sane ceiling. Originals are recoverable
- * from git (`git checkout -- apps/web/public/gallery apps/web/src/media`) — the
+ * from git (`git checkout -- apps/web/public/gallery apps/web/public/media`) — the
  * files are committed and were untouched when this was first run.
  *
  *   pnpm --filter web optimise:photos          # rewrite
@@ -20,7 +20,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const sharp = require("sharp");
 
-const DIRS = ["public/gallery", "src/media"];
+const DIRS = ["public/gallery", "public/media"];
 const MAX_EDGE = 2400;
 const QUALITY = 80;
 const dry = process.argv.includes("--dry");

@@ -5,17 +5,18 @@ import { PageHero } from "@CC-City-Chauffeurs/ui/site/page-hero";
 import { GhostLink, QuietLink, SectionHead, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import { media } from "@/content/media";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { routes } from "@/content/site";
 import { contactChannels, contactDetails, whatsappLink } from "@/lib/contact";
 import { getSite } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "Contact | CC City Chauffeurs, London",
-  description:
-    "Contact CC City Chauffeurs by WhatsApp, telephone or email. A London chauffeur company covering the UK and Europe. Enquiries handled in confidence.",
-  path: "/contact",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Contact | CC City Chauffeurs, London",
+    description:
+      "Contact CC City Chauffeurs by WhatsApp, telephone or email. A London chauffeur company covering the UK and Europe. Enquiries handled in confidence.",
+    path: "/contact",
+  });
 
 export default async function ContactPage() {
   const site = await getSite();

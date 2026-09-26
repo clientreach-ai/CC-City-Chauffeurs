@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { CmsValidationError } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/server";
 
+import { convertForWeb } from "./image-convert";
 import { imageSize, sniffImageType } from "./image-size";
 
 /**
@@ -82,11 +83,13 @@ export type ImageBytes = {
 };
 
 /**
- * Reads an upload as an image, refusing anything that is not one.
+ * Reads an upload as an image, refusing anything that is not one, and
+ * prepares it for the web — see `image-convert.ts`: turned upright, scaled to
+ * what the site can show, re-encoded as WebP and stripped of metadata.
  *
- * The type — and so the extension it is stored under and the content type
- * it is served with — comes from what the bytes are, never from what the
- * browser said they were. The dimensions come from the same header.
+ * The type is checked against what the bytes are, never against what the
+ * browser said they were. What is returned describes the prepared file: its
+ * bytes, type, extension and real dimensions.
  */
 export async function readImage(file: File): Promise<ImageBytes> {
   if (!ACCEPTED[file.type]) {
@@ -105,7 +108,7 @@ export async function readImage(file: File): Promise<ImageBytes> {
   if (!type || !extension || !size || !size.width || !size.height) {
     throw new CmsValidationError({ file: `“${file.name}” could not be read as an image.` });
   }
-  return { bytes, type, extension, width: size.width, height: size.height };
+  return convertForWeb(bytes, { type, extension });
 }
 
 /** Writes an object. The caller chooses the key; see the note on keys above. */
@@ -155,6 +158,7 @@ export async function storeUpload(file: File): Promise<StoredFile> {
     width: image.width,
     height: image.height,
     filename: file.name,
-    bytes: file.size,
+    // What is stored, not what was sent: the library shows the real weight.
+    bytes: image.bytes.byteLength,
   };
 }

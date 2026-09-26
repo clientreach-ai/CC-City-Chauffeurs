@@ -12,15 +12,16 @@ import {
 } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "Supercar Experiences London | Chauffeur-Driven | CC City Chauffeurs",
-  description:
-    "Chauffeur-driven supercar experiences in London — statement arrivals, occasions and pre-arranged journeys in the Lamborghini Urus, Huracán and Revuelto.",
-  path: "/supercar-experiences",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Supercar Experiences London | Chauffeur-Driven | CC City Chauffeurs",
+    description:
+      "Chauffeur-driven supercar experiences in London — statement arrivals, occasions and pre-arranged journeys in the Lamborghini Urus, Huracán and Revuelto.",
+    path: "/supercar-experiences",
+  });
 
 const occasions = [
   {

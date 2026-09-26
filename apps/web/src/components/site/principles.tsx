@@ -21,7 +21,7 @@ export function Principles({ index, section }: { index: string; section: Princip
               src={section.image.src}
               alt={section.image.alt}
               fill
-              quality={85}
+              quality={80}
               sizes="100vw"
               className="object-cover object-[60%_center]"
             />

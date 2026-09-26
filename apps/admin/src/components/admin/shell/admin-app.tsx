@@ -70,10 +70,14 @@ function Frame({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const pathname = usePathname();
 
-  // Close the drawer whenever the page changes underneath it.
-  useEffect(() => {
+  // Close the drawer whenever the page changes underneath it — adjusted
+  // during render, as React recommends for state that follows a value, so
+  // the open drawer is never painted over the new page for a frame first.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setDrawer(false);
-  }, [pathname]);
+  }
 
   return (
     <div data-admin className="min-h-dvh bg-ink font-ui text-white antialiased scheme-dark">

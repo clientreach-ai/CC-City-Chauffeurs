@@ -8,15 +8,16 @@ import { EnquiryBand, Section, Statement, StatementBand } from "@/components/sit
 import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 import { media } from "@/content/media";
 import { chauffeurStandards, routes } from "@/content/site";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { getServices } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "Chauffeur Services London | CC City Chauffeurs",
-  description:
-    "Chauffeur services in London and UK-wide — private chauffeur, airport transfers, corporate travel, weddings, events, city to city, roadshows and tours.",
-  path: "/chauffeur-services",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Chauffeur Services London | CC City Chauffeurs",
+    description:
+      "Chauffeur services in London and UK-wide — private chauffeur, airport transfers, corporate travel, weddings, events, city to city, roadshows and tours.",
+    path: "/chauffeur-services",
+  });
 
 /** Published every minute from the admin's own records. */
 export const revalidate = 60;
@@ -65,7 +66,7 @@ export default async function ChauffeurServicesPage() {
                     src={feature.heroImage.src}
                     alt={feature.heroImage.alt}
                     fill
-                    quality={85}
+                    quality={80}
                     sizes="(max-width: 1024px) 100vw, 58vw"
                     className="object-cover transition-transform duration-[1600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-[1.02]"
                   />

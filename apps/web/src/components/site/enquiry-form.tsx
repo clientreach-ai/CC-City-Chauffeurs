@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -146,6 +147,10 @@ function newSubmissionId() {
   }
   return `sub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
+
+/** For `useSyncExternalStore`: today's date is read, never subscribed to. */
+const neverChanges = () => () => {};
+const noDateOnServer = () => undefined;
 
 function serviceLabel(value: string, services: ServiceOptionItem[]) {
   return services.find((option) => option.value === value)?.label ?? value;
@@ -310,6 +315,13 @@ export function EnquiryForm({
   const [attempted, setAttempted] = useState(false);
   const [submission, setSubmission] = useState<Submission>({ state: "editing" });
   const [copied, setCopied] = useState(false);
+  /*
+   * The earliest date the picker offers. Set in the browser, not while
+   * rendering: this page is generated ahead of time, so a date computed during
+   * render is the day it was built — and in the server's timezone, not the
+   * visitor's.
+   */
+  const minDate = useSyncExternalStore(neverChanges, todayISO, noDateOnServer);
   /** The honeypot's value. Kept out of `FormState`, which is what a person fills in. */
   const [honeypot, setHoneypot] = useState("");
 
@@ -340,6 +352,10 @@ export function EnquiryForm({
     const date = params.get("date");
     const passengers = params.get("passengers");
     if (!service && !vehicle && !date && !passengers) return;
+    // The one sanctioned setState-in-an-effect: the query string exists only
+    // in the browser, and reading it during render would give the server and
+    // the browser different forms to hydrate.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((previous) => ({
       ...previous,
       ...(service ? { service } : {}),
@@ -347,7 +363,9 @@ export function EnquiryForm({
       ...(date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? { date } : {}),
       ...(passengers && /^\d{1,2}$/.test(passengers) ? { passengers } : {}),
     }));
-    // Prefill is a one-off on arrival; later edits belong to the visitor.
+    // Prefill is a one-off on arrival; later edits belong to the visitor, so
+    // this must not re-run when the (page-constant) option lists re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const set = <K extends FieldKey>(key: K) => (value: FormState[K]) => {
@@ -551,7 +569,7 @@ export function EnquiryForm({
       <input
         {...aria("date")}
         type="date"
-        min={todayISO()}
+        min={minDate}
         required={req("date")}
         value={form.date}
         onChange={(e) => set("date")(e.target.value)}

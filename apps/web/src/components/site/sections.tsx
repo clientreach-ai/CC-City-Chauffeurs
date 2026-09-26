@@ -126,7 +126,7 @@ export function EditorialSplit({
             src={image}
             alt={imageAlt}
             fill
-            quality={85}
+            quality={80}
             sizes="(max-width: 1024px) 100vw, 48vw"
             placeholder={blurOf(image)}
             className="object-cover"
@@ -211,7 +211,7 @@ export function StatementBand({
             src={image}
             alt={imageAlt}
             fill
-            quality={85}
+            quality={80}
             sizes="100vw"
             placeholder={blurOf(image)}
             className={`object-cover ${objectPosition}`}

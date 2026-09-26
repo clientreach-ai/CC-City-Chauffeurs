@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type {
   FleetCategory,
   GalleryItem,
@@ -32,6 +34,14 @@ const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/public`;
 const REVALIDATE = 60;
 
 /**
+ * How long one read may take before it is abandoned. A hung API otherwise
+ * hangs the build that is waiting on it, or leaves a page's background
+ * refresh open indefinitely. Abandoning it throws, which — as below — keeps
+ * the last good copy of the page.
+ */
+const TIMEOUT_MS = 10_000;
+
+/**
  * Reads one published resource.
  *
  * `null` means one thing only: the API said this record does not exist, and
@@ -44,10 +54,15 @@ const REVALIDATE = 60;
  * a build against an unreachable API fails, leaving the previous deployment
  * serving; and a failed revalidation of a live page keeps the last good copy
  * rather than replacing it with a 404.
+ *
+ * Wrapped in `cache` because the timeout's signal opts the request out of
+ * Next's own per-render memoisation — without it the layout and the page
+ * would each fetch the settings they share.
  */
-async function read<T>(path: string, tag: string): Promise<T | null> {
+const read = cache(async function read<T>(path: string, tag: string): Promise<T | null> {
   const response = await fetch(`${BASE}${path}`, {
     next: { revalidate: REVALIDATE, tags: [tag, "site"] },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 
   if (response.status === 404) return null;
@@ -55,7 +70,7 @@ async function read<T>(path: string, tag: string): Promise<T | null> {
     throw new Error(`The API answered ${response.status} for ${path}.`);
   }
   return (await response.json()) as T;
-}
+}) as <T>(path: string, tag: string) => Promise<T | null>;
 
 // ---------------------------------------------------------------- settings
 

@@ -6,15 +6,16 @@ import { GhostLink, QuietLink, shell } from "@CC-City-Chauffeurs/ui/site/primiti
 import { EnquiryBand } from "@/components/site/sections";
 import { media } from "@/content/media";
 import { routes } from "@/content/site";
-import { pageMetadata } from "@/content/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { getGallery } from "@/lib/site-data";
 
-export const metadata = pageMetadata({
-  title: "Gallery | The Fleet, Photographed | CC City Chauffeurs",
-  description:
-    "Photography from CC City Chauffeurs' own shoots — the Rolls-Royce Cullinan, Mercedes-AMG G-Wagon, Lamborghini Urus and more, across London and in the workshop.",
-  path: "/gallery",
-});
+export const generateMetadata = () =>
+  pageMetadata({
+    title: "Gallery | The Fleet, Photographed | CC City Chauffeurs",
+    description:
+      "Our own photography of the Rolls-Royce Cullinan, Mercedes-AMG G-Wagon, Lamborghini Urus and more — shot across London and in the workshop.",
+    path: "/gallery",
+  });
 
 /** Published every minute from the admin's own records. */
 export const revalidate = 60;

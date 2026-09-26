@@ -2,6 +2,8 @@ import type { EnquireSection, SiteSettings } from "@CC-City-Chauffeurs/core";
 import { Rule, SectionLabel, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { Reveal } from "@CC-City-Chauffeurs/ui/site/reveal";
 
+import { contactChannels } from "@/lib/contact";
+
 import { EnquiryForm } from "./enquiry-form";
 
 export function Enquire({
@@ -16,27 +18,11 @@ export function Enquire({
   services: { value: string; label: string }[];
 }) {
   const { contact } = settings;
-  const channels = [
-    {
-      label: "WhatsApp",
-      value: contact.whatsappDisplay,
-      note: "The fastest way to reach us",
-      href: `https://wa.me/${contact.whatsappNumber}?text=${encodeURIComponent(contact.whatsappIntro)}`,
-      external: true,
-    },
-    {
-      label: "Telephone",
-      value: contact.phoneDisplay,
-      note: "Speak to the office",
-      href: `tel:${contact.phoneE164}`,
-    },
-    {
-      label: "Email",
-      value: contact.email,
-      note: "For detailed or corporate enquiries",
-      href: `mailto:${contact.email}`,
-    },
-  ].filter((channel) => channel.value);
+  const channels = contactChannels(settings, {
+    whatsapp: "The fastest way to reach us",
+    phone: "Speak to the office",
+    email: "For detailed or corporate enquiries",
+  });
 
   return (
     <section id="enquire" className="bg-ink text-white">

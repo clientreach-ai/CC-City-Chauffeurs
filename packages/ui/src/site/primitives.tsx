@@ -10,20 +10,29 @@ export const shell = "mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16";
 
 type Tone = "dark" | "light";
 
-/** Small uppercase section marker: "(03) The Fleet". */
+/**
+ * Small uppercase section marker: "(03) The Fleet". A paragraph by default;
+ * pass `as="h2"` where the marker is the only title a section has, so the
+ * page's outline does not skip a level.
+ */
 export function SectionLabel({
   index,
   children,
   tone = "dark",
   className = "",
+  as: Tag = "p",
+  id,
 }: {
   index?: string;
   children: ReactNode;
   tone?: Tone;
   className?: string;
+  as?: "p" | "h2" | "h3";
+  id?: string;
 }) {
   return (
-    <p
+    <Tag
+      id={id}
       className={`label-xs flex items-center gap-3 ${
         tone === "dark" ? "text-steel" : "text-ink-muted"
       } ${className}`}
@@ -32,7 +41,7 @@ export function SectionLabel({
         <span className={tone === "dark" ? "text-silver" : "text-ink"}>({index})</span>
       ) : null}
       <span>{children}</span>
-    </p>
+    </Tag>
   );
 }
 
