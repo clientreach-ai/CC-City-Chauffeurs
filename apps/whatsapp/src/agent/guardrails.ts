@@ -58,13 +58,13 @@ export function escalationFor(text: string): Escalation | null {
 }
 
 export const HANDOFF_REPLY =
-  "Thank you — I've asked a member of the City Chauffeurs team to pick this up. They'll reply to you here as soon as they can.";
+  "Thank you. I've asked a member of the City Chauffeurs team to pick this up, and they'll reply to you here as soon as they can.";
 
 export const URGENT_REPLY =
   "I've passed this straight to the City Chauffeurs team so a person can help. If anyone is in danger or hurt, please call 999 first.";
 
 export const UNSUPPORTED_REPLY =
-  "I can currently help with text messages only. If you'd like to send something else, just say and I'll connect you with the team.";
+  "I can help with text messages only at the moment. If you'd like to send something else, just say so and I'll put you through to the team.";
 
 /**
  * A conversation that has had more turns in an hour than any real one does.
@@ -72,7 +72,7 @@ export const UNSUPPORTED_REPLY =
  * away, they are handed to a person.
  */
 export const TOO_MANY_REPLY =
-  "Thank you for all of this — I am passing the conversation to a member of the City Chauffeurs team, who will reply here.";
+  "Thank you for all of this. I'm passing the conversation to a member of the City Chauffeurs team, who will reply here.";
 
 export const FALLBACK_REPLY =
-  "Sorry — I couldn't answer that just now. I've let the City Chauffeurs team know, and a member of the team will reply to you here.";
+  "I'm sorry, I couldn't answer that just now. I've let the City Chauffeurs team know, and a member of the team will reply to you here.";

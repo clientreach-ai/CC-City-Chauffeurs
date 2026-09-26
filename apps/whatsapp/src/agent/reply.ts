@@ -12,6 +12,10 @@
  *      told "that is with the team" and given no reference has nothing to
  *      quote when they ring.
  *   3. A booking request must not read as a confirmed booking.
+ *   4. No reply joins its clauses with a dash. A model reaches for an em
+ *      dash constantly and a person typing on a phone almost never does, so
+ *      it is the clearest tell that nobody wrote the message. The prompt
+ *      asks; this makes sure.
  *
  * Narrow on purpose. This is not a censor and it does not try to read the
  * reply: it matches references, which have a shape, and one short list of
@@ -35,6 +39,29 @@ const NOT_YET_CONFIRMED =
 const SAFE_FALLBACK =
   "Thank you — your request is with the City Chauffeurs team, and a member of the team will reply here shortly.";
 
+/**
+ * Dashes used as punctuation, and the comma or colon that reads as though a
+ * person typed it.
+ *
+ * Only a dash standing between words is touched. A hyphenated name, a
+ * reference like ENQ-1100 and a range like 10-12 are all left exactly as
+ * they are, because the pattern requires the surrounding spaces.
+ */
+function withoutDashes(text: string): string {
+  return text
+    // " — ", " – ", " - " between clauses: a comma does the same work.
+    .replace(/ +[—–] +/g, ", ")
+    .replace(/ +- +/g, ", ")
+    // A dash opening a line of a list is how lists are written; left alone
+    // above by requiring a space before it. An em dash with no space around
+    // it still reads as generated.
+    .replace(/(\w)[—–](\w)/g, "$1, $2")
+    // "Thank you, , the team" cannot happen, but a model that already wrote
+    // a comma before its dash would leave one.
+    .replace(/, ,/g, ",")
+    .replace(/,\s*\./g, ".");
+}
+
 export type CreatedRecord = { kind: "enquiry" | "booking"; reference: string };
 
 export type ReplyCheck = {
@@ -53,7 +80,8 @@ export function checkReply(reply: string, check: ReplyCheck): CheckedReply {
     [...check.references, ...(check.created ? [check.created.reference] : [])].map((reference) => reference.toUpperCase()),
   );
 
-  let text = reply.trim();
+  let text = withoutDashes(reply.trim());
+  if (text !== reply.trim()) corrections.push("dashes_replaced");
 
   const quoted = text.match(REFERENCE) ?? [];
   const invented = quoted.filter((reference) => !known.has(reference.toUpperCase()));
