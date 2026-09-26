@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+import { mailConfigProblems } from "./mail";
 import { DEFAULT_WHATSAPP_MODEL, whatsappConfigProblems } from "./whatsapp";
 
 /**
@@ -102,6 +103,25 @@ export const env = createEnv({
      */
     WHATSAPP_AI_EFFORT: z.enum(["none", "low", "medium", "high"]).default("low"),
     OPENAI_API_KEY: z.string().min(1).optional(),
+
+    /**
+     * Email. `off` — the default, and what the tests run with — records
+     * nothing and sends nothing. `smtp` is any mail server, including a
+     * Gmail account with an app password. `resend` is the transactional
+     * service, for production.
+     */
+    MAIL_PROVIDER: z.enum(["off", "smtp", "resend"]).default("off"),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().positive().default(587),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    RESEND_API_KEY: z.string().min(1).optional(),
+    /** The sender, e.g. `City Chauffeurs <bookings@citychauffeurs.co.uk>`. */
+    MAIL_FROM: z.string().min(1).optional(),
+    /** Where the office hears that somebody is waiting. */
+    OFFICE_EMAIL: z.string().min(1).optional(),
+    /** Where the admin lives, so an alert can link straight to the record. */
+    ADMIN_URL: z.url().default("http://localhost:3002"),
   },
   /**
    * The WhatsApp settings are checked together, by the rules in
@@ -109,7 +129,7 @@ export const env = createEnv({
    */
   createFinalSchema: (shape) =>
     z.object(shape).superRefine((value, context) => {
-      for (const problem of whatsappConfigProblems(value)) {
+      for (const problem of [...whatsappConfigProblems(value), ...mailConfigProblems(value)]) {
         context.addIssue({ code: "custom", path: [problem.path], message: problem.message });
       }
     }),

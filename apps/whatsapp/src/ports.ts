@@ -191,6 +191,20 @@ export type ServiceSummary = {
   summary: string;
 };
 
+/**
+ * Something the enquiry form offers that has no page behind it — self-drive
+ * supercar hire, a chauffeur-driven supercar experience, "something else".
+ *
+ * The business takes these enquiries; it simply does not publish a service
+ * page for them. Without this the assistant told customers a thing existed
+ * only if it had a page, while the website's own form happily took it.
+ */
+export type EnquiryOption = {
+  /** The value the enquiry records, e.g. "supercar-hire". */
+  value: string;
+  label: string;
+};
+
 export type ServiceDetail = ServiceSummary & {
   standfirst: string;
   benefits: { title: string; copy: string }[];
@@ -240,6 +254,24 @@ export type EnquiryStatusSummary = {
 };
 
 /**
+ * Where a booking stands, in the only terms that are honest: the office's own
+ * label, and whether anybody has actually agreed to it yet.
+ */
+export type BookingStatusSummary = {
+  reference: string;
+  /** The status label the admin uses — "Requested", "Confirmed", "Completed". */
+  status: string;
+  /** False until a person in the office has confirmed it. */
+  confirmed: boolean;
+  date: string;
+  time: string;
+  pickup: string;
+  dropoff: string;
+  /** The vehicle on the booking, where one is assigned. */
+  vehicle: string | null;
+};
+
+/**
  * Everything the assistant may ask City Chauffeurs to do.
  *
  * Deliberately narrow. The assistant can read what the website publishes, and
@@ -250,6 +282,8 @@ export type EnquiryStatusSummary = {
 export interface Backend {
   listFleet(): Promise<FleetVehicle[]>;
   listServices(): Promise<ServiceSummary[]>;
+  /** Everything the website's enquiry form offers, including what has no page. */
+  listEnquiryOptions(): Promise<EnquiryOption[]>;
   getService(slug: string): Promise<ServiceDetail | null>;
   /**
    * `submissionId` is derived from the triggering WhatsApp message, so a
@@ -272,6 +306,8 @@ export interface Backend {
    * reference answers the same as one that does not exist.
    */
   findEnquiry(reference: string, phone: E164): Promise<EnquiryStatusSummary | null>;
+  /** Where one of this customer's own bookings stands. Only theirs. */
+  findBooking(reference: string, phone: E164): Promise<BookingStatusSummary | null>;
   /** The customer on file for this number, if there is one. */
   matchCustomer(phone: E164): Promise<{ id: string; name: string } | null>;
 }

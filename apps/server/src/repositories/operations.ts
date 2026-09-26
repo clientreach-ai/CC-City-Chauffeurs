@@ -86,6 +86,9 @@ function toBooking(row: BookingRow, activity: ActivityEntry[]): Booking {
     reference: row.reference,
     customerId: row.customerId,
     enquiryId: row.enquiryId,
+    // The assistant's own requests carry `wa:<message>:booking`; everything
+    // else with no enquiry behind it was typed by the office.
+    origin: row.enquiryId ? "enquiry" : row.submissionId?.startsWith("wa:") ? "whatsapp" : "office",
     service: row.service,
     vehicleId: row.vehicleId,
     date: row.date,
@@ -733,6 +736,33 @@ export async function enquiryForPhone(reference: string, phone: string): Promise
     )
     .limit(1);
   return row ? getEnquiry(row.id) : null;
+}
+
+/**
+ * A booking, but only for the person it belongs to.
+ *
+ * The same rule as `enquiryForPhone`, and for the same reason: references are
+ * sequential, so what makes one theirs is that the customer on it has the
+ * number they are writing from. Somebody else's reference comes back exactly
+ * as one that does not exist.
+ */
+export async function bookingForPhone(reference: string, phone: string): Promise<Booking | null> {
+  const digits = phone.replace(/\D/g, "");
+  const wanted = reference.trim().toUpperCase();
+  if (digits.length < 7 || !wanted) return null;
+
+  const [row] = await db
+    .select({ id: schema.booking.id })
+    .from(schema.booking)
+    .innerJoin(schema.customer, eq(schema.customer.id, schema.booking.customerId))
+    .where(
+      and(
+        eq(schema.booking.reference, wanted),
+        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
+      ),
+    )
+    .limit(1);
+  return row ? getBooking(row.id) : null;
 }
 
 export async function clashesFor(

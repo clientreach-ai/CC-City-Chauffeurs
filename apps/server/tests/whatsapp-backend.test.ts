@@ -293,6 +293,78 @@ describe("a booking request made on WhatsApp", () => {
   });
 });
 
+describe("what the website's form offers that has no page", () => {
+  test("the assistant is given the same list a visitor sees", async () => {
+    await database.client.exec(`
+      insert into enquiry_service_option (value, label, position) values
+        ('airport-transfers', 'Airport transfer', 1),
+        ('supercar-hire', 'Supercar hire (self-drive)', 10)
+      on conflict (value) do nothing;
+    `);
+    const offered = await backend.listEnquiryOptions();
+
+    expect(offered.map((option) => option.value)).toContain("supercar-hire");
+    expect(offered.find((option) => option.value === "supercar-hire")?.label).toBe("Supercar hire (self-drive)");
+    // And the published services are in it too, under the form's own labels.
+    expect(offered.map((option) => option.value)).toContain("airport-transfers");
+  });
+});
+
+describe("asking after a booking", () => {
+  const requested = async (phone = AMELIA) =>
+    backend.createBookingRequest({
+      customer: { name: "Amelia Hughes", phone: phone as E164, email: "" },
+      journey: {
+        service: "",
+        vehicleId: "veh-cullinan",
+        pickup: "Heathrow",
+        dropoff: "Mayfair",
+        date: "2027-02-14",
+        time: "19:00",
+        passengers: 2,
+        luggage: "",
+        flight: "",
+        notes: "",
+      },
+      submissionId: `wa:${Math.random()}:booking`,
+    });
+
+  test("is a request until the office confirms it, and says so", async () => {
+    const { reference } = await requested();
+
+    const found = await backend.findBooking(reference, AMELIA as E164);
+    expect(found).toMatchObject({
+      reference,
+      confirmed: false,
+      date: "2027-02-14",
+      time: "19:00",
+      pickup: "Heathrow",
+      dropoff: "Mayfair",
+      vehicle: "Rolls-Royce Cullinan",
+    });
+  });
+
+  test("reads as confirmed only once a person has confirmed it", async () => {
+    const { reference } = await requested();
+    const operations = await import("../src/repositories/operations");
+    const [row] = (await database.client.query(`select id from booking where reference = '${reference}'`)).rows as {
+      id: string;
+    }[];
+    await operations.updateBookingStatus(row!.id, "confirmed");
+
+    const found = await backend.findBooking(reference, AMELIA as E164);
+    expect(found).toMatchObject({ confirmed: true, status: "Confirmed" });
+  });
+
+  test("answers only the person whose booking it is", async () => {
+    const { reference } = await requested();
+
+    expect(await backend.findBooking(reference, "+447700900999" as E164)).toBeNull();
+    // And a reference that never existed answers the same way.
+    expect(await backend.findBooking("BKG-9999", AMELIA as E164)).toBeNull();
+  });
+});
+
 describe("asking after an enquiry", () => {
   test("answers only the person whose enquiry it is", async () => {
     const { reference } = await backend.createEnquiry({
