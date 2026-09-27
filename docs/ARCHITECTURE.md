@@ -218,9 +218,13 @@ operations and publishing. `admin` adds site settings.
 
 ## What is still not real
 
-- **WhatsApp is switched off in production.** It is built and tested, and
-  waits on a Meta-approved business account, a Twilio sender, an OpenAI key
-  and migration `0004_whatsapp` — see [WHATSAPP.md](WHATSAPP.md#going-live).
+- **WhatsApp answers on a test number, not the client's own.** The channel is
+  live: migration `0004_whatsapp` is applied, the variables are set on the
+  API, and a real conversation records a real enquiry. What it answers on is
+  Twilio's shared sandbox number, which a person has to join by sending a code
+  before they can write to it, so no customer can reach it. The client's own
+  number waits on Meta business verification and a Twilio sender of its own —
+  see [WHATSAPP.md](WHATSAPP.md#going-live).
 - **Almost nothing is sent to anybody.** Two emails now go out — the office
   hears that an enquiry or a booking request has arrived, and a customer
   hears once the office has confirmed their booking (see
