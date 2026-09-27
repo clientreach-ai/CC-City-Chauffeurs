@@ -15,13 +15,16 @@ price, change or cancel anything.
 | | |
 |---|---|
 | **Built and tested** | The channel, the agent, the tools, handoff, idempotency, the database tables, the webhook, the admin API and its screens, the simulator |
-| **Needs the client** | A WhatsApp Business Account approved by Meta, a Twilio WhatsApp sender on the business number, an OpenAI API key |
-| **Needs a deploy step** | Migration `0004_whatsapp` applied to the production database, and the environment variables below set on the API server |
+| **Live on a test number** | Migration `0004_whatsapp` is applied, the variables are set on the API, and the channel answers on Twilio's shared sandbox number |
+| **Needs the client** | A WhatsApp Business Account approved by Meta and a Twilio sender on the business number, before a customer can reach it |
 
-Until all three rows are done the channel is switched off in production.
-`WHATSAPP_PROVIDER` defaults to `disabled`, and a disabled server mounts no
-webhook and never loads the package, so the deployment boots exactly as it
-did before.
+The sandbox is a number a person joins by sending a code to it, so nothing a
+customer does reaches the assistant yet: it is the real channel end to end,
+on a number only the team has joined.
+
+Switching it off is still one setting. `WHATSAPP_PROVIDER=disabled` mounts no
+webhook and never loads the package, so a deployment behaves exactly as it
+did before any of this existed.
 
 ## How it fits
 
