@@ -10,6 +10,16 @@
         "$TURBO_DEFAULT$",
         ".env*"
       ],
+      // Turbo passes a build only the variables named here, so one that is
+      // set on the host but absent from this list reaches nothing and the
+      // build fails on it. NEXT_PUBLIC_* arrive on their own, inferred from
+      // the framework; everything else has to be said. Vercel warns about the
+      // ones it holds and this file does not.
+      "env": [
+        "MEDIA_URL",
+        "REVALIDATE_SECRET",
+        "NODE_ENV"
+      ],
       "outputs": [
         "dist/**",
         ".next/**",
