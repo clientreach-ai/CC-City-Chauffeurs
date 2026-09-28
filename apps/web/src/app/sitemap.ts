@@ -20,6 +20,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/about", priority: 0.7 },
     { path: "/supercar-hire", priority: 0.6 },
     { path: "/supercar-experiences", priority: 0.6 },
+    { path: "/privacy", priority: 0.2 },
+    { path: "/terms", priority: 0.2 },
   ];
 
   return [
