@@ -16,10 +16,11 @@ import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
-    title: "The Fleet | Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
+    title: "Fleet: Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
     description:
       "The CC City Chauffeurs fleet — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, and Lamborghini.",
     path: "/fleet",
@@ -64,6 +65,7 @@ export default async function FleetPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Fleet", path: "/fleet" }]} />
       <PageHero
         eyebrow="The fleet"
         display={["One fleet.", "One", "standard."]}
