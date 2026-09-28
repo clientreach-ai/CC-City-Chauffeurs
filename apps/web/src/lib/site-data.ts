@@ -14,6 +14,7 @@ import type {
   Vehicle,
   VehicleFeature,
 } from "@CC-City-Chauffeurs/core";
+import { defaultLegalDocuments } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/web";
 
 const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/public`;
@@ -127,6 +128,13 @@ export type PublicLegalDocument = LegalDocumentContent & {
   updatedAt: string | null;
 };
 
-export async function getLegalDocument(id: LegalDocumentId) {
-  return read<PublicLegalDocument>(`/legal/${id}`, "legal");
+/**
+ * The saved version, or the default wording when the API has no such route
+ * yet — an API that has not been redeployed since legal pages became
+ * editable answers 404, and the pages must not disappear in the meantime.
+ * Any other failure still throws, keeping the last good copy (see `read`).
+ */
+export async function getLegalDocument(id: LegalDocumentId): Promise<PublicLegalDocument> {
+  const stored = await read<PublicLegalDocument>(`/legal/${id}`, "legal");
+  return stored ?? { id, ...defaultLegalDocuments[id], updatedAt: null };
 }
