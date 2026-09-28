@@ -136,6 +136,20 @@ export default async function ServicePage({
     />
   );
 
+  // The detail section's photograph, as the hero's: a service without one
+  // borrows the hero's, then the fleet's, rather than handing next/image an
+  // empty address — which shows a broken image and logs an error.
+  const detailImage = service.detail.image?.src
+    ? service.detail.image
+    : service.heroImage?.src
+      ? service.heroImage
+      : media.cullinanRearCabin;
+  const detailAlt = service.detail.image?.src
+    ? service.detail.image.alt || service.detail.heading
+    : service.heroImage?.src
+      ? service.heroImage.alt || service.name
+      : "The rear cabin of a Rolls-Royce Cullinan";
+
   const included = service.benefits.map((item, i) => ({
     title: item.title,
     copy: item.copy,
@@ -146,8 +160,8 @@ export default async function ServicePage({
     <EditorialSplit
       tone={tone}
       flip={flip}
-      image={service.detail.image ?? { src: "", width: 0, height: 0 }}
-      imageAlt={service.detail.image?.alt ?? service.detail.heading}
+      image={detailImage}
+      imageAlt={detailAlt}
       eyebrow={service.name}
       heading={service.detail.heading}
       paragraphs={service.detail.paragraphs}
@@ -192,8 +206,8 @@ export default async function ServicePage({
           <IndexRows rows={included} />
         </Section>
         <StatementBand
-          image={service.detail.image ?? { src: "", width: 0, height: 0 }}
-          imageAlt={service.detail.image?.alt ?? service.detail.heading}
+          image={detailImage}
+          imageAlt={detailAlt}
           eyebrow={service.detail.heading}
           quote={service.detail.paragraphs[0] ?? ""}
         />
