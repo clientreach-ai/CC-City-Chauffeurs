@@ -16,6 +16,8 @@
     "@CC-City-Chauffeurs/env": "workspace:*",
     "@CC-City-Chauffeurs/ui": "workspace:*",
     "@swc/helpers": "^0.5.23",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",
