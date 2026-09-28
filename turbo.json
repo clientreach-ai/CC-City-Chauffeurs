@@ -18,6 +18,8 @@
       "env": [
         "MEDIA_URL",
         "REVALIDATE_SECRET",
+        "GOOGLE_SITE_VERIFICATION",
+        "BING_SITE_VERIFICATION",
         "NODE_ENV"
       ],
       "outputs": [
