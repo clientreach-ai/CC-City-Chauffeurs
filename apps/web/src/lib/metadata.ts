@@ -3,6 +3,7 @@ import "server-only";
 import type { Metadata } from "next";
 
 import type { SiteSettings } from "@CC-City-Chauffeurs/core";
+import { env } from "@CC-City-Chauffeurs/env/web";
 import { shareImage as defaultShareImage } from "@/content/seo";
 import { site } from "@/content/site";
 import { getSite } from "@/lib/site-data";
@@ -49,6 +50,12 @@ export async function siteMetadata(): Promise<Metadata> {
     twitter: { card: "summary_large_image", images: [image] },
     // Phone numbers on the page are real links already; stop iOS restyling them.
     formatDetection: { telephone: false },
+    // Ownership proof for Google Search Console and Bing Webmaster Tools. Set
+    // on the host, so verifying a new property needs no code change.
+    verification: {
+      ...(env.GOOGLE_SITE_VERIFICATION ? { google: env.GOOGLE_SITE_VERIFICATION } : {}),
+      ...(env.BING_SITE_VERIFICATION ? { other: { "msvalidate.01": env.BING_SITE_VERIFICATION } } : {}),
+    },
   };
 }
 
