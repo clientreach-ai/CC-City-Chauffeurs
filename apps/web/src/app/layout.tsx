@@ -1,6 +1,10 @@
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
 import "../index.css";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+
+import { ContactTracking } from "@/components/site/contact-tracking";
 import { siteMetadata } from "@/lib/metadata";
 
 /** Display face — light weight, high contrast, set uppercase at large sizes. */
@@ -57,6 +61,14 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         {children}
+        {/*
+          Page views and real-visitor Core Web Vitals. Both are cookieless and
+          collect nothing that identifies a visitor, so no consent banner is
+          needed; both are inert until enabled on the Vercel project.
+        */}
+        <Analytics />
+        <SpeedInsights />
+        <ContactTracking />
       </body>
     </html>
   );

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -16,10 +17,11 @@ import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
-    title: "The Fleet | Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
+    title: "Fleet: Rolls-Royce, Bentley, Mercedes | CC City Chauffeurs",
     description:
       "The CC City Chauffeurs fleet — Rolls-Royce Cullinan and Ghost, Bentley Flying Spur and Bentayga, Mercedes S-Class, V-Class and G-Wagon, and Lamborghini.",
     path: "/fleet",
@@ -50,6 +52,7 @@ function entryData(vehicle: Vehicle): VehicleEntryData {
     ],
     suited: vehicle.suitedTags,
     enquireHref: `${routes.request}?vehicle=${encodeURIComponent(vehicle.name)}`,
+    href: routes.vehicle(vehicle.slug),
   };
 }
 
@@ -64,6 +67,7 @@ export default async function FleetPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Fleet", path: "/fleet" }]} />
       <PageHero
         eyebrow="The fleet"
         display={["One fleet.", "One", "standard."]}
@@ -159,7 +163,12 @@ export default async function FleetPage() {
               key={vehicle.id}
               className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-hairline py-5 last:border-b sm:grid-cols-12 sm:items-baseline"
             >
-              <span className="label-sm text-white sm:col-span-4">{vehicle.name}</span>
+              <Link
+                href={routes.vehicle(vehicle.slug)}
+                className="label-sm link-quiet justify-self-start text-white sm:col-span-4"
+              >
+                {vehicle.name}
+              </Link>
               <span className="label-xs text-white/55 sm:col-span-2">
                 {vehicle.specs.passengers != null
                   ? `${vehicle.specs.passengers} passengers`

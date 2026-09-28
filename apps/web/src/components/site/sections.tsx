@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image, { type StaticImageData } from "next/image";
 import type { ReactNode } from "react";
 
@@ -251,6 +252,7 @@ export function VehicleStrip({
         {vehicles.map((vehicle, i) => {
           return (
             <Reveal key={vehicle.id} delay={Math.min(i * 70, 210)}>
+              <Link href={routes.vehicle(vehicle.slug)} className="group block">
               <div
                 className={`relative aspect-4/3 w-full overflow-hidden ${
                   tone === "dark" ? "bg-graphite" : "bg-ink"
@@ -280,6 +282,7 @@ export function VehicleStrip({
               >
                 {passengersLine(vehicle)} · {rateLabel(vehicle)}
               </p>
+              </Link>
             </Reveal>
           );
         })}

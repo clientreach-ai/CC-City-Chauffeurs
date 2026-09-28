@@ -41,7 +41,7 @@ export function Testimonials({
               className="border-t border-hairline pt-7"
             >
               <blockquote className="quote-lg text-white/90">{item.quote}</blockquote>
-              <figcaption className="label-xs mt-7 text-white/45">
+              <figcaption className="label-xs mt-7 text-white/55">
                 <span className="text-white">{item.firstName}</span> · {item.role} ·{" "}
                 {item.district}
               </figcaption>
