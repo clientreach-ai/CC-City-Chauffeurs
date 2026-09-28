@@ -20,7 +20,7 @@ export function VehiclePlate({
       <span className="display-sm text-white/70">
         <Unbroken text={name} />
       </span>
-      <span className="label-xs text-white/45">Photography to follow</span>
+      <span className="label-xs text-white/55">Photography to follow</span>
     </div>
   );
 }
