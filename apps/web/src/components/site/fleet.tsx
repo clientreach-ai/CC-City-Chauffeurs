@@ -76,7 +76,7 @@ export function Fleet({
               delay={i * 90}
               className={i === 2 ? "sm:col-span-2 lg:col-span-1" : ""}
             >
-              <Link href={routes.fleet} className="group block">
+              <Link href={routes.vehicle(vehicle.slug)} className="group block">
                 <div className="media-zoom relative aspect-4/3 w-full bg-graphite">
                   {vehicle.images.main ? (
                     <Image
