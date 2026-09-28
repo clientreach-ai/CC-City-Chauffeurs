@@ -8,6 +8,7 @@ import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { getGallery } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
@@ -36,6 +37,7 @@ export default async function GalleryPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Gallery", path: "/gallery" }]} />
       <PageHero
         height="short"
         eyebrow="Gallery"

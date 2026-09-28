@@ -9,6 +9,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { routes } from "@/content/site";
 import { contactDetails, mailLink, telLink, whatsappLink } from "@/lib/contact";
 import { getFleet, getSite } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
@@ -65,6 +66,7 @@ export default async function RequestAChauffeurPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Request a chauffeur", path: "/request-a-chauffeur" }]} />
       <PageHero
         height="short"
         eyebrow="Request a chauffeur"

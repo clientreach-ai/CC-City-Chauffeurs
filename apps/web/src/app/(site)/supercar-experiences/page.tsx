@@ -14,10 +14,11 @@ import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
-    title: "Supercar Experiences London | Chauffeur-Driven | CC City Chauffeurs",
+    title: "Chauffeur-Driven Supercar Experiences | CC City Chauffeurs",
     description:
       "Chauffeur-driven supercar experiences in London — statement arrivals, occasions and pre-arranged journeys in the Lamborghini Urus, Huracán and Revuelto.",
     path: "/supercar-experiences",
@@ -60,6 +61,7 @@ export default async function SupercarExperiencesPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Supercar experiences", path: "/supercar-experiences" }]} />
       <PageHero
         eyebrow="Supercar experiences · Chauffeur-driven"
         display={["The arrival", "is the", "occasion"]}
