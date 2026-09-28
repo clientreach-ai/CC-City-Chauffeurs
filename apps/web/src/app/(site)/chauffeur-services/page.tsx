@@ -10,6 +10,7 @@ import { media } from "@/content/media";
 import { chauffeurStandards, routes } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { getServices } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
@@ -31,6 +32,7 @@ export default async function ChauffeurServicesPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Chauffeur services", path: "/chauffeur-services" }]} />
       <PageHero
         eyebrow="Chauffeur services"
         display={[`${services!.length} ways`, "to be", "driven"]}

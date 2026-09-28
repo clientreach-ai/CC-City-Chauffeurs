@@ -9,6 +9,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { routes } from "@/content/site";
 import { contactChannels, contactDetails, whatsappLink } from "@/lib/contact";
 import { getSite } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
@@ -31,6 +32,7 @@ export default async function ContactPage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Contact", path: "/contact" }]} />
       <PageHero
         height="short"
         eyebrow="Contact"
@@ -103,6 +105,13 @@ export default async function ContactPage() {
                 <p className="label-xs mt-6 text-white/55">
                   Plus Gatwick and all London airports, UK-wide travel and Europe.
                 </p>
+                {/* The same address the business listing and structured data
+                    carry, so name, address and telephone match everywhere. */}
+                {settings.business.address ? (
+                  <address className="label-xs mt-6 not-italic text-white/70">
+                    {settings.business.address}
+                  </address>
+                ) : null}
               </Reveal>
 
               <Reveal delay={180} className="mt-10">
