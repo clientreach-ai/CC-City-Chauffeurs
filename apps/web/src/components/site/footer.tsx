@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import type { SiteSettings } from "@CC-City-Chauffeurs/core";
 import { brand } from "@/content/brand";
-import { company } from "@/content/legal";
+import { company } from "@CC-City-Chauffeurs/core";
 import { routes } from "@/content/site";
 import { mailLink, telLink, whatsappLink } from "@/lib/contact";
 import { Rule, shell } from "@CC-City-Chauffeurs/ui/site/primitives";

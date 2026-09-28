@@ -28,6 +28,8 @@ export const adminRoutes = {
   media: "/media" as Route,
   testimonials: "/testimonials" as Route,
   content: "/content" as Route,
+  legal: "/legal" as Route,
+  legalDocument: (id: string) => `/legal/${id}` as Route,
   settings: "/settings" as Route,
   signIn: "/sign-in" as Route,
 } as const;

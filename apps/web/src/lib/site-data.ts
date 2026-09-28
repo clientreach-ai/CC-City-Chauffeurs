@@ -4,6 +4,8 @@ import { cache } from "react";
 
 import type {
   FleetCategory,
+  LegalDocumentContent,
+  LegalDocumentId,
   GalleryItem,
   HomepageSection,
   Service,
@@ -114,4 +116,17 @@ export async function getGallery() {
 
 export async function getTestimonials() {
   return (await read<Testimonial[]>("/testimonials", "testimonials")) ?? [];
+}
+
+// ---------------------------------------------------------------- legal
+
+/** A legal page as the website prints it: the saved version or the default. */
+export type PublicLegalDocument = LegalDocumentContent & {
+  id: LegalDocumentId;
+  /** Null while the default wording is in use. */
+  updatedAt: string | null;
+};
+
+export async function getLegalDocument(id: LegalDocumentId) {
+  return read<PublicLegalDocument>(`/legal/${id}`, "legal");
 }
