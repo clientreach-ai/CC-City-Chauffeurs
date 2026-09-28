@@ -126,7 +126,7 @@ type Submission =
   | { state: "failed"; message: string };
 
 const fieldClass =
-  "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-ui text-[0.9375rem] text-white placeholder:text-white/45 transition-colors duration-500 focus:border-white focus:outline-none aria-invalid:border-white";
+  "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-ui text-[0.9375rem] text-white placeholder:text-white/55 transition-colors duration-500 focus:border-white focus:outline-none aria-invalid:border-white";
 
 function todayISO() {
   const now = new Date();

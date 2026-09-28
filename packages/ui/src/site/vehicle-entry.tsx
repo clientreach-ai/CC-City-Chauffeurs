@@ -70,7 +70,7 @@ export function VehicleEntry({ vehicle, wide }: { vehicle: VehicleEntryData; wid
 
         {vehicle.suited.length ? (
           <p className="label-xs mt-6 flex flex-wrap gap-x-4 gap-y-2 text-white/55">
-            <span className="text-white/45">Suited to</span>
+            <span className="text-white/55">Suited to</span>
             {vehicle.suited.map((item) => (
               <span key={item}>{item}</span>
             ))}
