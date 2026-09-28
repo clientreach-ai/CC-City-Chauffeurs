@@ -17,7 +17,7 @@ import { type NextRequest, NextResponse } from "next/server";
  * silently accepting anonymous purges.
  */
 /** The tags the API purges — see `apps/server/src/lib/revalidate.ts`. */
-const KNOWN_TAGS = new Set(["fleet", "homepage", "services", "site-settings", "gallery", "testimonials", "site"]);
+const KNOWN_TAGS = new Set(["fleet", "homepage", "services", "site-settings", "gallery", "testimonials", "legal", "site"]);
 
 /** Compared in constant time, so the secret cannot be guessed a byte at a time. */
 function matches(given: string, expected: string) {

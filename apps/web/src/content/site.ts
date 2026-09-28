@@ -55,6 +55,8 @@ export const routes = {
   gallery: "/gallery" as Route,
   about: "/about" as Route,
   contact: "/contact" as Route,
+  privacy: "/privacy" as Route,
+  terms: "/terms" as Route,
   /**
    * The one way in. There were two — a quote request and a booking request —
    * and a visitor had to decide which of the two they were doing before they

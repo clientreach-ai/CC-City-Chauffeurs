@@ -10,8 +10,11 @@ import {
   type ReactNode,
 } from "react";
 
+import Link from "next/link";
+
 import { PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core/validation";
 import { NO_VEHICLE_PREFERENCE, replyOptions } from "@/content/enquiry";
+import { routes } from "@/content/site";
 import { recordEnquiry } from "@/lib/enquiries";
 import { track } from "@vercel/analytics";
 
@@ -957,7 +960,11 @@ export function EnquiryForm({
         This records your enquiry with the office so it is not left sitting in a chat
         window, and gives you a reference. You can send the same details on WhatsApp
         afterwards if you would like. Nothing is held and nothing is charged here.
-        Handled in confidence.
+        Handled in confidence — see our{" "}
+        <Link href={routes.privacy} className="link-quiet text-white/80 hover:text-white">
+          privacy notice
+        </Link>{" "}
+        for how we use your details.
       </p>
     </form>
   );

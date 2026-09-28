@@ -4,6 +4,8 @@ import { cache } from "react";
 
 import type {
   FleetCategory,
+  LegalDocumentContent,
+  LegalDocumentId,
   GalleryItem,
   HomepageSection,
   Service,
@@ -12,6 +14,7 @@ import type {
   Vehicle,
   VehicleFeature,
 } from "@CC-City-Chauffeurs/core";
+import { defaultLegalDocuments } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/web";
 
 const BASE = `${env.NEXT_PUBLIC_SERVER_URL.replace(/\/+$/, "")}/api/public`;
@@ -114,4 +117,24 @@ export async function getGallery() {
 
 export async function getTestimonials() {
   return (await read<Testimonial[]>("/testimonials", "testimonials")) ?? [];
+}
+
+// ---------------------------------------------------------------- legal
+
+/** A legal page as the website prints it: the saved version or the default. */
+export type PublicLegalDocument = LegalDocumentContent & {
+  id: LegalDocumentId;
+  /** Null while the default wording is in use. */
+  updatedAt: string | null;
+};
+
+/**
+ * The saved version, or the default wording when the API has no such route
+ * yet — an API that has not been redeployed since legal pages became
+ * editable answers 404, and the pages must not disappear in the meantime.
+ * Any other failure still throws, keeping the last good copy (see `read`).
+ */
+export async function getLegalDocument(id: LegalDocumentId): Promise<PublicLegalDocument> {
+  const stored = await read<PublicLegalDocument>(`/legal/${id}`, "legal");
+  return stored ?? { id, ...defaultLegalDocuments[id], updatedAt: null };
 }
