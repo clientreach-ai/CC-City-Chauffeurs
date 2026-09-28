@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
 
 import { siteUrlOf } from "@/lib/metadata";
-import { getServices, getSite } from "@/lib/site-data";
+import { getFleet, getServices, getSite } from "@/lib/site-data";
+import { indexable } from "@/lib/vehicles";
 
 /** Rebuilt every hour, so a newly published service page gets listed. */
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [settings, services] = await Promise.all([getSite(), getServices()]);
+  const [settings, services, fleet] = await Promise.all([getSite(), getServices(), getFleet()]);
   const base = siteUrlOf(settings?.settings.seo);
 
   const staticPaths = [
@@ -37,6 +38,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(service.updatedAt),
       changeFrequency: "monthly" as const,
       priority: 0.8,
+    })),
+    // Vehicles with a photograph; the rest are kept out until they have one
+    // (see lib/vehicles).
+    ...(fleet?.vehicles ?? []).filter(indexable).map((vehicle) => ({
+      url: `${base}/fleet/${vehicle.slug}`,
+      lastModified: new Date(vehicle.updatedAt),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
     })),
   ];
 }
