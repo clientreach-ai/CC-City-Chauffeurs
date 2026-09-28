@@ -51,6 +51,7 @@ export const routes = {
   supercarHire: "/supercar-hire" as Route,
   supercarExperiences: "/supercar-experiences" as Route,
   fleet: "/fleet" as Route,
+  vehicle: (slug: string) => `/fleet/${slug}` as Route,
   gallery: "/gallery" as Route,
   about: "/about" as Route,
   contact: "/contact" as Route,

@@ -178,9 +178,12 @@ function GalleryRow({
 export function GalleryGrid({
   images: gallery,
   rows,
+  filters = true,
 }: {
   images: readonly GalleryImage[];
   rows: readonly GalleryRow[];
+  /** Off where there is only one row to show — a vehicle's own page. */
+  filters?: boolean;
 }) {
   const [filter, setFilter] = useState<string>("all");
   const [lightbox, setLightbox] = useState<{
@@ -263,7 +266,7 @@ export function GalleryGrid({
   return (
     <>
       {/* Filters — a listing of what is here, scrollable on a phone */}
-      <div className="border-y border-hairline">
+      <div className={filters ? "border-y border-hairline" : "hidden"}>
         <div
           role="group"
           aria-label="Filter photographs by vehicle"
@@ -299,7 +302,7 @@ export function GalleryGrid({
         </div>
       </div>
 
-      <p aria-live="polite" className="label-xs mt-6 text-white/55">
+      <p aria-live="polite" className={filters ? "label-xs mt-6 text-white/55" : "sr-only"}>
         {total} {total === 1 ? "photograph" : "photographs"} across{" "}
         {visible.length} {visible.length === 1 ? "vehicle" : "vehicles"}
         <span className="ml-3 hidden text-white/45 sm:inline">

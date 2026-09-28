@@ -1,4 +1,5 @@
 import Image, { type StaticImageData } from "next/image";
+import Link from "next/link";
 
 import { GhostLink, Unbroken } from "./primitives";
 import { Reveal } from "./reveal";
@@ -21,6 +22,8 @@ export type VehicleEntryData = {
   specs: readonly { label: string; value: string }[];
   suited: readonly string[];
   enquireHref: string;
+  /** The vehicle's own page, where it has one. The admin preview has none. */
+  href?: string;
 };
 
 export function VehicleEntry({ vehicle, wide }: { vehicle: VehicleEntryData; wide: boolean }) {
@@ -52,7 +55,13 @@ export function VehicleEntry({ vehicle, wide }: { vehicle: VehicleEntryData; wid
       <div className={wide ? "lg:col-span-4 lg:col-start-9" : "lg:col-span-6 lg:col-start-7"}>
         <p className="label-xs text-white/55">{vehicle.marque}</p>
         <h3 className="display-md mt-4 text-white">
-          <Unbroken text={vehicle.name} />
+          {vehicle.href ? (
+            <Link href={vehicle.href as React.ComponentProps<typeof Link>["href"]} className="link-quiet hover:text-silver">
+              <Unbroken text={vehicle.name} />
+            </Link>
+          ) : (
+            <Unbroken text={vehicle.name} />
+          )}
         </h3>
         <p className="copy mt-5 max-w-[46ch] text-white/60">{vehicle.line}</p>
 
