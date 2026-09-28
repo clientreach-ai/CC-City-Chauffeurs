@@ -22,6 +22,13 @@ export const env = createEnv({
      * edit. Required for a production build: without it every edit waits out
      * the one-minute window instead of showing at once, and nothing says so.
      */
+    /**
+     * The content of the `google-site-verification` and `msvalidate.01` meta
+     * tags that prove ownership to Google Search Console and Bing Webmaster
+     * Tools. Optional: without them, no tag is sent.
+     */
+    GOOGLE_SITE_VERIFICATION: z.string().min(1).optional(),
+    BING_SITE_VERIFICATION: z.string().min(1).optional(),
     REVALIDATE_SECRET:
       process.env.NODE_ENV === "production" ? z.string().min(16) : z.string().optional(),
   },
@@ -32,6 +39,8 @@ export const env = createEnv({
   runtimeEnv: {
     MEDIA_URL: process.env.MEDIA_URL,
     REVALIDATE_SECRET: process.env.REVALIDATE_SECRET,
+    GOOGLE_SITE_VERIFICATION: process.env.GOOGLE_SITE_VERIFICATION,
+    BING_SITE_VERIFICATION: process.env.BING_SITE_VERIFICATION,
     NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL,
   },
   emptyStringAsUndefined: true,
