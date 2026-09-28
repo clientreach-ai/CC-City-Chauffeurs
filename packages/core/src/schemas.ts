@@ -519,3 +519,16 @@ export const mediaUpdateSchema = z.object({
 export type MediaUpdateInput = z.infer<typeof mediaUpdateSchema>;
 
 export type PublicEnquiryInput = z.infer<typeof publicEnquirySchema>;
+
+/** A legal page's editable content, as the admin sends it. Rules: `validateLegalDocument`. */
+export const legalDocumentSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  sections: z.array(
+    z.object({
+      heading: z.string(),
+      paragraphs: z.array(z.string()),
+      points: z.array(z.string()),
+    }),
+  ),
+});

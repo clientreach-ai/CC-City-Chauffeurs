@@ -2,14 +2,18 @@ import Link from "next/link";
 
 import { shell } from "@CC-City-Chauffeurs/ui/site/primitives";
 import { routes } from "@/content/site";
-import type { LegalDocument } from "@/content/legal";
+import { formatDate, LEGAL_DEFAULTS_DATE } from "@CC-City-Chauffeurs/core";
+import type { PublicLegalDocument } from "@/lib/site-data";
 
 /**
  * A legal page: plain type on the dark ground, no hero photograph. These are
  * read to be relied on, so the measure is kept narrow and every heading is a
  * real heading for a screen reader's outline.
+ *
+ * The text is whatever the editors last saved in the admin (Website → Legal
+ * pages), or the default wording until they have.
  */
-export function LegalPage({ document }: { document: LegalDocument }) {
+export function LegalPage({ document }: { document: PublicLegalDocument }) {
   return (
     <article className="bg-ink text-white">
       <div className={`${shell} pt-36 pb-24 lg:pt-44 lg:pb-36`}>
@@ -23,7 +27,9 @@ export function LegalPage({ document }: { document: LegalDocument }) {
 
         <h1 className="display-lg mt-8 text-white">{document.title}</h1>
         <p className="copy-lg mt-8 max-w-[56ch] text-white/75">{document.summary}</p>
-        <p className="label-xs mt-6 text-white/60">Last updated {document.lastUpdated}</p>
+        <p className="label-xs mt-6 text-white/60">
+          Last updated {formatDate(document.updatedAt ?? LEGAL_DEFAULTS_DATE)}
+        </p>
 
         <div className="mt-16 max-w-[68ch]">
           {document.sections.map((section) => (

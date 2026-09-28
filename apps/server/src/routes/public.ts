@@ -7,6 +7,7 @@ import * as content from "../repositories/content";
 import * as fleet from "../repositories/fleet";
 import { enquiryRecorded } from "../lib/notifications";
 import * as gallery from "../repositories/gallery";
+import * as legal from "../repositories/legal";
 import * as operations from "../repositories/operations";
 import * as services from "../repositories/services";
 import * as testimonials from "../repositories/testimonials";
@@ -174,6 +175,12 @@ export const publicRoutes = new Hono()
   })
 
   .get("/testimonials", async (c) => c.json(published(await testimonials.getTestimonials())))
+
+  /** A legal page: the saved version, or the default wording. */
+  .get("/legal/:id", async (c) => {
+    const { id, title, summary, sections, updatedAt } = await legal.getLegalDocument(c.req.param("id"));
+    return c.json({ id, title, summary, sections, updatedAt });
+  })
 
   /**
    * The enquiry form. It records the enquiry, answers the visitor with the
