@@ -24,6 +24,7 @@ const AREAS: { match: RegExp; tags: string[] }[] = [
   { match: /^\/testimonials/, tags: ["testimonials", "homepage"] },
   { match: /^\/homepage/, tags: ["homepage"] },
   { match: /^\/settings/, tags: ["site-settings", "homepage"] },
+  { match: /^\/legal/, tags: ["legal"] },
   /**
    * Replacing a photograph rewrites it wherever it is used, which can be any
    * page. Uploading, describing or deleting one changes nothing the website

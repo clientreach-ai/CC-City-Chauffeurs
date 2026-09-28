@@ -13,3 +13,4 @@ export * from "./permissions";
 export * from "./format";
 export * from "./image";
 export * from "./rules";
+export * from "./legal";

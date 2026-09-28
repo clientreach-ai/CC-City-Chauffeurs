@@ -7,6 +7,7 @@ import type {
   SiteSettings,
   Visibility,
 } from "@CC-City-Chauffeurs/core/types";
+import type { LegalSection } from "@CC-City-Chauffeurs/core/legal";
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -243,3 +244,18 @@ export const galleryRowRelations = relations(galleryRow, ({ many }) => ({
 export const testimonialRelations = relations(testimonial, ({ one }) => ({
   service: one(service, { fields: [testimonial.serviceId], references: [service.id] }),
 }));
+
+/**
+ * The privacy notice and the terms of service, as edited in the admin. One
+ * row per document ("privacy", "terms"); a document with no row is served
+ * from the default wording in `@CC-City-Chauffeurs/core/legal`, so deleting
+ * a row is how the admin resets it.
+ */
+export const legalDocument = pgTable("legal_document", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  sections: jsonb("sections").$type<LegalSection[]>().default([]).notNull(),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamps.updatedAt,
+});

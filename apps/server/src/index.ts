@@ -12,6 +12,7 @@ import { resumeWhatsApp, whatsappChannel, whatsappMode } from "./lib/whatsapp";
 import { contentRoutes } from "./routes/content";
 import { fleetRoutes } from "./routes/fleet";
 import { galleryRoutes } from "./routes/gallery";
+import { legalRoutes } from "./routes/legal";
 import { mediaRoutes } from "./routes/media";
 import { operationRoutes } from "./routes/operations";
 import { publicRoutes } from "./routes/public";
@@ -76,6 +77,7 @@ const admin = new Hono<{ Variables: Variables }>()
   .route("/", galleryRoutes)
   .route("/", testimonialRoutes)
   .route("/", contentRoutes)
+  .route("/", legalRoutes)
   .route("/", mediaRoutes)
   .route("/", operationRoutes);
 

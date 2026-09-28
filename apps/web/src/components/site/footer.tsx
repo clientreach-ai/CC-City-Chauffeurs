@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import type { SiteSettings } from "@CC-City-Chauffeurs/core";
 import { brand } from "@/content/brand";
+import { company } from "@CC-City-Chauffeurs/core";
 import { routes } from "@/content/site";
 import { mailLink, telLink, whatsappLink } from "@/lib/contact";
 import { Rule, shell } from "@CC-City-Chauffeurs/ui/site/primitives";
@@ -150,8 +151,25 @@ export function Footer({
 
         <Rule />
 
+        {/* The legal pages, and the company details UK law requires a
+            company's website to show. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-4 pt-8">
+          <p className="label-xs normal-case tracking-normal text-white/60">
+            {company.registeredName}. Registered in {company.registeredIn}, company no.{" "}
+            {company.number}. Registered office: {company.registeredOffice}.
+          </p>
+          <div className="flex gap-x-8">
+            <Link href={routes.privacy} className="label-xs link-quiet text-white/70 hover:text-white">
+              Privacy
+            </Link>
+            <Link href={routes.terms} className="label-xs link-quiet text-white/70 hover:text-white">
+              Terms
+            </Link>
+          </div>
+        </div>
+
         {/* Extra room on small screens for the fixed contact bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-8 pb-20 sm:pb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-6 pb-20 sm:pb-8">
           <p className="label-xs text-white/50">
             © {new Date().getFullYear()} {business.companyName}. All rights reserved.
           </p>
