@@ -20,10 +20,11 @@ import {
   serviceAreas,
   site,
 } from "@/content/site";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
-    title: "About | Luxury Chauffeur Company, London | CC City Chauffeurs",
+    title: "About Our London Chauffeur Company | CC City Chauffeurs",
     description:
       "CC City Chauffeurs is a London chauffeur company built on professionalism, comfort and discretion — a luxury, discreet way of travelling without the hassle.",
     path: "/about",
@@ -32,6 +33,7 @@ export const generateMetadata = () =>
 export default function AboutPage() {
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "About", path: "/about" }]} />
       <PageHero
         eyebrow="About"
         display={["A luxury,", "discreet way", "to travel"]}

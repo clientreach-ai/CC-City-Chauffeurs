@@ -92,6 +92,9 @@ export default async function SiteLayout({
       addressLocality: "London",
       addressCountry: "GB",
     },
+    // The business's own profiles, so search engines tie them to this
+    // listing. Empty until the client confirms any (see settings.social).
+    ...(settings.social.length ? { sameAs: settings.social.map((profile) => profile.url) } : {}),
     areaServed: [
       ...settings.business.serviceAreas.map((area) => ({
         "@type": "Place",
@@ -103,12 +106,23 @@ export default async function SiteLayout({
     ],
   };
 
+  /** The site itself, published by the business: the name a result shows. */
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    name: settings.business.legalName,
+    url: siteUrl,
+    inLanguage: "en-GB",
+    publisher: { "@id": `${siteUrl}/#business` },
+  };
+
   return (
     <div data-site className="bg-ink font-[family-name:var(--font-ui)] antialiased">
       <script
         type="application/ld+json"
         // Escaped so a CMS value can never close this tag — see lib/json-ld.
-        dangerouslySetInnerHTML={{ __html: jsonLd(businessSchema) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd([businessSchema, websiteSchema]) }}
       />
       <a
         href="#content"

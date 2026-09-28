@@ -16,6 +16,7 @@ import { PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core/validation";
 import { NO_VEHICLE_PREFERENCE, replyOptions } from "@/content/enquiry";
 import { routes } from "@/content/site";
 import { recordEnquiry } from "@/lib/enquiries";
+import { track } from "@vercel/analytics";
 
 /** The contact details the site is configured with, from the admin. */
 export type ContactDetails = {
@@ -129,7 +130,7 @@ type Submission =
   | { state: "failed"; message: string };
 
 const fieldClass =
-  "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-ui text-[0.9375rem] text-white placeholder:text-white/45 transition-colors duration-500 focus:border-white focus:outline-none aria-invalid:border-white";
+  "w-full appearance-none rounded-none border-x-0 border-t-0 border-b border-hairline bg-transparent px-0 py-3 font-ui text-[0.9375rem] text-white placeholder:text-white/55 transition-colors duration-500 focus:border-white focus:outline-none aria-invalid:border-white";
 
 function todayISO() {
   const now = new Date();
@@ -488,6 +489,9 @@ export function EnquiryForm({
 
     if (result.ok) {
       setSubmission({ state: "sent", reference: result.reference });
+      // The conversion the monthly report leads with. The service and which
+      // form sent it — never anything the visitor typed.
+      track("Enquiry sent", { service: form.service, form: variant });
       return;
     }
 

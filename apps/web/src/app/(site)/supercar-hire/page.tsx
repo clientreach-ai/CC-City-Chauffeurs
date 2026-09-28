@@ -13,6 +13,7 @@ import { media } from "@/content/media";
 import { routes } from "@/content/site";
 import { pageMetadata } from "@/lib/metadata";
 import { getFleet } from "@/lib/site-data";
+import { BreadcrumbSchema } from "@/components/site/breadcrumb-schema";
 
 export const generateMetadata = () =>
   pageMetadata({
@@ -64,6 +65,7 @@ export default async function SupercarHirePage() {
 
   return (
     <>
+      <BreadcrumbSchema trail={[{ name: "Supercar hire", path: "/supercar-hire" }]} />
       <PageHero
         eyebrow="Supercar hire · Self drive"
         display={["Take", "the wheel"]}

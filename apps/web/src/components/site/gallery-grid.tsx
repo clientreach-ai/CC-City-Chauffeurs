@@ -87,7 +87,7 @@ function GalleryRow({
           <h2 id={`gallery-${group.id}`} className="display-sm text-white">
             {group.label}
           </h2>
-          <span className="label-xs tabular-nums text-white/45">
+          <span className="label-xs tabular-nums text-white/55">
             {group.images.length}{" "}
             {group.images.length === 1 ? "frame" : "frames"}
           </span>
@@ -166,7 +166,7 @@ function GalleryRow({
 
             <figcaption className="mt-3 flex items-baseline justify-between gap-4 border-t border-hairline pt-3">
               <span className="label-xs text-white/80">{image.alt}</span>
-              <span className="label-xs shrink-0 text-white/45">{image.place}</span>
+              <span className="label-xs shrink-0 text-white/55">{image.place}</span>
             </figcaption>
           </figure>
         ))}
@@ -178,9 +178,12 @@ function GalleryRow({
 export function GalleryGrid({
   images: gallery,
   rows,
+  filters = true,
 }: {
   images: readonly GalleryImage[];
   rows: readonly GalleryRow[];
+  /** Off where there is only one row to show — a vehicle's own page. */
+  filters?: boolean;
 }) {
   const [filter, setFilter] = useState<string>("all");
   const [lightbox, setLightbox] = useState<{
@@ -263,7 +266,7 @@ export function GalleryGrid({
   return (
     <>
       {/* Filters — a listing of what is here, scrollable on a phone */}
-      <div className="border-y border-hairline">
+      <div className={filters ? "border-y border-hairline" : "hidden"}>
         <div
           role="group"
           aria-label="Filter photographs by vehicle"
@@ -289,7 +292,7 @@ export function GalleryGrid({
               >
                 {option.label}
                 <span
-                  className={`tabular-nums ${isActive ? "text-ink/55" : "text-white/45"}`}
+                  className={`tabular-nums ${isActive ? "text-ink/65" : "text-white/55"}`}
                 >
                   {count}
                 </span>
@@ -299,10 +302,10 @@ export function GalleryGrid({
         </div>
       </div>
 
-      <p aria-live="polite" className="label-xs mt-6 text-white/55">
+      <p aria-live="polite" className={filters ? "label-xs mt-6 text-white/55" : "sr-only"}>
         {total} {total === 1 ? "photograph" : "photographs"} across{" "}
         {visible.length} {visible.length === 1 ? "vehicle" : "vehicles"}
-        <span className="ml-3 hidden text-white/45 sm:inline">
+        <span className="ml-3 hidden text-white/55 sm:inline">
           Swipe or use the arrows · select any frame to enlarge
         </span>
       </p>
@@ -372,7 +375,7 @@ export function GalleryGrid({
 
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-hairline px-5 py-4 sm:px-10">
             <p className="label-sm text-white">{current.alt}</p>
-            <p className="label-xs text-white/45">
+            <p className="label-xs text-white/55">
               {current.place}
               <span className="ml-4 hidden sm:inline">
                 ← → to browse · Esc to close
