@@ -315,6 +315,7 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
       catalogue ??= {
         fleet: await backend.listFleet(),
         services: await backend.listServices(),
+        terms: await backend.listBookingTerms(),
         options: await backend.listEnquiryOptions(),
         today: config.today(),
       };

@@ -267,6 +267,13 @@ export class FakeBackend implements Backend {
   async listServices() {
     return SERVICES;
   }
+  /** As the client has them in the admin today. */
+  async listBookingTerms() {
+    return [
+      "We ask for 48 hours' notice wherever possible.",
+      "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
+    ];
+  }
   async listEnquiryOptions() {
     // As the client's own form offers them: the services under friendlier
     // labels, plus the two the website has no page for.
@@ -280,7 +287,14 @@ export class FakeBackend implements Backend {
   async getService(slug: string) {
     const service = SERVICES.find((item) => item.slug === slug);
     if (!service) return null;
-    return { ...service, standfirst: service.summary, benefits: [], needs: ["The date"], vehicleNames: ["Mercedes S-Class"] };
+    return {
+      ...service,
+      standfirst: service.summary,
+      benefits: [],
+      needs: ["The date"],
+      bookingNote: "Hourly bookings have a four-hour minimum. Day rates start from £500.",
+      vehicleNames: ["Mercedes S-Class"],
+    };
   }
 
   private record(kind: "enquiry" | "booking", input: { customer: RequestCustomer; journey: RequestJourney; submissionId: string }) {

@@ -37,6 +37,8 @@ export type Refusal = { field: keyof JourneyInput; reason: string };
 export type Catalogue = {
   fleet: FleetVehicle[];
   services: ServiceSummary[];
+  /** The client's published booking terms, in their own words. */
+  terms: string[];
   /**
    * What the website's enquiry form offers beyond the published services —
    * self-drive supercar hire, a supercar experience, "something else". The

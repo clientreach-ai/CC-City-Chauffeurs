@@ -210,6 +210,8 @@ export type ServiceDetail = ServiceSummary & {
   benefits: { title: string; copy: string }[];
   /** What the office needs to quote, in the service's own words. */
   needs: string[];
+  /** What the service page says about booking it: the minimum, the day rate. */
+  bookingNote: string;
   vehicleNames: string[];
 };
 
@@ -282,6 +284,13 @@ export type BookingStatusSummary = {
 export interface Backend {
   listFleet(): Promise<FleetVehicle[]>;
   listServices(): Promise<ServiceSummary[]>;
+  /**
+   * The booking terms the client publishes beside every service's quote
+   * brief, and edits in the admin. A customer agreeing to a request should
+   * have heard them, so the assistant reads from the same list the website
+   * prints rather than a rule of its own.
+   */
+  listBookingTerms(): Promise<string[]>;
   /** Everything the website's enquiry form offers, including what has no page. */
   listEnquiryOptions(): Promise<EnquiryOption[]>;
   getService(slug: string): Promise<ServiceDetail | null>;

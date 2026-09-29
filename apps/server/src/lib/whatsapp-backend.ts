@@ -130,6 +130,13 @@ export function createWhatsAppBackend(): Backend {
       return published(await services.getServices()).map(toSummary);
     },
 
+    /** The same terms the website prints beside every service's quote brief. */
+    async listBookingTerms() {
+      // Worth saying, not worth failing a conversation over.
+      const settings = await content.getSettings().catch(() => null);
+      return [...(settings?.booking.terms ?? [])];
+    },
+
     /** The same list the website's enquiry form shows a visitor. */
     async listEnquiryOptions() {
       return content.getEnquiryServices();
@@ -147,6 +154,7 @@ export function createWhatsAppBackend(): Backend {
         standfirst: service.standfirst,
         benefits: service.benefits.map(({ title, copy }) => ({ title, copy })),
         needs: [...service.booking.needs],
+        bookingNote: service.booking.note,
         vehicleNames: service.vehicleIds
           .map((id) => live.get(id))
           .filter((name): name is string => name != null),

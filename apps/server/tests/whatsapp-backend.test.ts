@@ -51,7 +51,7 @@ beforeAll(async () => {
     insert into service (id, slug, name, summary, standfirst, benefits, booking, status, position) values
       ('svc-weddings', 'weddings', 'Weddings', 'For the day itself.', 'The car arrives early.',
        '[{"title":"Ribbons","copy":"In your colours."}]'::jsonb,
-       '{"needs":["The date","The venues"],"note":""}'::jsonb, 'published', 0),
+       '{"needs":["The date","The venues"],"note":"Hourly bookings have a four-hour minimum."}'::jsonb, 'published', 0),
       ('svc-hidden', 'hidden', 'Hidden', '', '', '[]'::jsonb, '{"needs":[],"note":""}'::jsonb, 'draft', 1);
     insert into service_vehicle (service_id, vehicle_id, position) values
       ('svc-weddings', 'veh-draft', 0), ('svc-weddings', 'veh-cullinan', 1);
@@ -136,12 +136,30 @@ describe("what the assistant can read", () => {
       standfirst: "The car arrives early.",
       benefits: [{ title: "Ribbons", copy: "In your colours." }],
       needs: ["The date", "The venues"],
+      bookingNote: "Hourly bookings have a four-hour minimum.",
       // The draft Phantom is on the service but not on the website.
       vehicleNames: ["Rolls-Royce Cullinan"],
     });
 
     expect(await backend.getService("hidden")).toBeNull();
     expect(await backend.getService("nothing-at-all")).toBeNull();
+  });
+
+  // The customer hears what the website prints, and the client changes both
+  // from the one screen in the admin.
+  test("booking terms are the client's own, and a missing settings row is not fatal", async () => {
+    const term = "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.";
+    await database.client.exec(`
+      insert into site_settings (id, business, contact, booking, social, seo, footer)
+      values ('default', '{}'::jsonb, '{}'::jsonb, '{"terms":["${term}"]}'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb)
+      on conflict (id) do update set booking = excluded.booking
+    `);
+    expect(await backend.listBookingTerms()).toEqual([term]);
+
+    // No settings row at all is a site that has not been set up, not a
+    // reason to fail the customer's turn.
+    await database.client.exec(`delete from site_settings where id = 'default'`);
+    expect(await backend.listBookingTerms()).toEqual([]);
   });
 });
 

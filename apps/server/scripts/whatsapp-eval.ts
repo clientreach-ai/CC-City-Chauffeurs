@@ -295,6 +295,14 @@ const SCENARIOS: Scenario[] = [
           !settled || /not a confirmed booking|will confirm|awaiting confirmation|not yet confirmed/i.test(reply),
           reply,
         ),
+        // Nobody should agree to a request believing the hourly rate is all
+        // of it. The words are the assistant's own, so this asks only that
+        // the substance was there before it recorded anything.
+        check(
+          "says what can be charged on top before it records the request",
+          /on top|congestion|ulez|parking|additional stop|extra stop|surcharge|extras/i.test(reply),
+          reply,
+        ),
         noInventedReference(reply, bookings.map((booking) => booking.reference)),
       ];
     },
