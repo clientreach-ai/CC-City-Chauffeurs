@@ -70,6 +70,14 @@ export type ConversationState = {
   /** References already given in this conversation, so they are not given twice. */
   references: string[];
   /**
+   * Whether the customer has been told what is charged on top.
+   *
+   * Said once and then remembered, because a model reminded of the terms on
+   * every turn says them on every turn, and nothing gives a machine away
+   * faster than repeating a clause the customer has already read.
+   */
+  termsSaid?: boolean;
+  /**
    * The last request recorded, and a fingerprint of the journey it was made
    * from. Asking again for the same journey returns the same reference
    * instead of a second enquiry the office would have to spot as a duplicate.
