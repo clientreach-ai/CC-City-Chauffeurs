@@ -312,12 +312,6 @@ export interface Backend {
     journey: RequestJourney;
     submissionId: string;
   }): Promise<CreatedRecord>;
-  /** A booking *request*: pending until the office confirms it. Never a reservation. */
-  createBookingRequest(input: {
-    customer: RequestCustomer;
-    journey: RequestJourney;
-    submissionId: string;
-  }): Promise<CreatedRecord>;
   /**
    * Only an enquiry belonging to this telephone number. Anybody else's
    * reference answers the same as one that does not exist.

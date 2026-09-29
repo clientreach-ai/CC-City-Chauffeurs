@@ -69,11 +69,11 @@ describe("a reference the customer is given", () => {
   });
 });
 
-describe("a booking request", () => {
+describe("an enquiry the customer might read as a booking", () => {
   test("cannot go out sounding confirmed", () => {
-    const checked = checkReply("Your Rolls-Royce is booked for the 14th. Reference BKG-2100.", {
-      created: { kind: "booking", reference: "BKG-2100" },
-      references: ["BKG-2100"],
+    const checked = checkReply("Your Rolls-Royce is booked for the 14th. Reference ENQ-2100.", {
+      created: { kind: "enquiry", reference: "ENQ-2100" },
+      references: ["ENQ-2100"],
     });
 
     expect(checked.text).toContain("rather than a confirmed booking");
@@ -81,20 +81,20 @@ describe("a booking request", () => {
   });
 
   test("worded properly is left as it is", () => {
-    const reply = "I have passed your request to the team, who will confirm it here. Reference BKG-2100.";
-    const checked = checkReply(reply, { created: { kind: "booking", reference: "BKG-2100" }, references: [] });
+    const reply = "I have passed your request to the team, who will confirm it here. Reference ENQ-2100.";
+    const checked = checkReply(reply, { created: { kind: "enquiry", reference: "ENQ-2100" }, references: [] });
 
     expect(checked.text).toBe(reply);
     expect(checked.corrections).toEqual([]);
   });
 
   test("the note is added once, not once a word", () => {
-    const checked = checkReply("Booked and confirmed and reserved. BKG-2100", {
-      created: { kind: "booking", reference: "BKG-2100" },
+    const checked = checkReply("Booked and reserved and secured. ENQ-2100", {
+      created: { kind: "enquiry", reference: "ENQ-2100" },
       references: [],
     });
 
-    expect(checked.text.match(/This is a request/g)).toHaveLength(1);
+    expect(checked.text.match(/This is an enquiry/g)).toHaveLength(1);
   });
 
   test("an enquiry is not lectured about confirmation", () => {
@@ -215,8 +215,8 @@ describe("the dash a person would not type", () => {
   // dash in one of them would go out exactly as written.
   test("nor the sentences the check itself adds", () => {
     const dropped = checkReply("Your reference is ENQ-9999.", nothingCreated);
-    const booking = checkReply("Your car is booked for Friday. Reference BKG-2100.", {
-      created: { kind: "booking", reference: "BKG-2100" },
+    const booking = checkReply("Your car is booked for Friday. Reference ENQ-2100.", {
+      created: { kind: "enquiry", reference: "ENQ-2100" },
       references: [],
     });
 

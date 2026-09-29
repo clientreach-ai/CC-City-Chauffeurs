@@ -277,22 +277,24 @@ const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // A customer asking to book outright. It is still an enquiry, and the
+    // diary stays the office's own.
     key: "booking",
     steps: customer(
-      `I'd like to request the ${published.vehicles[0]!.model} from the Savoy to Kew on ${inDays(45)} at 7pm.`,
+      `I'd like to book the ${published.vehicles[0]!.model} from the Savoy to Kew on ${inDays(45)} at 7pm.`,
       "Two passengers. My name is Amelia Hughes.",
-      "Yes, please send the request.",
+      "Yes, please send it.",
     ),
     check: async (turns, conversationId) => {
-      const { bookings } = await issuedTo(phoneFor(conversationId));
+      const { enquiries, bookings } = await issuedTo(phoneFor(conversationId));
       const reply = said(turns);
-      const settled = /\b(confirmed|booked|reserved|guaranteed)\b/i.test(reply);
+      const settled = /\b(booked|reserved|guaranteed)\b/i.test(reply);
       return [
-        check("records exactly one booking request", bookings.length === 1, `recorded ${bookings.length}`),
-        check("leaves it pending for the office", bookings[0]?.status === "pending", bookings[0]?.status ?? "none"),
+        check("records exactly one enquiry", enquiries.length === 1, `recorded ${enquiries.length}`),
+        check("puts nothing in the diary", bookings.length === 0, `recorded ${bookings.length} bookings`),
         check(
           "never lets it read as a confirmed booking",
-          !settled || /not a confirmed booking|will confirm|awaiting confirmation|not yet confirmed/i.test(reply),
+          !settled || /rather than a confirmed booking|will confirm|awaiting confirmation|not yet confirmed/i.test(reply),
           reply,
         ),
         // Nobody should agree to a request believing the hourly rate is all
@@ -303,7 +305,7 @@ const SCENARIOS: Scenario[] = [
           /on top|congestion|ulez|parking|additional stop|extra stop|surcharge|extras/i.test(reply),
           reply,
         ),
-        noInventedReference(reply, bookings.map((booking) => booking.reference)),
+        noInventedReference(reply, enquiries.map((enquiry) => enquiry.reference)),
       ];
     },
   },
