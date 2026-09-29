@@ -73,6 +73,30 @@ describe("a conversation", () => {
     expect(lastSent()).toContain("Cullinan");
   });
 
+  // A price is the one thing a customer acts on. The model is told not to
+  // invent one; these prove it cannot, whatever it writes.
+  test("a rate the client published reaches the customer", async () => {
+    const whatsapp = channel([calls("get_fleet"), says("The Cullinan is from £200 an hour as a guide.")]);
+    await say(whatsapp, "m1", "How much is the Cullinan?");
+
+    expect(lastSent()).toContain("£200");
+  });
+
+  test("a price nothing in the data gave is never sent", async () => {
+    const whatsapp = channel([calls("get_fleet"), says("The Bentayga is around £180 an hour.")]);
+    await say(whatsapp, "m1", "How much is the Bentayga?");
+
+    expect(lastSent()).not.toContain("180");
+    expect(lastSent()).toContain("come back to you with the figure");
+  });
+
+  test("a price invented without looking anything up is never sent", async () => {
+    const whatsapp = channel([says("It is about £90 an hour.")]);
+    await say(whatsapp, "m1", "How much for an hour?");
+
+    expect(lastSent()).not.toContain("90");
+  });
+
   // "From £150 an hour" is not the whole cost, so what goes on top travels
   // with the rate rather than waiting to surprise anybody.
   test("what is charged on top travels with the fleet and the journey", async () => {

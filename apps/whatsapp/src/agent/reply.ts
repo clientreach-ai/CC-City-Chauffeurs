@@ -36,6 +36,14 @@ const NOT_YET_CONFIRMED =
  * real one to put in its place, the whole reply goes: it cannot be trusted
  * about the thing the customer will write down.
  */
+/**
+ * A sum of money the data never gave. The reply goes: a wrong price is the
+ * one thing a customer acts on, repeats to somebody else, and holds the
+ * company to.
+ */
+const PRICE_FALLBACK =
+  "Let me not guess at that. Tell me the date and where you're going and the City Chauffeurs team will come back to you with the figure.";
+
 const SAFE_FALLBACK =
   "Thank you, your request is with the City Chauffeurs team and someone will reply to you here shortly.";
 
@@ -64,11 +72,43 @@ function withoutDashes(text: string): string {
 
 export type CreatedRecord = { kind: "enquiry" | "booking"; reference: string };
 
+/**
+ * The sums of money in a piece of text, in pounds.
+ *
+ * Two shapes, because the client's figures arrive as both: a rate field the
+ * tools return as a number, and a price written into a sentence the client
+ * typed, such as "Day rates start from £500". A figure the customer is told
+ * has to be one of these; there is no third source.
+ */
+export function figuresIn(text: string): number[] {
+  const amount = "(\\d[\\d,]*(?:\\.\\d{1,2})?)";
+  const found = [
+    // The rate fields the tools return, as numbers.
+    ...text.matchAll(/"indicative(?:Hourly|Day)Rate":\s*(\d+(?:\.\d+)?)/g),
+    // Money written into a sentence, however it is written. "200 pounds" is
+    // the same promise as "£200" and is checked the same way.
+    ...text.matchAll(new RegExp(`£\\s?${amount}`, "g")),
+    ...text.matchAll(new RegExp(`${amount}\\s*(?:pounds|quid|gbp)\\b`, "gi")),
+    ...text.matchAll(new RegExp(`\\bgbp\\s?${amount}`, "gi")),
+  ];
+  return found.map((match) => Number(match[1]!.replace(/,/g, ""))).filter((value) => !Number.isNaN(value));
+}
+
 export type ReplyCheck = {
   /** What this turn recorded, if anything. */
   created: CreatedRecord | null;
   /** References given earlier in this conversation, which the customer may reasonably be reminded of. */
   references: string[];
+  /**
+   * Every sum of money the tools put in front of the model this turn, in
+   * pounds. Anything else the reply quotes was invented, whatever it looks
+   * like, so it never leaves the building.
+   *
+   * Left out means none were shown, so no price may be said. The default is
+   * the strict one on purpose: a caller that forgets this blocks prices
+   * rather than waving them through.
+   */
+  figures?: number[];
 };
 
 /** The reply as it may be sent, and why it differs from what the model wrote. */
@@ -96,6 +136,13 @@ export function checkReply(reply: string, check: ReplyCheck): CheckedReply {
       text = SAFE_FALLBACK;
       corrections.push("invented_reference_dropped");
     }
+  }
+
+  // A price is the one thing the model may not improvise, so this is not a
+  // warning: the reply is replaced by one that asks instead of guessing.
+  const published = new Set(check.figures ?? []);
+  if (figuresIn(text).some((figure) => !published.has(figure))) {
+    return { text: PRICE_FALLBACK, corrections: [...corrections, "invented_price_dropped"] };
   }
 
   if (check.created && !text.toUpperCase().includes(check.created.reference.toUpperCase())) {
