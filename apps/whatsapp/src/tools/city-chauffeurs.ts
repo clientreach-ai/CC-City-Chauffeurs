@@ -32,6 +32,7 @@ const nothing = z.object({}).strict();
 function describeVehicle(vehicle: FleetVehicle) {
   return {
     name: vehicle.name,
+    make: vehicle.make,
     groupings: vehicle.groupings,
     description: vehicle.shortDescription,
     // `null` is information too: the client has not confirmed a figure.
@@ -43,29 +44,73 @@ function describeVehicle(vehicle: FleetVehicle) {
   };
 }
 
+/**
+ * The fleet as a customer thinks of it: the makes, and what sits under each.
+ *
+ * It is the same cars as the list beside it, grouped on the client's
+ * own `make` field rather than on anything guessed from a name. It is here
+ * so the assistant can answer "what cars do you have?" the way the office
+ * would, with three or four makes and a question back, instead of reading
+ * out the stock list.
+ */
+function byMake(fleet: FleetVehicle[]) {
+  const makes = new Map<string, string[]>();
+  for (const vehicle of fleet) {
+    makes.set(vehicle.make, [...(makes.get(vehicle.make) ?? []), vehicle.model || vehicle.name]);
+  }
+  return [...makes].map(([make, models]) => ({ make, models }));
+}
+
+/**
+ * What is charged on top, and whether it still needs saying.
+ *
+ * The terms stay here once they have been said, because a customer who asks
+ * "what extras?" deserves an answer. What changes is the instruction beside
+ * them: volunteer them once, then never again unless asked.
+ */
+function termsFor(context: ToolContext, terms: string[]) {
+  return {
+    alsoCharged: terms,
+    alsoChargedNote: context.state.termsSaid
+      ? "The customer has already been told this in this conversation. Do not say it again unless they ask."
+      : "Say this once, in your own words, when you read the journey back.",
+  };
+}
+
+const FLEET_NOTE =
+  "Do not read this list out. Asked what cars there are, name three or four of the makes, say there are others, and ask what the customer is after. Name the cars under a make only once they have picked one, and give a rate only once they have picked a car.";
+
 const RATE_NOTE =
-  "Rates are the indicative guides the website publishes, in pounds — never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the client has not confirmed it: say it is confirmed on enquiry.";
+  "Rates are the indicative guides the website publishes, in pounds, never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the website says \"on request\": say that, and ask for the date and the journey so the team can price it.";
 
 export const getFleet = defineTool({
   name: "get_fleet",
   description:
-    "The current published City Chauffeurs fleet: every vehicle a customer can ask for, with its grouping, description, confirmed passenger and luggage figures, and the indicative rates the website publishes. Call this before saying anything about the fleet.",
+    "The current published City Chauffeurs fleet: every vehicle a customer can ask for, with its grouping, description, confirmed passenger and luggage figures, and the indicative rates the website publishes. Call this before saying anything about the fleet. This is what you may draw on, not a list to read out: for \"what cars do you have?\", name a few makes and ask what they are after.",
   input: nothing,
   async run(context) {
-    const { fleet } = await context.catalogue();
-    return success({ vehicles: fleet.map(describeVehicle), note: RATE_NOTE });
+    const { fleet, terms } = await context.catalogue();
+    return success({
+      makes: byMake(fleet),
+      vehicles: fleet.map(describeVehicle),
+      // Beside the rate, because "from £150 an hour" is not the whole story.
+      ...termsFor(context, terms),
+      note: `${FLEET_NOTE} ${RATE_NOTE}`,
+    });
   },
 });
 
 export const getVehicle = defineTool({
   name: "get_vehicle",
   description:
-    "Details of one vehicle, found by what the customer called it — \"the Cullinan\", \"S Class\", \"a G-Wagon\". Says so when the name fits more than one vehicle, or none.",
+    "Details of one vehicle, found by what the customer called it: \"the Cullinan\", \"S Class\", \"a G-Wagon\". Says so when the name fits more than one vehicle, or none.",
   input: z.object({ vehicle: z.string().min(1).max(80).describe("What the customer called the vehicle.") }).strict(),
   async run(context, input) {
-    const { fleet } = await context.catalogue();
+    const { fleet, terms } = await context.catalogue();
     const match = resolveVehicle(input.vehicle, fleet);
-    if ("vehicle" in match) return success({ vehicle: describeVehicle(match.vehicle), note: RATE_NOTE });
+    if ("vehicle" in match) {
+      return success({ vehicle: describeVehicle(match.vehicle), ...termsFor(context, terms), note: RATE_NOTE });
+    }
     if ("ambiguous" in match) {
       return failure("ambiguous", `That could be: ${match.ambiguous.map((vehicle) => vehicle.name).join(", ")}. Ask which one.`);
     }
@@ -135,6 +180,8 @@ export const getService = defineTool({
       description: detail.standfirst,
       includes: detail.benefits.map((benefit) => `${benefit.title}: ${benefit.copy}`),
       toQuoteTheOfficeNeeds: detail.needs,
+      bookingNote: detail.bookingNote,
+      ...termsFor(context, catalogue.terms),
       vehicles: detail.vehicleNames,
     });
   },
@@ -144,7 +191,7 @@ export const getService = defineTool({
 const journeyInput = z
   .object({
     service: z.string().max(80).optional().describe("The service, by the name get_services lists."),
-    vehicle: z.string().max(80).optional().describe("The vehicle as the customer named it — resolved to a real one."),
+    vehicle: z.string().max(80).optional().describe("The vehicle as the customer named it, resolved to a real one."),
     pickup: z.string().max(160).optional().describe("Collection address, hotel or airport and terminal."),
     dropoff: z.string().max(160).optional().describe("Destination."),
     date: z.string().max(10).optional().describe("YYYY-MM-DD. Work out 'tomorrow' or 'Saturday' from today's date."),
@@ -167,7 +214,7 @@ function summarise(draft: JourneyDraft, fleet: FleetVehicle[]) {
 export const recordJourneyDetails = defineTool({
   name: "record_journey_details",
   description:
-    "Record journey details as soon as the customer gives them — any subset, every time something new is said. Each value is checked: a vehicle is matched to the real fleet, a service to the real catalogue, a date must exist and not have passed. Returns what is now recorded, anything refused with the reason, and what is still needed.",
+    "Record journey details as soon as the customer gives them: any subset, every time something new is said. Each value is checked: a vehicle is matched to the real fleet, a service to the real catalogue, a date must exist and not have passed. Returns what is now recorded, anything refused with the reason, and what is still needed.",
   input: journeyInput,
   async run(context, input) {
     const catalogue = await context.catalogue();
@@ -180,6 +227,9 @@ export const recordJourneyDetails = defineTool({
       stillNeededForEnquiry: missingFor("enquiry", draft),
       stillNeededForBookingRequest: missingFor("booking", draft),
       worthAsking: helpfulToAsk(draft),
+      // Here as well as on the fleet, so they are in front of you at the one
+      // moment that matters: reading the journey back before you record it.
+      ...termsFor(context, catalogue.terms),
     });
   },
 });
@@ -189,7 +239,16 @@ function fingerprint(draft: JourneyDraft) {
   return JSON.stringify(Object.entries(draft).sort(([a], [b]) => a.localeCompare(b)));
 }
 
-async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
+/**
+ * Everything a customer asks for becomes an enquiry.
+ *
+ * An enquiry is "somebody asked"; a booking is "we committed". Anyone in the
+ * world can cause the first, and only the office can cause the second, so
+ * nothing a stranger types on WhatsApp puts a row in the diary. A won
+ * enquiry is turned into a booking by a person, in the admin, the same way
+ * one that arrived through the website's form is.
+ */
+async function createRecord(context: ToolContext, kind: "enquiry") {
   const draft = { ...context.state.journey, name: context.state.journey.name ?? context.customerName ?? undefined };
   const missing = missingFor(kind, draft);
   if (missing.length) {
@@ -211,8 +270,7 @@ async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
     // again, the server finds the record it already made.
     submissionId: `wa:${context.triggeringMessageId}:${kind}`,
   };
-  const { reference } =
-    kind === "enquiry" ? await context.backend.createEnquiry(input) : await context.backend.createBookingRequest(input);
+  const { reference } = await context.backend.createEnquiry(input);
 
   context.state.lastRequest = { kind, fingerprint: print, reference };
   if (!context.state.references.includes(reference)) context.state.references.push(reference);
@@ -223,17 +281,9 @@ async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
 export const createEnquiry = defineTool({
   name: "create_enquiry",
   description:
-    "Record an enquiry for the City Chauffeurs team from the journey details already recorded — for a customer who wants a price, or is not ready to fix a date. Only call it after summarising the details and the customer confirming. Returns the enquiry reference; give it to the customer exactly as returned.",
+    "Record an enquiry for the City Chauffeurs team from the journey details already recorded. Every request from WhatsApp is an enquiry, whether the customer wants a price or has a date and a journey fixed: the office confirms it and puts it in the diary itself. Only call it after reading the details back and the customer confirming. Returns the enquiry reference; give it to the customer exactly as returned.",
   input: nothing,
   run: (context) => createRecord(context, "enquiry"),
-});
-
-export const createBookingRequest = defineTool({
-  name: "create_booking_request",
-  description:
-    "Record a booking request from the journey details already recorded — for a customer asking for a specific journey on a specific date. It is a request, not a booking: the team confirms the vehicle and chauffeur and comes back. Needs a date and a pickup. Only call it after summarising the details and the customer confirming. Returns the booking reference; give it exactly as returned.",
-  input: nothing,
-  run: (context) => createRecord(context, "booking"),
 });
 
 export const getEnquiryStatus = defineTool({
@@ -270,7 +320,7 @@ export const getBookingStatus = defineTool({
 export const handoffToHuman = defineTool({
   name: "handoff_to_human",
   description:
-    "Hand the conversation to a person in the City Chauffeurs office. Use it when the customer asks for a person, has a complaint, an urgent or safety matter, a question about an existing booking you cannot answer, or anything else you cannot help with. After it, tell the customer a member of the team will reply here — and say nothing more.",
+    "Hand the conversation to a person in the City Chauffeurs office. Use it when the customer asks for a person, has a complaint, an urgent or safety matter, a question about an existing booking you cannot answer, or anything else you cannot help with. After it, tell the customer a member of the team will reply here, and say nothing more.",
   input: z
     .object({
       reason: z.enum(["customer_asked", "complaint", "urgent", "existing_booking", "cannot_help", "other"]),
@@ -285,7 +335,6 @@ export const handoffToHuman = defineTool({
 
 /** In name order, so the tool list is byte-identical on every request and the prompt cache holds. */
 export const cityChauffeursTools: Tool[] = [
-  createBookingRequest,
   createEnquiry,
   getBookingStatus,
   getEnquiryStatus,

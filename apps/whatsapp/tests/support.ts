@@ -214,7 +214,7 @@ export class MemoryStore implements ConversationStore {
 }
 
 export const FLEET: FleetVehicle[] = [
-  vehicle("veh-cullinan", "cullinan", "Rolls-Royce Cullinan", "Rolls-Royce", "Cullinan", ["Chauffeur fleet", "High-profile SUVs"], 3),
+  vehicle("veh-cullinan", "cullinan", "Rolls-Royce Cullinan", "Rolls-Royce", "Cullinan", ["Chauffeur fleet", "High-profile SUVs"], 3, 200),
   vehicle("veh-ghost", "ghost", "Rolls-Royce Ghost", "Rolls-Royce", "Ghost", ["Chauffeur fleet"], 3),
   vehicle("veh-sclass", "s-class", "Mercedes S-Class", "Mercedes", "S-Class", ["Chauffeur fleet"], 3),
   vehicle("veh-vclass", "v-class", "Mercedes V-Class", "Mercedes", "V-Class", ["Group transport"], 7),
@@ -230,6 +230,8 @@ function vehicle(
   model: string,
   groupings: string[],
   passengers: number | null,
+  /** As the client has it: a published guide rate, or "on request". */
+  hourlyRate: number | null = null,
 ): FleetVehicle {
   return {
     id,
@@ -242,7 +244,7 @@ function vehicle(
     passengers,
     luggage: "",
     chauffeurOnly: true,
-    hourlyRate: null,
+    hourlyRate,
     dayRate: null,
   };
 }
@@ -267,6 +269,13 @@ export class FakeBackend implements Backend {
   async listServices() {
     return SERVICES;
   }
+  /** As the client has them in the admin today. */
+  async listBookingTerms() {
+    return [
+      "We ask for 48 hours' notice wherever possible.",
+      "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
+    ];
+  }
   async listEnquiryOptions() {
     // As the client's own form offers them: the services under friendlier
     // labels, plus the two the website has no page for.
@@ -280,7 +289,14 @@ export class FakeBackend implements Backend {
   async getService(slug: string) {
     const service = SERVICES.find((item) => item.slug === slug);
     if (!service) return null;
-    return { ...service, standfirst: service.summary, benefits: [], needs: ["The date"], vehicleNames: ["Mercedes S-Class"] };
+    return {
+      ...service,
+      standfirst: service.summary,
+      benefits: [],
+      needs: ["The date"],
+      bookingNote: "Hourly bookings have a four-hour minimum. Day rates start from £500.",
+      vehicleNames: ["Mercedes S-Class"],
+    };
   }
 
   private record(kind: "enquiry" | "booking", input: { customer: RequestCustomer; journey: RequestJourney; submissionId: string }) {
@@ -307,21 +323,36 @@ export class FakeBackend implements Backend {
     const found = this.created.find((item) => item.reference === reference && item.customer.phone === phone);
     return found ? { reference, status: "New", createdAt: "2027-01-10T09:00:00.000Z" } : null;
   }
+  /**
+   * A booking the office made, which is the only way one exists: the
+   * assistant has no tool that puts a row in the diary.
+   */
+  bookings: { reference: string; phone: E164; journey: RequestJourney; confirmed: boolean }[] = [];
+
   async findBooking(reference: string, phone: E164) {
-    const found = this.created.find(
-      (item) => item.kind === "booking" && item.reference === reference && item.customer.phone === phone,
-    );
+    const found = this.bookings.find((item) => item.reference === reference && item.phone === phone);
     if (!found) return null;
     return {
       reference,
-      status: "Requested",
-      confirmed: false,
+      status: found.confirmed ? "Confirmed" : "Requested",
+      confirmed: found.confirmed,
       date: found.journey.date,
       time: found.journey.time,
       pickup: found.journey.pickup,
       dropoff: found.journey.dropoff,
       vehicle: found.journey.vehicleId ? (FLEET.find((car) => car.id === found.journey.vehicleId)?.name ?? null) : null,
     };
+  }
+
+  /** The office converting a won enquiry, in miniature. */
+  officeBooks(reference: string, phone: E164, journey: Partial<RequestJourney> = {}) {
+    this.bookings.push({
+      reference,
+      phone,
+      confirmed: false,
+      journey: { service: "", vehicleId: "veh-sclass", pickup: "Heathrow", dropoff: "", date: "2027-02-14", time: "19:00", passengers: null, luggage: "", flight: "", notes: "", ...journey },
+    });
+    return reference;
   }
 
   async matchCustomer(phone: E164) {

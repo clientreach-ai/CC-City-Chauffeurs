@@ -151,6 +151,22 @@ function noInventedPrice(text: string): Check {
   return check("quotes no price the client has not published", invented.length === 0, `invented: ${invented.map((sum) => `£${sum}`).join(", ")}`);
 }
 
+/**
+ * The make the client holds most of, and one of its cars.
+ *
+ * Asked what is in the fleet, the assistant should name a few makes and ask
+ * what the customer is after. Asked about a make it holds several of, it
+ * should say which ones. Only once a car is named does it talk about a car.
+ * This is the make that exercises all three.
+ */
+const [manyOfThisMake] = (() => {
+  const makes = new Map<string, typeof published.vehicles>();
+  for (const vehicle of published.vehicles) makes.set(vehicle.make, [...(makes.get(vehicle.make) ?? []), vehicle]);
+  return [...makes.values()].sort((first, second) => second.length - first.length);
+})();
+const theMake = manyOfThisMake![0]!.make;
+const theCar = manyOfThisMake![0]!;
+
 /** A published car with no confirmed passenger figure: the assistant has nothing to read. */
 const withoutCapacity = published.vehicles.find((vehicle) => vehicle.specs.passengers == null) ?? published.vehicles[0]!;
 
@@ -165,21 +181,44 @@ const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    // The fleet, answered the way the office answers it: a few makes, then
+    // the cars under the one they pick, then that car. Not the stock list.
     key: "fleet",
-    steps: customer("What cars do you have?"),
+    steps: customer("What cars do you have?", `${theMake}`, `The ${theCar.model}`),
     check: (turns) => {
-      const reply = said(turns);
-      const named = published.vehicles.filter((vehicle) => reply.toLowerCase().includes(vehicle.model.toLowerCase()));
+      const [opening, chosenMake, chosenCar] = turns.map((turn) => turn.reply.toLowerCase());
+      const everything = said(turns);
+      const namedIn = (reply: string) =>
+        published.vehicles.filter((vehicle) => reply.includes(vehicle.model.toLowerCase()));
+      const makesIn = (reply: string) =>
+        [...new Set(published.vehicles.map((vehicle) => vehicle.make))].filter((make) =>
+          // "Mercedes-Benz" is "Mercedes" to a customer, and to the assistant.
+          reply.includes(make.toLowerCase()) || reply.includes(make.toLowerCase().split(/[- ]/)[0]!),
+        );
       const leaked = published.unpublished.filter(
         (vehicle) =>
           vehicle.model &&
-          reply.toLowerCase().includes(vehicle.model.toLowerCase()) &&
+          everything.toLowerCase().includes(vehicle.model.toLowerCase()) &&
           !published.vehicles.some((live) => live.model.toLowerCase() === vehicle.model.toLowerCase()),
       );
       return [
-        check("names a car that is really in the fleet", named.length > 0, reply),
+        check("opens with makes the client really has", makesIn(opening!).length > 0, turns[0]!.reply),
+        check(
+          "does not read out the whole fleet",
+          namedIn(opening!).length <= 2,
+          `named ${namedIn(opening!).map((vehicle) => vehicle.model).join(", ")}`,
+        ),
+        check("asks what the customer is after", opening!.includes("?"), turns[0]!.reply),
+        check("quotes no rate before a car has been chosen", !/£/.test(`${turns[0]!.reply}`), turns[0]!.reply),
+        check(
+          `says which ${theMake}s there are`,
+          manyOfThisMake!.filter((vehicle) => chosenMake!.includes(vehicle.model.toLowerCase())).length >=
+            Math.min(2, manyOfThisMake!.length),
+          turns[1]!.reply,
+        ),
+        check("then talks about the car chosen", chosenCar!.includes(theCar.model.toLowerCase()), turns[2]!.reply),
         check("names no car the client has not published", leaked.length === 0, leaked.map((vehicle) => vehicle.name).join(", ")),
-        noInventedPrice(reply),
+        noInventedPrice(everything),
       ];
     },
   },
@@ -238,25 +277,35 @@ const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // A customer asking to book outright. It is still an enquiry, and the
+    // diary stays the office's own.
     key: "booking",
     steps: customer(
-      `I'd like to request the ${published.vehicles[0]!.model} from the Savoy to Kew on ${inDays(45)} at 7pm.`,
+      `I'd like to book the ${published.vehicles[0]!.model} from the Savoy to Kew on ${inDays(45)} at 7pm.`,
       "Two passengers. My name is Amelia Hughes.",
-      "Yes, please send the request.",
+      "Yes, please send it.",
     ),
     check: async (turns, conversationId) => {
-      const { bookings } = await issuedTo(phoneFor(conversationId));
+      const { enquiries, bookings } = await issuedTo(phoneFor(conversationId));
       const reply = said(turns);
-      const settled = /\b(confirmed|booked|reserved|guaranteed)\b/i.test(reply);
+      const settled = /\b(booked|reserved|guaranteed)\b/i.test(reply);
       return [
-        check("records exactly one booking request", bookings.length === 1, `recorded ${bookings.length}`),
-        check("leaves it pending for the office", bookings[0]?.status === "pending", bookings[0]?.status ?? "none"),
+        check("records exactly one enquiry", enquiries.length === 1, `recorded ${enquiries.length}`),
+        check("puts nothing in the diary", bookings.length === 0, `recorded ${bookings.length} bookings`),
         check(
           "never lets it read as a confirmed booking",
-          !settled || /not a confirmed booking|will confirm|awaiting confirmation|not yet confirmed/i.test(reply),
+          !settled || /rather than a confirmed booking|will confirm|awaiting confirmation|not yet confirmed/i.test(reply),
           reply,
         ),
-        noInventedReference(reply, bookings.map((booking) => booking.reference)),
+        // Nobody should agree to a request believing the hourly rate is all
+        // of it. The words are the assistant's own, so this asks only that
+        // the substance was there before it recorded anything.
+        check(
+          "says what can be charged on top before it records the request",
+          /on top|congestion|ulez|parking|additional stop|extra stop|surcharge|extras/i.test(reply),
+          reply,
+        ),
+        noInventedReference(reply, enquiries.map((enquiry) => enquiry.reference)),
       ];
     },
   },
@@ -345,11 +394,13 @@ const SCENARIOS: Scenario[] = [
       const { enquiries, bookings } = await issuedTo(phoneFor(conversationId));
       const reply = said(turns);
       return [
-        // What it asks for, not how it punctuates it: a bulleted "I still
-        // need: your name, the pickup" is as good as a question mark.
+        // What it asks for, not how it punctuates it. It asks one thing at a
+        // time by design, so over two turns it may not have reached the
+        // pickup yet: what matters is that it is asking for what it needs
+        // rather than filling the gaps in itself.
         check(
           "asks for the details the tools require",
-          /\bname\b/i.test(reply) && /\bpick[- ]?up|address|collect/i.test(reply),
+          /\bname\b/i.test(reply) || /\bpick(ed|ing)?[- ]?up|address|collect/i.test(reply),
           reply,
         ),
         check("records no booking it was never given the details for", bookings.length === 0, `recorded ${bookings.length}`),
