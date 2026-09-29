@@ -151,6 +151,22 @@ function noInventedPrice(text: string): Check {
   return check("quotes no price the client has not published", invented.length === 0, `invented: ${invented.map((sum) => `£${sum}`).join(", ")}`);
 }
 
+/**
+ * The make the client holds most of, and one of its cars.
+ *
+ * Asked what is in the fleet, the assistant should name a few makes and ask
+ * what the customer is after. Asked about a make it holds several of, it
+ * should say which ones. Only once a car is named does it talk about a car.
+ * This is the make that exercises all three.
+ */
+const [manyOfThisMake] = (() => {
+  const makes = new Map<string, typeof published.vehicles>();
+  for (const vehicle of published.vehicles) makes.set(vehicle.make, [...(makes.get(vehicle.make) ?? []), vehicle]);
+  return [...makes.values()].sort((first, second) => second.length - first.length);
+})();
+const theMake = manyOfThisMake![0]!.make;
+const theCar = manyOfThisMake![0]!;
+
 /** A published car with no confirmed passenger figure: the assistant has nothing to read. */
 const withoutCapacity = published.vehicles.find((vehicle) => vehicle.specs.passengers == null) ?? published.vehicles[0]!;
 
@@ -165,21 +181,44 @@ const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    // The fleet, answered the way the office answers it: a few makes, then
+    // the cars under the one they pick, then that car. Not the stock list.
     key: "fleet",
-    steps: customer("What cars do you have?"),
+    steps: customer("What cars do you have?", `${theMake}`, `The ${theCar.model}`),
     check: (turns) => {
-      const reply = said(turns);
-      const named = published.vehicles.filter((vehicle) => reply.toLowerCase().includes(vehicle.model.toLowerCase()));
+      const [opening, chosenMake, chosenCar] = turns.map((turn) => turn.reply.toLowerCase());
+      const everything = said(turns);
+      const namedIn = (reply: string) =>
+        published.vehicles.filter((vehicle) => reply.includes(vehicle.model.toLowerCase()));
+      const makesIn = (reply: string) =>
+        [...new Set(published.vehicles.map((vehicle) => vehicle.make))].filter((make) =>
+          // "Mercedes-Benz" is "Mercedes" to a customer, and to the assistant.
+          reply.includes(make.toLowerCase()) || reply.includes(make.toLowerCase().split(/[- ]/)[0]!),
+        );
       const leaked = published.unpublished.filter(
         (vehicle) =>
           vehicle.model &&
-          reply.toLowerCase().includes(vehicle.model.toLowerCase()) &&
+          everything.toLowerCase().includes(vehicle.model.toLowerCase()) &&
           !published.vehicles.some((live) => live.model.toLowerCase() === vehicle.model.toLowerCase()),
       );
       return [
-        check("names a car that is really in the fleet", named.length > 0, reply),
+        check("opens with makes the client really has", makesIn(opening!).length > 0, turns[0]!.reply),
+        check(
+          "does not read out the whole fleet",
+          namedIn(opening!).length <= 2,
+          `named ${namedIn(opening!).map((vehicle) => vehicle.model).join(", ")}`,
+        ),
+        check("asks what the customer is after", opening!.includes("?"), turns[0]!.reply),
+        check("quotes no rate before a car has been chosen", !/£/.test(`${turns[0]!.reply}`), turns[0]!.reply),
+        check(
+          `says which ${theMake}s there are`,
+          manyOfThisMake!.filter((vehicle) => chosenMake!.includes(vehicle.model.toLowerCase())).length >=
+            Math.min(2, manyOfThisMake!.length),
+          turns[1]!.reply,
+        ),
+        check("then talks about the car chosen", chosenCar!.includes(theCar.model.toLowerCase()), turns[2]!.reply),
         check("names no car the client has not published", leaked.length === 0, leaked.map((vehicle) => vehicle.name).join(", ")),
-        noInventedPrice(reply),
+        noInventedPrice(everything),
       ];
     },
   },

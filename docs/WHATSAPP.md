@@ -332,7 +332,7 @@ conversations whose checks do not depend on wording:
 | | What is proved |
 |---|---|
 | greeting | It answers, as City Chauffeurs |
-| fleet | It names a car that is really published, and none that is not |
+| fleet | "What cars do you have?" is answered with makes and a question back, not the stock list, and the car is only described once it has been chosen |
 | vehicle | Any passenger figure it quotes is the client's own |
 | service | It answers from the real service record |
 | enquiry | One enquiry, `source = whatsapp`, and the customer is given the reference the database issued |
@@ -353,7 +353,7 @@ OPENAI_API_KEY=sk-… \
 bun run scripts/whatsapp-eval.ts            # or: … whatsapp-eval.ts pricing injection
 ```
 
-It costs about forty model turns — roughly 70,000 input tokens and 3,000
+It costs about forty-two model turns — roughly 70,000 input tokens and 3,000
 output tokens on `gpt-5.4-mini`, most of the input served from the prompt
 cache — refuses any database that is not on this machine, and exits non-zero
 if a check fails. Each scenario writes from a telephone number of its own,

@@ -68,6 +68,8 @@ describe("a conversation", () => {
     const content = JSON.parse((results as { results: { content: string }[] }).results[0]!.content);
     expect(content.ok).toBe(true);
     expect(content.data.vehicles.map((vehicle: { name: string }) => vehicle.name)).toContain("Rolls-Royce Cullinan");
+    // Grouped as a customer thinks of it, so the makes named are the client's.
+    expect(content.data.makes).toContainEqual({ make: "Rolls-Royce", models: ["Cullinan", "Ghost"] });
     expect(lastSent()).toContain("Cullinan");
   });
 

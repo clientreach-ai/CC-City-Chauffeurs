@@ -32,6 +32,7 @@ const nothing = z.object({}).strict();
 function describeVehicle(vehicle: FleetVehicle) {
   return {
     name: vehicle.name,
+    make: vehicle.make,
     groupings: vehicle.groupings,
     description: vehicle.shortDescription,
     // `null` is information too: the client has not confirmed a figure.
@@ -43,17 +44,37 @@ function describeVehicle(vehicle: FleetVehicle) {
   };
 }
 
+/**
+ * The fleet as a customer thinks of it: the makes, and what sits under each.
+ *
+ * It is the same cars as the list beside it, grouped on the client's
+ * own `make` field rather than on anything guessed from a name. It is here
+ * so the assistant can answer "what cars do you have?" the way the office
+ * would, with three or four makes and a question back, instead of reading
+ * out the stock list.
+ */
+function byMake(fleet: FleetVehicle[]) {
+  const makes = new Map<string, string[]>();
+  for (const vehicle of fleet) {
+    makes.set(vehicle.make, [...(makes.get(vehicle.make) ?? []), vehicle.model || vehicle.name]);
+  }
+  return [...makes].map(([make, models]) => ({ make, models }));
+}
+
+const FLEET_NOTE =
+  "Do not read this list out. Asked what cars there are, name three or four of the makes, say there are others, and ask what the customer is after. Name the cars under a make only once they have picked one, and give a rate only once they have picked a car.";
+
 const RATE_NOTE =
   "Rates are the indicative guides the website publishes, in pounds — never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the client has not confirmed it: say it is confirmed on enquiry.";
 
 export const getFleet = defineTool({
   name: "get_fleet",
   description:
-    "The current published City Chauffeurs fleet: every vehicle a customer can ask for, with its grouping, description, confirmed passenger and luggage figures, and the indicative rates the website publishes. Call this before saying anything about the fleet.",
+    "The current published City Chauffeurs fleet: every vehicle a customer can ask for, with its grouping, description, confirmed passenger and luggage figures, and the indicative rates the website publishes. Call this before saying anything about the fleet. This is what you may draw on, not a list to read out: for \"what cars do you have?\", name a few makes and ask what they are after.",
   input: nothing,
   async run(context) {
     const { fleet } = await context.catalogue();
-    return success({ vehicles: fleet.map(describeVehicle), note: RATE_NOTE });
+    return success({ makes: byMake(fleet), vehicles: fleet.map(describeVehicle), note: `${FLEET_NOTE} ${RATE_NOTE}` });
   },
 });
 
