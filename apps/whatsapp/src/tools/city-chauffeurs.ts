@@ -61,6 +61,22 @@ function byMake(fleet: FleetVehicle[]) {
   return [...makes].map(([make, models]) => ({ make, models }));
 }
 
+/**
+ * What is charged on top, and whether it still needs saying.
+ *
+ * The terms stay here once they have been said, because a customer who asks
+ * "what extras?" deserves an answer. What changes is the instruction beside
+ * them: volunteer them once, then never again unless asked.
+ */
+function termsFor(context: ToolContext, terms: string[]) {
+  return {
+    alsoCharged: terms,
+    alsoChargedNote: context.state.termsSaid
+      ? "The customer has already been told this in this conversation. Do not say it again unless they ask."
+      : "Say this once, in your own words, when you read the journey back.",
+  };
+}
+
 const FLEET_NOTE =
   "Do not read this list out. Asked what cars there are, name three or four of the makes, say there are others, and ask what the customer is after. Name the cars under a make only once they have picked one, and give a rate only once they have picked a car.";
 
@@ -78,7 +94,7 @@ export const getFleet = defineTool({
       makes: byMake(fleet),
       vehicles: fleet.map(describeVehicle),
       // Beside the rate, because "from £150 an hour" is not the whole story.
-      alsoCharged: terms,
+      ...termsFor(context, terms),
       note: `${FLEET_NOTE} ${RATE_NOTE}`,
     });
   },
@@ -93,7 +109,7 @@ export const getVehicle = defineTool({
     const { fleet, terms } = await context.catalogue();
     const match = resolveVehicle(input.vehicle, fleet);
     if ("vehicle" in match) {
-      return success({ vehicle: describeVehicle(match.vehicle), alsoCharged: terms, note: RATE_NOTE });
+      return success({ vehicle: describeVehicle(match.vehicle), ...termsFor(context, terms), note: RATE_NOTE });
     }
     if ("ambiguous" in match) {
       return failure("ambiguous", `That could be: ${match.ambiguous.map((vehicle) => vehicle.name).join(", ")}. Ask which one.`);
@@ -165,7 +181,7 @@ export const getService = defineTool({
       includes: detail.benefits.map((benefit) => `${benefit.title}: ${benefit.copy}`),
       toQuoteTheOfficeNeeds: detail.needs,
       bookingNote: detail.bookingNote,
-      alsoCharged: catalogue.terms,
+      ...termsFor(context, catalogue.terms),
       vehicles: detail.vehicleNames,
     });
   },
@@ -213,7 +229,7 @@ export const recordJourneyDetails = defineTool({
       worthAsking: helpfulToAsk(draft),
       // Here as well as on the fleet, so they are in front of you at the one
       // moment that matters: reading the journey back before you record it.
-      sayBeforeTheyConfirm: catalogue.terms,
+      ...termsFor(context, catalogue.terms),
     });
   },
 });

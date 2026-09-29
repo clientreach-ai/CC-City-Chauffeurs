@@ -22,6 +22,15 @@ import { runTool, toModelTool, type Tool, type ToolContext } from "../tools/tool
 /** WhatsApp's own ceiling on a message body. */
 export const MAX_REPLY = 4096;
 
+/**
+ * A reply that has told the customer what is charged on top.
+ *
+ * The client's terms are theirs to edit, so this matches what they are
+ * about rather than their exact words: the charges the assistant is asked
+ * to mention, and the phrase it reaches for when it mentions them.
+ */
+const SAYS_THE_TERMS = /charged on top|go on top|added on top|congestion|ulez|airport parking|additional stop|extra stop|48 hours/i;
+
 export type TurnOutcome = {
   reply: string;
   state: ConversationState;
@@ -63,6 +72,10 @@ export async function runAgentTurn(input: {
       references: context.state.references,
       figures: [...figures],
     });
+    // Said once, then remembered. Recorded from what actually went out, not
+    // from what the tools offered: offering them is not telling anybody.
+    if (!context.state.termsSaid && SAYS_THE_TERMS.test(checked.text)) context.state.termsSaid = true;
+
     return {
       reply: checked.text.length > MAX_REPLY ? `${checked.text.slice(0, MAX_REPLY - 1)}…` : checked.text,
       state: context.state,

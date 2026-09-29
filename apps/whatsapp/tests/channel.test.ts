@@ -115,7 +115,30 @@ describe("a conversation", () => {
     expect(resultsOf(1).alsoCharged).toContain(
       "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
     );
-    expect(resultsOf(2).sayBeforeTheyConfirm).toEqual(resultsOf(1).alsoCharged);
+    expect(resultsOf(2).alsoCharged).toEqual(resultsOf(1).alsoCharged);
+    expect(resultsOf(2).alsoChargedNote).toContain("Say this once");
+  });
+
+  // Nothing gives a machine away faster than repeating a clause the customer
+  // has already read, and a model reminded of it every turn will do exactly
+  // that. So the conversation remembers, and the reminder changes.
+  test("once they have been told, the tools stop asking for them again", async () => {
+    const whatsapp = channel([
+      calls("get_fleet"),
+      says("The Cullinan it is. Congestion Charge and airport parking go on top, the team confirm the figure."),
+    ]);
+    await say(whatsapp, "m1", "Tell me about the Cullinan.");
+
+    expect([...store.conversations.values()][0]!.state.termsSaid).toBe(true);
+
+    const second = channel([calls("get_fleet"), says("Of course.")]);
+    await say(second, "m2", "And the Ghost?");
+
+    const shown = model.requests.at(-1)!.messages.at(-1) as { results: { content: string }[] };
+    const data = JSON.parse(shown.results[0]!.content).data;
+    // Still there, so a customer who asks can be answered. Not to be volunteered.
+    expect(data.alsoCharged.length).toBeGreaterThan(0);
+    expect(data.alsoChargedNote).toContain("Do not say it again unless they ask");
   });
 
   test("a service question reads the real service", async () => {
