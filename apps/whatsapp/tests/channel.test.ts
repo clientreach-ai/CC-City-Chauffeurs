@@ -541,7 +541,7 @@ describe("what one conversation may cost", () => {
 
     await say(whatsapp, "m2", "and again");
 
-    expect(lastSent()).toContain("passing the conversation to a member of the City Chauffeurs team");
+    expect(lastSent()).toContain("get someone from the team onto this");
     expect(model.requests).toHaveLength(asked);
     expect(store.conversations.get(conversationId)!.status).toBe("human_requested");
   });
@@ -570,7 +570,7 @@ describe("what the customer is finally told", () => {
     await say(whatsapp, "m1", "Did my enquiry go through?");
 
     expect(lastSent()).not.toContain("ENQ-4242");
-    expect(lastSent()).toContain("a member of the team will reply here");
+    expect(lastSent()).toContain("someone will reply to you here");
   });
 
   test("a reference the model forgot is added", async () => {
@@ -593,7 +593,7 @@ describe("what the customer is finally told", () => {
     ]);
     await say(whatsapp, "m1", "Book me a car on 14 Feb from Heathrow, Amelia Hughes");
 
-    expect(lastSent()).toContain("This is a request, not a confirmed booking");
+    expect(lastSent()).toContain("rather than a confirmed booking");
     expect(backend.created[0]).toMatchObject({ kind: "booking", reference: "BKG-2101" });
   });
 });

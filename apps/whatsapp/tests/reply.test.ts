@@ -45,7 +45,7 @@ describe("a reference the customer is given", () => {
     // Nothing was created, so there is nothing it could have meant: the whole
     // reply goes rather than send the customer a number to quote.
     expect(checked.text).not.toContain("BKG-9999");
-    expect(checked.text).toContain("a member of the team will reply here");
+    expect(checked.text).toContain("someone will reply to you here");
     expect(checked.corrections).toEqual(["invented_reference_dropped"]);
   });
 
@@ -76,7 +76,7 @@ describe("a booking request", () => {
       references: ["BKG-2100"],
     });
 
-    expect(checked.text).toContain("This is a request, not a confirmed booking");
+    expect(checked.text).toContain("rather than a confirmed booking");
     expect(checked.corrections).toContain("booking_not_confirmed_added");
   });
 
@@ -155,5 +155,20 @@ describe("the dash a person would not type", () => {
       if (typeof sentence !== "string") continue;
       expect(sentence, `${name} should read as something a person typed`).not.toMatch(/[—–]| - /);
     }
+  });
+
+  // The check's own sentences are added after the rewriting has run, so a
+  // dash in one of them would go out exactly as written.
+  test("nor the sentences the check itself adds", () => {
+    const dropped = checkReply("Your reference is ENQ-9999.", nothingCreated);
+    const booking = checkReply("Your car is booked for Friday. Reference BKG-2100.", {
+      created: { kind: "booking", reference: "BKG-2100" },
+      references: [],
+    });
+
+    expect(dropped.corrections).toContain("invented_reference_dropped");
+    expect(dropped.text).not.toMatch(/[—–]| - /);
+    expect(booking.corrections).toContain("booking_not_confirmed_added");
+    expect(booking.text).not.toMatch(/[—–]| - /);
   });
 });

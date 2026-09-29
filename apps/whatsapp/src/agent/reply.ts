@@ -29,7 +29,7 @@ const REFERENCE = /\b(?:ENQ|BKG)-\d{1,8}\b/gi;
 const SOUNDS_SETTLED = /\b(confirmed|booked|reserved|guaranteed|secured)\b/i;
 
 const NOT_YET_CONFIRMED =
-  "This is a request, not a confirmed booking — a member of the City Chauffeurs team will confirm it here.";
+  "This is a request rather than a confirmed booking, the team will confirm it with you here.";
 
 /**
  * When the model has quoted a reference that does not exist and there is no
@@ -37,7 +37,7 @@ const NOT_YET_CONFIRMED =
  * about the thing the customer will write down.
  */
 const SAFE_FALLBACK =
-  "Thank you — your request is with the City Chauffeurs team, and a member of the team will reply here shortly.";
+  "Thank you, your request is with the City Chauffeurs team and someone will reply to you here shortly.";
 
 /**
  * Dashes used as punctuation, and the comma or colon that reads as though a
