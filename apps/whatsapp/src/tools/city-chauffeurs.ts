@@ -65,7 +65,7 @@ const FLEET_NOTE =
   "Do not read this list out. Asked what cars there are, name three or four of the makes, say there are others, and ask what the customer is after. Name the cars under a make only once they have picked one, and give a rate only once they have picked a car.";
 
 const RATE_NOTE =
-  "Rates are the indicative guides the website publishes, in pounds, never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the client has not confirmed it: say it is confirmed on enquiry.";
+  "Rates are the indicative guides the website publishes, in pounds, never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the website says \"on request\": say that, and ask for the date and the journey so the team can price it.";
 
 export const getFleet = defineTool({
   name: "get_fleet",
