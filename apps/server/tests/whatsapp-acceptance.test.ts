@@ -215,8 +215,11 @@ describe("Scenario 4 — enquiry", () => {
   });
 });
 
-describe("Scenario 5 — booking request", () => {
-  test("the S-Class is requested, and lands in Bookings as pending with its car and customer", async () => {
+describe("Scenario 5 — a customer asking to book", () => {
+  // The diary holds what the office committed to. A customer naming a car
+  // and a date is still an enquiry, and a person turns it into a booking
+  // once it is won, exactly as with one that came through the website.
+  test("lands in Enquiries with its car and customer, and nowhere near Bookings", async () => {
     start([
       calls("record_journey_details", {
         name: "Amelia Hughes",
@@ -227,45 +230,44 @@ describe("Scenario 5 — booking request", () => {
         time: "19:00",
         passengers: 2,
       }),
-      says("The S-Class from the Savoy on 14 February at 19:00 for two. Shall I send the request?"),
-      calls("create_booking_request"),
-      says("Your booking request is BKG-2100. The team will confirm the car and chauffeur."),
+      says("The S-Class from the Savoy on 14 February at 19:00 for two. Shall I send it to the team?"),
+      calls("create_enquiry"),
+      says("That is with the team as ENQ-1100. They will confirm it here."),
     ]);
-    await customerSays("SM1", "I'd like to request the S Class from the Savoy to Kew on 14 Feb at 7pm, two of us. Amelia Hughes.");
+    await customerSays("SM1", "I'd like to book the S Class from the Savoy to Kew on 14 Feb at 7pm, two of us. Amelia Hughes.");
     await customerSays("SM2", "Yes please");
 
-    // Admin → Bookings.
-    const booking = only(await rows("select * from booking"));
-    expect(booking).toMatchObject({
-      reference: "BKG-2100",
-      status: "pending",
-      vehicle_id: "veh-sclass",
+    // Admin → Enquiries, and the diary untouched.
+    expect(await rows("select id from booking")).toHaveLength(0);
+
+    const enquiry = only(await rows("select * from enquiry"));
+    expect(enquiry).toMatchObject({ reference: "ENQ-1100", status: "new", source: "whatsapp" });
+    expect(enquiry.journey).toMatchObject({
+      vehicleId: "veh-sclass",
       date: "2027-02-14",
       time: "19:00",
       pickup: "The Savoy",
-      destination: "Kew Gardens",
+      dropoff: "Kew Gardens",
       passengers: 2,
     });
-    const customer = only(await rows(`select name from customer where id = '${booking.customer_id}'`));
-    expect(customer.name).toBe("Amelia Hughes");
 
-    // The office can see where it came from, and that nobody has confirmed it.
-    const trail = only(await rows(`select text from activity_entry where booking_id = '${booking.id}'`));
-    expect(String(trail.text)).toContain("WhatsApp");
-    expect(String(trail.text)).toContain("not yet confirmed");
-    expect(lastToolResult().data.reference).toBe("BKG-2100");
+    const customer = only(await rows(`select name from customer where id = '${enquiry.customer_id}'`));
+    expect(customer.name).toBe("Amelia Hughes");
+    expect(lastToolResult().data.reference).toBe("ENQ-1100");
   });
 
-  test("a booking request without a date is not made", async () => {
+  test("nothing a customer says can put a row in the diary", async () => {
     start([
       calls("record_journey_details", { name: "Amelia Hughes", vehicle: "Cullinan", pickup: "Mayfair" }),
       calls("create_booking_request"),
       says("Which date would you like?"),
     ]);
-    await customerSays("SM1", "Can I request the Cullinan from Mayfair?");
+    await customerSays("SM1", "Book the Cullinan from Mayfair for me now.");
 
     expect(await rows("select id from booking")).toHaveLength(0);
-    expect(lastToolResult().error.code).toBe("incomplete");
+    // There is no such tool any more, which is the point: the rule is not
+    // something the model is asked to remember.
+    expect(lastToolResult().error.code).toBe("unknown_tool");
   });
 });
 
@@ -437,34 +439,6 @@ describe("Scenario 8 — the server restarts mid-conversation", () => {
     expect(enquiries).toHaveLength(1);
     expect(enquiries[0]!.reference).toBe(first.reference);
     expect(lastReply()).toContain(first.reference);
-  });
-
-  test("a booking request the interrupted turn had already made is not made again", async () => {
-    const script = [
-      calls("record_journey_details", { name: "Amelia Hughes", pickup: "The Savoy", date: "2027-02-14" }),
-      calls("create_booking_request"),
-      says("Your booking request is recorded."),
-    ];
-    start(script);
-    await whatsapp.ingest({
-      body: JSON.stringify({ messages: [{ id: "SM1", from: AMELIA, to: OURS, name: "Amelia", type: "text", text: "Request the Savoy on 14 Feb, Amelia Hughes" }] }),
-      headers: new Headers(),
-    });
-    await interrupt();
-
-    const messageId = only(await rows("select id from whatsapp_message where direction = 'inbound'")).id as string;
-    const first = await factories.createWhatsAppBackend().createBookingRequest({
-      customer: { name: "Amelia Hughes", phone: AMELIA as E164, email: "" },
-      journey: { service: "", vehicleId: null, pickup: "The Savoy", dropoff: "", date: "2027-02-14", time: "", passengers: null, luggage: "", flight: "", notes: "" },
-      submissionId: `wa:${messageId}:booking`,
-    });
-
-    model.push(...script);
-    await whatsapp.resumeQueued();
-
-    const bookings = await rows("select reference, status from booking");
-    expect(bookings).toHaveLength(1);
-    expect(bookings[0]).toMatchObject({ reference: first.reference, status: "pending" });
   });
 
   test("a reply recorded but never sent goes out when the server comes back", async () => {

@@ -239,7 +239,16 @@ function fingerprint(draft: JourneyDraft) {
   return JSON.stringify(Object.entries(draft).sort(([a], [b]) => a.localeCompare(b)));
 }
 
-async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
+/**
+ * Everything a customer asks for becomes an enquiry.
+ *
+ * An enquiry is "somebody asked"; a booking is "we committed". Anyone in the
+ * world can cause the first, and only the office can cause the second, so
+ * nothing a stranger types on WhatsApp puts a row in the diary. A won
+ * enquiry is turned into a booking by a person, in the admin, the same way
+ * one that arrived through the website's form is.
+ */
+async function createRecord(context: ToolContext, kind: "enquiry") {
   const draft = { ...context.state.journey, name: context.state.journey.name ?? context.customerName ?? undefined };
   const missing = missingFor(kind, draft);
   if (missing.length) {
@@ -261,8 +270,7 @@ async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
     // again, the server finds the record it already made.
     submissionId: `wa:${context.triggeringMessageId}:${kind}`,
   };
-  const { reference } =
-    kind === "enquiry" ? await context.backend.createEnquiry(input) : await context.backend.createBookingRequest(input);
+  const { reference } = await context.backend.createEnquiry(input);
 
   context.state.lastRequest = { kind, fingerprint: print, reference };
   if (!context.state.references.includes(reference)) context.state.references.push(reference);
@@ -273,17 +281,9 @@ async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
 export const createEnquiry = defineTool({
   name: "create_enquiry",
   description:
-    "Record an enquiry for the City Chauffeurs team from the journey details already recorded, for a customer who wants a price, or is not ready to fix a date. Only call it after summarising the details and the customer confirming. Returns the enquiry reference; give it to the customer exactly as returned.",
+    "Record an enquiry for the City Chauffeurs team from the journey details already recorded. Every request from WhatsApp is an enquiry, whether the customer wants a price or has a date and a journey fixed: the office confirms it and puts it in the diary itself. Only call it after reading the details back and the customer confirming. Returns the enquiry reference; give it to the customer exactly as returned.",
   input: nothing,
   run: (context) => createRecord(context, "enquiry"),
-});
-
-export const createBookingRequest = defineTool({
-  name: "create_booking_request",
-  description:
-    "Record a booking request from the journey details already recorded, for a customer asking for a specific journey on a specific date. It is a request, not a booking: the team confirms the vehicle and chauffeur and comes back. Needs a date and a pickup. Only call it after summarising the details and the customer confirming. Returns the booking reference; give it exactly as returned.",
-  input: nothing,
-  run: (context) => createRecord(context, "booking"),
 });
 
 export const getEnquiryStatus = defineTool({
@@ -335,7 +335,6 @@ export const handoffToHuman = defineTool({
 
 /** In name order, so the tool list is byte-identical on every request and the prompt cache holds. */
 export const cityChauffeursTools: Tool[] = [
-  createBookingRequest,
   createEnquiry,
   getBookingStatus,
   getEnquiryStatus,

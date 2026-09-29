@@ -26,10 +26,17 @@
 const REFERENCE = /\b(?:ENQ|BKG)-\d{1,8}\b/gi;
 
 /** Said of a booking request, these would be a promise nobody has made. */
-const SOUNDS_SETTLED = /\b(confirmed|booked|reserved|guaranteed|secured)\b/i;
+/**
+ * A reply that has told the customer the journey is settled.
+ *
+ * "Confirmed" is deliberately not here: "your enquiry is confirmed as
+ * received" is true and ordinary, and the assistant should not be made to
+ * argue with itself about it. The words below cannot be read any other way.
+ */
+const SOUNDS_SETTLED = /\b(booked|reserved|guaranteed|secured)\b/i;
 
 const NOT_YET_CONFIRMED =
-  "This is a request rather than a confirmed booking, the team will confirm it with you here.";
+  "This is an enquiry rather than a confirmed booking, the team will confirm it with you here.";
 
 /**
  * When the model has quoted a reference that does not exist and there is no
@@ -70,7 +77,11 @@ function withoutDashes(text: string): string {
     .replace(/,\s*\./g, ".");
 }
 
-export type CreatedRecord = { kind: "enquiry" | "booking"; reference: string };
+/**
+ * What this turn recorded. Only ever an enquiry: the assistant cannot put a
+ * row in the diary, because no tool does it.
+ */
+export type CreatedRecord = { kind: "enquiry"; reference: string };
 
 /**
  * The sums of money in a piece of text, in pounds.
@@ -150,7 +161,9 @@ export function checkReply(reply: string, check: ReplyCheck): CheckedReply {
     corrections.push("reference_appended");
   }
 
-  if (check.created?.kind === "booking" && SOUNDS_SETTLED.test(text) && !text.includes(NOT_YET_CONFIRMED)) {
+  // Nothing the assistant records is agreed with anybody yet, so a reply
+  // that says otherwise is corrected whatever it recorded.
+  if (check.created && SOUNDS_SETTLED.test(text) && !text.includes(NOT_YET_CONFIRMED)) {
     text = `${text} ${NOT_YET_CONFIRMED}`;
     corrections.push("booking_not_confirmed_added");
   }

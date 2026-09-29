@@ -6,19 +6,18 @@ import {
   type Service,
   type Vehicle,
 } from "@CC-City-Chauffeurs/core";
-import { bookingInputSchema, publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
+import { publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
 import {
   type Backend,
   BackendValidationError,
   type FleetVehicle,
   type RequestCustomer,
-  type RequestJourney,
   type ServiceDetail,
   type ServiceSummary,
 } from "@CC-City-Chauffeurs/whatsapp/ports";
 import { ZodError } from "zod";
 
-import { bookingRequested, enquiryRecorded } from "./notifications";
+import { enquiryRecorded } from "./notifications";
 import * as content from "../repositories/content";
 import * as fleet from "../repositories/fleet";
 import * as operations from "../repositories/operations";
@@ -102,21 +101,6 @@ const toSummary = (service: Service): ServiceSummary => ({
   summary: service.summary,
 });
 
-/**
- * Luggage and a flight number have their own fields on an enquiry but not on
- * a booking. Written into the notes rather than dropped, because the office
- * needs both to plan the journey.
- */
-function bookingNotes(journey: RequestJourney) {
-  return [
-    journey.notes.trim(),
-    journey.luggage.trim() && `Luggage: ${journey.luggage.trim()}`,
-    journey.flight.trim() && `Flight: ${journey.flight.trim()}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 export function createWhatsAppBackend(): Backend {
   return {
     async listFleet() {
@@ -194,33 +178,6 @@ export function createWhatsAppBackend(): Backend {
         // The office hears about it the same way it hears about the website's.
         enquiryRecorded(enquiry);
         return { reference: enquiry.reference };
-      });
-    },
-
-    /**
-     * A booking request: pending until the office confirms it. Parsed by the
-     * same schema as a booking the office takes, so it needs a real date; the
-     * repository then records it as a request whatever the status says.
-     */
-    async createBookingRequest({ customer, journey, submissionId }) {
-      return refusalsAsBackendErrors(async () => {
-        const input = bookingInputSchema.parse({
-          ...contactOf(customer),
-          service: journey.service,
-          vehicleId: journey.vehicleId,
-          date: journey.date,
-          time: journey.time,
-          pickup: journey.pickup,
-          dropoff: journey.dropoff,
-          passengers: journey.passengers,
-          notes: bookingNotes(journey),
-          status: "pending",
-        });
-        const booking = await operations.createBooking(input, {
-          request: { channel: "whatsapp", submissionId },
-        });
-        bookingRequested(booking, contactOf(customer));
-        return { reference: booking.reference };
       });
     },
 

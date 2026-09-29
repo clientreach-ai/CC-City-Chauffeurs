@@ -323,21 +323,36 @@ export class FakeBackend implements Backend {
     const found = this.created.find((item) => item.reference === reference && item.customer.phone === phone);
     return found ? { reference, status: "New", createdAt: "2027-01-10T09:00:00.000Z" } : null;
   }
+  /**
+   * A booking the office made, which is the only way one exists: the
+   * assistant has no tool that puts a row in the diary.
+   */
+  bookings: { reference: string; phone: E164; journey: RequestJourney; confirmed: boolean }[] = [];
+
   async findBooking(reference: string, phone: E164) {
-    const found = this.created.find(
-      (item) => item.kind === "booking" && item.reference === reference && item.customer.phone === phone,
-    );
+    const found = this.bookings.find((item) => item.reference === reference && item.phone === phone);
     if (!found) return null;
     return {
       reference,
-      status: "Requested",
-      confirmed: false,
+      status: found.confirmed ? "Confirmed" : "Requested",
+      confirmed: found.confirmed,
       date: found.journey.date,
       time: found.journey.time,
       pickup: found.journey.pickup,
       dropoff: found.journey.dropoff,
       vehicle: found.journey.vehicleId ? (FLEET.find((car) => car.id === found.journey.vehicleId)?.name ?? null) : null,
     };
+  }
+
+  /** The office converting a won enquiry, in miniature. */
+  officeBooks(reference: string, phone: E164, journey: Partial<RequestJourney> = {}) {
+    this.bookings.push({
+      reference,
+      phone,
+      confirmed: false,
+      journey: { service: "", vehicleId: "veh-sclass", pickup: "Heathrow", dropoff: "", date: "2027-02-14", time: "19:00", passengers: null, luggage: "", flight: "", notes: "", ...journey },
+    });
+    return reference;
   }
 
   async matchCustomer(phone: E164) {
