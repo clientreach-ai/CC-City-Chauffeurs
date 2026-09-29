@@ -13,6 +13,7 @@ import { createWhatsAppChannel } from "../src/channel";
 import { calls, callsMany, fails, refuses, says, ScriptedModel, type ScriptStep } from "../src/agent/scripted";
 import { HANDOFF_REPLY, UNSUPPORTED_REPLY, FALLBACK_REPLY } from "../src/agent/guardrails";
 import { CUSTOMER, FakeBackend, MemoryStore, OUR_NUMBER, inbound, simulator } from "./support";
+import { cityChauffeursTools } from "../src/tools/city-chauffeurs";
 
 let store: MemoryStore;
 let backend: FakeBackend;
@@ -68,7 +69,77 @@ describe("a conversation", () => {
     const content = JSON.parse((results as { results: { content: string }[] }).results[0]!.content);
     expect(content.ok).toBe(true);
     expect(content.data.vehicles.map((vehicle: { name: string }) => vehicle.name)).toContain("Rolls-Royce Cullinan");
+    // Grouped as a customer thinks of it, so the makes named are the client's.
+    expect(content.data.makes).toContainEqual({ make: "Rolls-Royce", models: ["Cullinan", "Ghost"] });
     expect(lastSent()).toContain("Cullinan");
+  });
+
+  // A price is the one thing a customer acts on. The model is told not to
+  // invent one; these prove it cannot, whatever it writes.
+  test("a rate the client published reaches the customer", async () => {
+    const whatsapp = channel([calls("get_fleet"), says("The Cullinan is from £200 an hour as a guide.")]);
+    await say(whatsapp, "m1", "How much is the Cullinan?");
+
+    expect(lastSent()).toContain("£200");
+  });
+
+  test("a price nothing in the data gave is never sent", async () => {
+    const whatsapp = channel([calls("get_fleet"), says("The Bentayga is around £180 an hour.")]);
+    await say(whatsapp, "m1", "How much is the Bentayga?");
+
+    expect(lastSent()).not.toContain("180");
+    expect(lastSent()).toContain("come back to you with the figure");
+  });
+
+  test("a price invented without looking anything up is never sent", async () => {
+    const whatsapp = channel([says("It is about £90 an hour.")]);
+    await say(whatsapp, "m1", "How much for an hour?");
+
+    expect(lastSent()).not.toContain("90");
+  });
+
+  // "From £150 an hour" is not the whole cost, so what goes on top travels
+  // with the rate rather than waiting to surprise anybody.
+  test("what is charged on top travels with the fleet and the journey", async () => {
+    const whatsapp = channel([
+      calls("get_fleet"),
+      calls("record_journey_details", { pickup: "Heathrow", dropoff: "Mayfair" }),
+      says("Noted. A few extras can go on top, the team confirm the figure."),
+    ]);
+    await say(whatsapp, "m1", "What cars do you have? Heathrow to Mayfair.");
+
+    const resultsOf = (request: number) => {
+      const message = model.requests[request]!.messages.at(-1) as { results: { content: string }[] };
+      return JSON.parse(message.results[0]!.content).data;
+    };
+
+    expect(resultsOf(1).alsoCharged).toContain(
+      "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
+    );
+    expect(resultsOf(2).alsoCharged).toEqual(resultsOf(1).alsoCharged);
+    expect(resultsOf(2).alsoChargedNote).toContain("Say this once");
+  });
+
+  // Nothing gives a machine away faster than repeating a clause the customer
+  // has already read, and a model reminded of it every turn will do exactly
+  // that. So the conversation remembers, and the reminder changes.
+  test("once they have been told, the tools stop asking for them again", async () => {
+    const whatsapp = channel([
+      calls("get_fleet"),
+      says("The Cullinan it is. Congestion Charge and airport parking go on top, the team confirm the figure."),
+    ]);
+    await say(whatsapp, "m1", "Tell me about the Cullinan.");
+
+    expect([...store.conversations.values()][0]!.state.termsSaid).toBe(true);
+
+    const second = channel([calls("get_fleet"), says("Of course.")]);
+    await say(second, "m2", "And the Ghost?");
+
+    const shown = model.requests.at(-1)!.messages.at(-1) as { results: { content: string }[] };
+    const data = JSON.parse(shown.results[0]!.content).data;
+    // Still there, so a customer who asks can be answered. Not to be volunteered.
+    expect(data.alsoCharged.length).toBeGreaterThan(0);
+    expect(data.alsoChargedNote).toContain("Do not say it again unless they ask");
   });
 
   test("a service question reads the real service", async () => {
@@ -150,26 +221,36 @@ describe("an enquiry", () => {
   });
 });
 
-describe("a booking request", () => {
-  test("is recorded as a request with its vehicle, only once it has a date", async () => {
+// The diary belongs to the office. A customer asking to book a specific car
+// on a specific day is recorded the same way as one asking for a price, and
+// a person turns it into a booking once it is won.
+describe("a customer who asks to book", () => {
+  test("is recorded as an enquiry, not a row in the diary", async () => {
     const whatsapp = channel([
-      calls("record_journey_details", { name: "Amelia Hughes", vehicle: "S Class", pickup: "The Savoy" }),
-      calls("create_booking_request"),
-      says("What date would you like?"),
-      calls("record_journey_details", { date: "2027-02-14", time: "19:00" }),
-      calls("create_booking_request"),
-      says("Your booking request is BKG-2101. The team will confirm."),
+      calls("record_journey_details", {
+        name: "Amelia Hughes",
+        vehicle: "S Class",
+        pickup: "The Savoy",
+        date: "2027-02-14",
+        time: "19:00",
+      }),
+      calls("create_enquiry"),
+      says("That is with the team as ENQ-1101, they will confirm it here."),
     ]);
-    await say(whatsapp, "m1", "I'd like to request the S Class from the Savoy");
-    await say(whatsapp, "m2", "14 February at 7pm");
+    await say(whatsapp, "m1", "Book me the S Class from the Savoy on 14 February at 7pm");
 
     expect(backend.created).toHaveLength(1);
     expect(backend.created[0]).toMatchObject({
-      kind: "booking",
-      reference: "BKG-2101",
+      kind: "enquiry",
+      reference: "ENQ-1101",
       journey: { vehicleId: "veh-sclass", date: "2027-02-14", pickup: "The Savoy" },
     });
-    expect(lastSent()).toContain("BKG-2101");
+    expect(backend.created.filter((record) => record.kind === "booking")).toHaveLength(0);
+    expect(lastSent()).toContain("ENQ-1101");
+  });
+
+  test("there is no tool that can put one in the diary", () => {
+    expect(cityChauffeursTools.map((tool) => tool.name)).not.toContain("create_booking_request");
   });
 });
 
@@ -539,7 +620,7 @@ describe("what one conversation may cost", () => {
 
     await say(whatsapp, "m2", "and again");
 
-    expect(lastSent()).toContain("passing the conversation to a member of the City Chauffeurs team");
+    expect(lastSent()).toContain("get someone from the team onto this");
     expect(model.requests).toHaveLength(asked);
     expect(store.conversations.get(conversationId)!.status).toBe("human_requested");
   });
@@ -568,7 +649,7 @@ describe("what the customer is finally told", () => {
     await say(whatsapp, "m1", "Did my enquiry go through?");
 
     expect(lastSent()).not.toContain("ENQ-4242");
-    expect(lastSent()).toContain("a member of the team will reply here");
+    expect(lastSent()).toContain("someone will reply to you here");
   });
 
   test("a reference the model forgot is added", async () => {
@@ -583,16 +664,16 @@ describe("what the customer is finally told", () => {
     expect(lastSent()).toBe("Thank you, that is with the team now. Your reference is ENQ-1101.");
   });
 
-  test("a booking request is never left sounding confirmed", async () => {
+  test("an enquiry is never left sounding like a booking", async () => {
     const whatsapp = channel([
       calls("record_journey_details", { name: "Amelia Hughes", pickup: "Heathrow", date: "2027-02-14" }),
-      calls("create_booking_request"),
-      says("Your car is booked for the 14th. Reference BKG-2101."),
+      calls("create_enquiry"),
+      says("Your car is booked for the 14th. Reference ENQ-1101."),
     ]);
     await say(whatsapp, "m1", "Book me a car on 14 Feb from Heathrow, Amelia Hughes");
 
-    expect(lastSent()).toContain("This is a request, not a confirmed booking");
-    expect(backend.created[0]).toMatchObject({ kind: "booking", reference: "BKG-2101" });
+    expect(lastSent()).toContain("rather than a confirmed booking");
+    expect(backend.created[0]).toMatchObject({ kind: "enquiry", reference: "ENQ-1101" });
   });
 });
 
@@ -836,22 +917,15 @@ describe("what the company does without publishing a page", () => {
   });
 });
 
-describe("asking after a booking", () => {
-  /** A booking request this number made earlier. */
-  async function requested(whatsapp: ReturnType<typeof channel>) {
-    await say(whatsapp, "m1", "Request the S Class from Heathrow on 14 Feb, Amelia Hughes");
-    return backend.created[0]!.reference;
-  }
-
+// A booking exists because the office made one from a won enquiry. The
+// customer can still ask after it here.
+describe("asking after a booking the office made", () => {
   test("a customer is told it is a request until the office says otherwise", async () => {
+    const reference = backend.officeBooks("BKG-2101", CUSTOMER);
     const whatsapp = channel([
-      calls("record_journey_details", { name: "Amelia Hughes", vehicle: "S Class", pickup: "Heathrow", date: "2027-02-14" }),
-      calls("create_booking_request"),
-      says("Your request is with the team."),
+      calls("get_booking_status", { reference }),
+      says("It is still a request; the team will confirm it."),
     ]);
-    const reference = await requested(whatsapp);
-
-    model.push(calls("get_booking_status", { reference }), says("It is still a request; the team will confirm it."));
     await say(whatsapp, "m2", `Is ${reference} confirmed yet?`);
 
     const shown = JSON.parse(
@@ -863,14 +937,8 @@ describe("asking after a booking", () => {
   });
 
   test("somebody else's reference looks exactly like one that does not exist", async () => {
-    const whatsapp = channel([
-      calls("record_journey_details", { name: "Amelia Hughes", vehicle: "S Class", pickup: "Heathrow", date: "2027-02-14" }),
-      calls("create_booking_request"),
-      says("Your request is with the team."),
-    ]);
-    const reference = await requested(whatsapp);
-
-    model.push(calls("get_booking_status", { reference }), says("I cannot find that one."));
+    const reference = backend.officeBooks("BKG-2101", CUSTOMER);
+    const whatsapp = channel([calls("get_booking_status", { reference }), says("I cannot find that one.")]);
     await say(whatsapp, "m9", `What about ${reference}?`, { from: "+447700900999" });
 
     const shown = JSON.parse(

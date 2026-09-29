@@ -51,7 +51,7 @@ beforeAll(async () => {
     insert into service (id, slug, name, summary, standfirst, benefits, booking, status, position) values
       ('svc-weddings', 'weddings', 'Weddings', 'For the day itself.', 'The car arrives early.',
        '[{"title":"Ribbons","copy":"In your colours."}]'::jsonb,
-       '{"needs":["The date","The venues"],"note":""}'::jsonb, 'published', 0),
+       '{"needs":["The date","The venues"],"note":"Hourly bookings have a four-hour minimum."}'::jsonb, 'published', 0),
       ('svc-hidden', 'hidden', 'Hidden', '', '', '[]'::jsonb, '{"needs":[],"note":""}'::jsonb, 'draft', 1);
     insert into service_vehicle (service_id, vehicle_id, position) values
       ('svc-weddings', 'veh-draft', 0), ('svc-weddings', 'veh-cullinan', 1);
@@ -136,12 +136,30 @@ describe("what the assistant can read", () => {
       standfirst: "The car arrives early.",
       benefits: [{ title: "Ribbons", copy: "In your colours." }],
       needs: ["The date", "The venues"],
+      bookingNote: "Hourly bookings have a four-hour minimum.",
       // The draft Phantom is on the service but not on the website.
       vehicleNames: ["Rolls-Royce Cullinan"],
     });
 
     expect(await backend.getService("hidden")).toBeNull();
     expect(await backend.getService("nothing-at-all")).toBeNull();
+  });
+
+  // The customer hears what the website prints, and the client changes both
+  // from the one screen in the admin.
+  test("booking terms are the client's own, and a missing settings row is not fatal", async () => {
+    const term = "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.";
+    await database.client.exec(`
+      insert into site_settings (id, business, contact, booking, social, seo, footer)
+      values ('default', '{}'::jsonb, '{}'::jsonb, '{"terms":["${term}"]}'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb)
+      on conflict (id) do update set booking = excluded.booking
+    `);
+    expect(await backend.listBookingTerms()).toEqual([term]);
+
+    // No settings row at all is a site that has not been set up, not a
+    // reason to fail the customer's turn.
+    await database.client.exec(`delete from site_settings where id = 'default'`);
+    expect(await backend.listBookingTerms()).toEqual([]);
   });
 });
 
@@ -230,69 +248,6 @@ describe("an enquiry made on WhatsApp", () => {
   });
 });
 
-describe("a booking request made on WhatsApp", () => {
-  test("is pending, attached to the customer and the car, and says it is not confirmed", async () => {
-    const { reference } = await backend.createBookingRequest({
-      customer: customer({ email: "amelia.hughes@example.com" }),
-      journey: journey({ luggage: "Two cases", flight: "BA117" }),
-      submissionId: "wa:wam-6:booking",
-    });
-
-    expect(reference).toMatch(/^BKG-\d+$/);
-    const booking = only(await rows(`select * from booking where reference = '${reference}'`));
-    expect(booking.status).toBe("pending");
-    expect(booking.vehicle_id).toBe("veh-cullinan");
-    expect(booking.date).toBe("2027-05-08");
-    expect(booking.destination).toBe("Chelsea Old Town Hall");
-    expect(booking.enquiry_id).toBeNull();
-    expect(booking.notes).toBe("Ribbons, please.\nLuggage: Two cases\nFlight: BA117");
-
-    const person = only(await rows("select * from customer"));
-    expect(booking.customer_id).toBe(person.id);
-
-    const trail = only(await rows(`select text from activity_entry where booking_id = '${booking.id}'`));
-    expect(trail.text).toBe(`Booking ${reference} requested on WhatsApp — not yet confirmed`);
-  });
-
-  test("delivered twice, asks once", async () => {
-    const input = { customer: customer(), journey: journey(), submissionId: "wa:wam-7:booking" };
-    const first = await backend.createBookingRequest(input);
-    const second = await backend.createBookingRequest(input);
-
-    expect(second.reference).toBe(first.reference);
-    expect(await rows("select id from booking")).toHaveLength(1);
-  });
-
-  test("needs a real day, and writes nothing without one", async () => {
-    const error = await backend
-      .createBookingRequest({
-        customer: customer(),
-        journey: journey({ date: "2026-02-31" }),
-        submissionId: "wa:wam-8:booking",
-      })
-      .catch((caught: unknown) => caught);
-
-    expect(error).toBeInstanceOf(BackendValidationError);
-    expect((error as BackendValidationError).fields.date).toBeDefined();
-    expect(await rows("select id from booking")).toHaveLength(0);
-    expect(await rows("select id from customer")).toHaveLength(0);
-  });
-
-  test("a car that has left the fleet is refused by the repository's own rule", async () => {
-    const error = await backend
-      .createBookingRequest({
-        customer: customer(),
-        journey: journey({ vehicleId: "veh-gone" }),
-        submissionId: "wa:wam-9:booking",
-      })
-      .catch((caught: unknown) => caught);
-
-    expect(error).toBeInstanceOf(BackendValidationError);
-    expect((error as BackendValidationError).fields.vehicleId).toBeDefined();
-    expect(await rows("select id from booking")).toHaveLength(0);
-  });
-});
-
 describe("what the website's form offers that has no page", () => {
   test("the assistant is given the same list a visitor sees", async () => {
     await database.client.exec(`
@@ -310,24 +265,29 @@ describe("what the website's form offers that has no page", () => {
   });
 });
 
-describe("asking after a booking", () => {
-  const requested = async (phone = AMELIA) =>
-    backend.createBookingRequest({
-      customer: { name: "Amelia Hughes", phone: phone as E164, email: "" },
-      journey: {
-        service: "",
-        vehicleId: "veh-cullinan",
-        pickup: "Heathrow",
-        dropoff: "Mayfair",
-        date: "2027-02-14",
-        time: "19:00",
-        passengers: 2,
-        luggage: "",
-        flight: "",
-        notes: "",
-      },
-      submissionId: `wa:${Math.random()}:booking`,
-    });
+describe("asking after a booking the office made", () => {
+  /**
+   * The only way a booking exists: a person in the office took it, or
+   * converted a won enquiry. Nothing a customer says on WhatsApp gets here.
+   */
+  const requested = async (phone = AMELIA) => {
+    const operations = await import("../src/repositories/operations");
+    const booking = await operations.createBooking({
+      name: "Amelia Hughes",
+      phone,
+      email: "",
+      service: "",
+      vehicleId: "veh-cullinan",
+      pickup: "Heathrow",
+      dropoff: "Mayfair",
+      date: "2027-02-14",
+      time: "19:00",
+      passengers: 2,
+      notes: "",
+      status: "pending",
+    } as Parameters<typeof operations.createBooking>[0]);
+    return { reference: booking.reference };
+  };
 
   test("is a request until the office confirms it, and says so", async () => {
     const { reference } = await requested();

@@ -2,7 +2,9 @@
 
 A customer messages the City Chauffeurs WhatsApp number. An assistant answers
 from the published fleet and services, takes a journey down, and records an
-enquiry or a booking request in the same tables the website's forms write to.
+enquiry in the same table the website's form writes to. Only an enquiry: the
+diary belongs to the office, and a person turns a won enquiry into a booking
+there, whichever door the customer came through.
 When it cannot help — or the customer asks for a person — it hands the
 conversation to the office and stops.
 
@@ -57,8 +59,7 @@ server mounts; it is not deployed on its own. It declares two ports —
 server implements both over what it already had. An enquiry from WhatsApp is
 made by `createPublicEnquiry` with `source = "whatsapp"`, the same function the
 website's form calls, with the same validation, the same customer matching and
-the same reference sequence. A booking request is made by `createBooking`,
-always `pending`.
+the same reference sequence. Nothing the assistant does writes to `booking`.
 
 What the server gained for WhatsApp, and why:
 
@@ -96,14 +97,18 @@ What the server gained for WhatsApp, and why:
    conversation that has already had forty turns within the hour skips this
    step entirely and goes to a person.
 6. **Check.** The finished text is put past the rules in `agent/reply.ts`: a
-   reference must be one the database issued, a record made this turn must
-   be named, and a booking request must not read as a confirmed booking.
+   reference must be one the database issued, every sum of money must be one
+   the tools put in front of the model this turn, a record made this turn
+   must be named, and nothing recorded may read as a confirmed booking. The price rule is absolute and fails closed: a figure that was
+   never in a tool result, written any way at all, replaces the reply with
+   one that asks for the journey instead of guessing. A car the client has
+   given no rate is "on request", the same words the website prints.
 7. **Commit.** The reply, the updated journey, the status and the run's
    record (model, tool calls, tokens, time) are written together.
 8. **Send.** Through Twilio, retried once if Twilio says it is worth it. The
    message is marked sent or undelivered, never assumed.
-9. **Tell somebody, where it matters.** An enquiry or a booking request the
-   assistant recorded is emailed to the office, and so is a conversation that
+9. **Tell somebody, where it matters.** An enquiry the assistant recorded is
+   emailed to the office, and so is a conversation that
    now needs a person. Sent after the record, and never able to undo it.
 
 Two messages sent together ("Heathrow to Mayfair tomorrow" / "3 of us") get
@@ -121,14 +126,13 @@ model has no SQL and no route to anything else.
 | `get_fleet`, `get_vehicle` | The published fleet — names, descriptions, confirmed capacities, the website's indicative rates |
 | `get_services`, `get_service` | Published services, what each includes, what the office needs to quote it — and the things the enquiry form offers without a page behind them, such as self-drive supercar hire. The assistant says the company does them and takes the details; it is told not to invent what they involve |
 | `record_journey_details` | Adds what the customer said to the journey: resolves "the S Class" to the real vehicle, checks a date exists and has not passed, a time is HH:MM, passengers are 1–50. Refused values come back with a reason; a refused value never overwrites a good one |
-| `create_enquiry` | Records an enquiry from the recorded journey — takes **no arguments**, so what reaches the office is what was validated, not what the model wrote last |
-| `create_booking_request` | The same, as a `pending` booking. Needs a name, a date and a pickup |
+| `create_enquiry` | Records an enquiry from the recorded journey — takes **no arguments**, so what reaches the office is what was validated, not what the model wrote last. Every request is one of these, including "book me the S-Class on Friday" |
 | `get_enquiry_status` | The status of an enquiry made from this number. Another customer's reference answers exactly like one that does not exist |
 | `get_booking_status` | The same for a booking, and whether the office has actually confirmed it. Until it has, the assistant is told in the result itself not to call it booked |
 | `handoff_to_human` | Hands over, with a reason and a summary for the office |
 
-There is no tool to confirm a booking, check a car is free, quote a price, or
-change or cancel anything. The prompt tells the model not to promise those
+There is no tool to make a booking, confirm one, check a car is free, quote a
+price, or change or cancel anything. The prompt tells the model not to promise those
 things; the missing tools are why it cannot.
 
 ### Handoff
@@ -301,8 +305,8 @@ pnpm --filter server test                         # the store, the backend, the 
 
 `apps/server/tests/whatsapp-acceptance.test.ts` is the whole path — simulator,
 channel, real store, real repositories, Postgres (PGlite, in process) — for
-each scenario: greeting, fleet, service, enquiry, booking request, a
-duplicate webhook, handoff, and a restart in the middle of a turn. Every
+each scenario: greeting, fleet, service, enquiry, a customer asking to book
+outright, a duplicate webhook, handoff, and a restart in the middle of a turn. Every
 record is checked in the tables the admin reads.
 
 ### Talking to it
@@ -332,12 +336,12 @@ conversations whose checks do not depend on wording:
 | | What is proved |
 |---|---|
 | greeting | It answers, as City Chauffeurs |
-| fleet | It names a car that is really published, and none that is not |
+| fleet | "What cars do you have?" is answered with makes and a question back, not the stock list, and the car is only described once it has been chosen |
 | vehicle | Any passenger figure it quotes is the client's own |
 | service | It answers from the real service record |
 | enquiry | One enquiry, `source = whatsapp`, and the customer is given the reference the database issued |
-| booking | One booking request, still `pending`, never worded as confirmed |
-| pricing | Every sum of money it says is one the website publishes |
+| booking | A customer asking to book outright still records an enquiry, puts nothing in the diary, and hears what is charged on top before it is recorded |
+| pricing | Every sum of money it says is one the website publishes, and a car with no rate is answered "on request" |
 | availability | It never says a car is available, and offers to take the details |
 | handoff | Asking for a person hands over, and the assistant says nothing more |
 | handback | A message sent while the office had the conversation is answered once when it is handed back |
@@ -353,7 +357,7 @@ OPENAI_API_KEY=sk-… \
 bun run scripts/whatsapp-eval.ts            # or: … whatsapp-eval.ts pricing injection
 ```
 
-It costs about forty model turns — roughly 70,000 input tokens and 3,000
+It costs about forty-two model turns — roughly 70,000 input tokens and 3,000
 output tokens on `gpt-5.4-mini`, most of the input served from the prompt
 cache — refuses any database that is not on this machine, and exits non-zero
 if a check fails. Each scenario writes from a telephone number of its own,
@@ -412,13 +416,10 @@ The simulator records replies instead of sending them; read them with
   into the database and recovery has to be narrowed to work this process
   claimed, or older than a lease. The VPS runs one systemd unit; nothing in
   the code enforces it.
-- **Bookings do not record their source.** The `booking` table has no source
-  column; a WhatsApp request is identified by its activity line. Adding the
-  column is a migration of its own.
 - **Text only.** Voice notes, photos and locations get a fixed reply asking
   for text.
-- **The customer is written to only twice.** An enquiry or booking request
-  reaches the office by email, and a handover does too; a customer hears from
+- **The customer is written to only twice.** An enquiry reaches the office by
+  email, and a handover does too; a customer hears from
   us when the office confirms their booking, and only where we hold an
   address. Nothing else is sent to anybody: a recorded quote reaches nobody,
   and no chauffeur is dispatched.
