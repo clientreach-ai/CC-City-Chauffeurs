@@ -73,6 +73,27 @@ describe("a conversation", () => {
     expect(lastSent()).toContain("Cullinan");
   });
 
+  // "From £150 an hour" is not the whole cost, so what goes on top travels
+  // with the rate rather than waiting to surprise anybody.
+  test("what is charged on top travels with the fleet and the journey", async () => {
+    const whatsapp = channel([
+      calls("get_fleet"),
+      calls("record_journey_details", { pickup: "Heathrow", dropoff: "Mayfair" }),
+      says("Noted. A few extras can go on top, the team confirm the figure."),
+    ]);
+    await say(whatsapp, "m1", "What cars do you have? Heathrow to Mayfair.");
+
+    const resultsOf = (request: number) => {
+      const message = model.requests[request]!.messages.at(-1) as { results: { content: string }[] };
+      return JSON.parse(message.results[0]!.content).data;
+    };
+
+    expect(resultsOf(1).alsoCharged).toContain(
+      "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
+    );
+    expect(resultsOf(2).sayBeforeTheyConfirm).toEqual(resultsOf(1).alsoCharged);
+  });
+
   test("a service question reads the real service", async () => {
     const whatsapp = channel([calls("get_service", { service: "airport transfers" }), says("Yes — we do airport transfers.")]);
     await say(whatsapp, "m1", "Do you do airport transfers?");

@@ -336,7 +336,7 @@ conversations whose checks do not depend on wording:
 | vehicle | Any passenger figure it quotes is the client's own |
 | service | It answers from the real service record |
 | enquiry | One enquiry, `source = whatsapp`, and the customer is given the reference the database issued |
-| booking | One booking request, still `pending`, never worded as confirmed |
+| booking | One booking request, still `pending`, never worded as confirmed, and what is charged on top said before it is recorded |
 | pricing | Every sum of money it says is one the website publishes, and a car with no rate is answered "on request" |
 | availability | It never says a car is available, and offers to take the details |
 | handoff | Asking for a person hands over, and the assistant says nothing more |

@@ -73,8 +73,14 @@ export const getFleet = defineTool({
     "The current published City Chauffeurs fleet: every vehicle a customer can ask for, with its grouping, description, confirmed passenger and luggage figures, and the indicative rates the website publishes. Call this before saying anything about the fleet. This is what you may draw on, not a list to read out: for \"what cars do you have?\", name a few makes and ask what they are after.",
   input: nothing,
   async run(context) {
-    const { fleet } = await context.catalogue();
-    return success({ makes: byMake(fleet), vehicles: fleet.map(describeVehicle), note: `${FLEET_NOTE} ${RATE_NOTE}` });
+    const { fleet, terms } = await context.catalogue();
+    return success({
+      makes: byMake(fleet),
+      vehicles: fleet.map(describeVehicle),
+      // Beside the rate, because "from £150 an hour" is not the whole story.
+      alsoCharged: terms,
+      note: `${FLEET_NOTE} ${RATE_NOTE}`,
+    });
   },
 });
 
@@ -84,9 +90,11 @@ export const getVehicle = defineTool({
     "Details of one vehicle, found by what the customer called it: \"the Cullinan\", \"S Class\", \"a G-Wagon\". Says so when the name fits more than one vehicle, or none.",
   input: z.object({ vehicle: z.string().min(1).max(80).describe("What the customer called the vehicle.") }).strict(),
   async run(context, input) {
-    const { fleet } = await context.catalogue();
+    const { fleet, terms } = await context.catalogue();
     const match = resolveVehicle(input.vehicle, fleet);
-    if ("vehicle" in match) return success({ vehicle: describeVehicle(match.vehicle), note: RATE_NOTE });
+    if ("vehicle" in match) {
+      return success({ vehicle: describeVehicle(match.vehicle), alsoCharged: terms, note: RATE_NOTE });
+    }
     if ("ambiguous" in match) {
       return failure("ambiguous", `That could be: ${match.ambiguous.map((vehicle) => vehicle.name).join(", ")}. Ask which one.`);
     }
@@ -156,6 +164,8 @@ export const getService = defineTool({
       description: detail.standfirst,
       includes: detail.benefits.map((benefit) => `${benefit.title}: ${benefit.copy}`),
       toQuoteTheOfficeNeeds: detail.needs,
+      bookingNote: detail.bookingNote,
+      alsoCharged: catalogue.terms,
       vehicles: detail.vehicleNames,
     });
   },
@@ -201,6 +211,9 @@ export const recordJourneyDetails = defineTool({
       stillNeededForEnquiry: missingFor("enquiry", draft),
       stillNeededForBookingRequest: missingFor("booking", draft),
       worthAsking: helpfulToAsk(draft),
+      // Here as well as on the fleet, so they are in front of you at the one
+      // moment that matters: reading the journey back before you record it.
+      sayBeforeTheyConfirm: catalogue.terms,
     });
   },
 });
