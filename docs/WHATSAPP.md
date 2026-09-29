@@ -96,8 +96,13 @@ What the server gained for WhatsApp, and why:
    conversation that has already had forty turns within the hour skips this
    step entirely and goes to a person.
 6. **Check.** The finished text is put past the rules in `agent/reply.ts`: a
-   reference must be one the database issued, a record made this turn must
-   be named, and a booking request must not read as a confirmed booking.
+   reference must be one the database issued, every sum of money must be one
+   the tools put in front of the model this turn, a record made this turn
+   must be named, and a booking request must not read as a confirmed
+   booking. The price rule is absolute and fails closed: a figure that was
+   never in a tool result, written any way at all, replaces the reply with
+   one that asks for the journey instead of guessing. A car the client has
+   given no rate is "on request", the same words the website prints.
 7. **Commit.** The reply, the updated journey, the status and the run's
    record (model, tool calls, tokens, time) are written together.
 8. **Send.** Through Twilio, retried once if Twilio says it is worth it. The

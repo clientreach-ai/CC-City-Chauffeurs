@@ -14,7 +14,7 @@
 
 import type { ConversationState, ToolCallRecord, TurnUsage } from "../ports";
 import { FALLBACK_REPLY, HANDOFF_REPLY } from "./guardrails";
-import { checkReply } from "./reply";
+import { checkReply, figuresIn } from "./reply";
 import { ModelUnavailableError, type ChatModel, type ModelMessage, type ModelToolResult } from "./model";
 import { SYSTEM } from "./prompt";
 import { runTool, toModelTool, type Tool, type ToolContext } from "../tools/tool";
@@ -48,14 +48,21 @@ export async function runAgentTurn(input: {
   const messages: ModelMessage[] = [...input.history];
   const toolCalls: ToolCallRecord[] = [];
   const usage: TurnUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
+  /** Every sum of money the tools have shown the model this turn. */
+  const figures = new Set<number>();
 
   /**
    * Nothing reaches the customer without the checks in `reply.ts`: a
-   * reference must be one that exists, a record made this turn must be
-   * named, and a request must not read as a confirmed booking.
+   * reference must be one that exists, a price must be one the client
+   * published, a record made this turn must be named, and a request must
+   * not read as a confirmed booking.
    */
   const finish = (reply: string, extra: { errorCode?: string | null; iterations: number }): TurnOutcome => {
-    const checked = checkReply(reply, { created: context.createdFor, references: context.state.references });
+    const checked = checkReply(reply, {
+      created: context.createdFor,
+      references: context.state.references,
+      figures: [...figures],
+    });
     return {
       reply: checked.text.length > MAX_REPLY ? `${checked.text.slice(0, MAX_REPLY - 1)}…` : checked.text,
       state: context.state,
@@ -120,7 +127,11 @@ export async function runAgentTurn(input: {
         errorCode: result.ok ? null : result.error.code,
         durationMs: Math.round(performance.now() - started),
       });
-      results.push({ callId: call.id, content: JSON.stringify(result), isError: !result.ok });
+      const content = JSON.stringify(result);
+      // What the model was shown is what it may repeat. A figure that was
+      // never in a tool result cannot have come from the client's records.
+      if (result.ok) for (const figure of figuresIn(content)) figures.add(figure);
+      results.push({ callId: call.id, content, isError: !result.ok });
     }
     messages.push({ role: "tool_results", results });
 

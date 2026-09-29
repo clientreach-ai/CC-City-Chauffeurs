@@ -214,7 +214,7 @@ export class MemoryStore implements ConversationStore {
 }
 
 export const FLEET: FleetVehicle[] = [
-  vehicle("veh-cullinan", "cullinan", "Rolls-Royce Cullinan", "Rolls-Royce", "Cullinan", ["Chauffeur fleet", "High-profile SUVs"], 3),
+  vehicle("veh-cullinan", "cullinan", "Rolls-Royce Cullinan", "Rolls-Royce", "Cullinan", ["Chauffeur fleet", "High-profile SUVs"], 3, 200),
   vehicle("veh-ghost", "ghost", "Rolls-Royce Ghost", "Rolls-Royce", "Ghost", ["Chauffeur fleet"], 3),
   vehicle("veh-sclass", "s-class", "Mercedes S-Class", "Mercedes", "S-Class", ["Chauffeur fleet"], 3),
   vehicle("veh-vclass", "v-class", "Mercedes V-Class", "Mercedes", "V-Class", ["Group transport"], 7),
@@ -230,6 +230,8 @@ function vehicle(
   model: string,
   groupings: string[],
   passengers: number | null,
+  /** As the client has it: a published guide rate, or "on request". */
+  hourlyRate: number | null = null,
 ): FleetVehicle {
   return {
     id,
@@ -242,7 +244,7 @@ function vehicle(
     passengers,
     luggage: "",
     chauffeurOnly: true,
-    hourlyRate: null,
+    hourlyRate,
     dayRate: null,
   };
 }
