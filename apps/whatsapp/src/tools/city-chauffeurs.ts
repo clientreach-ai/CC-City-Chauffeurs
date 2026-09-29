@@ -65,7 +65,7 @@ const FLEET_NOTE =
   "Do not read this list out. Asked what cars there are, name three or four of the makes, say there are others, and ask what the customer is after. Name the cars under a make only once they have picked one, and give a rate only once they have picked a car.";
 
 const RATE_NOTE =
-  "Rates are the indicative guides the website publishes, in pounds — never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the client has not confirmed it: say it is confirmed on enquiry.";
+  "Rates are the indicative guides the website publishes, in pounds, never a quote. The final price is confirmed by the City Chauffeurs team. Where a figure is null the client has not confirmed it: say it is confirmed on enquiry.";
 
 export const getFleet = defineTool({
   name: "get_fleet",
@@ -81,7 +81,7 @@ export const getFleet = defineTool({
 export const getVehicle = defineTool({
   name: "get_vehicle",
   description:
-    "Details of one vehicle, found by what the customer called it — \"the Cullinan\", \"S Class\", \"a G-Wagon\". Says so when the name fits more than one vehicle, or none.",
+    "Details of one vehicle, found by what the customer called it: \"the Cullinan\", \"S Class\", \"a G-Wagon\". Says so when the name fits more than one vehicle, or none.",
   input: z.object({ vehicle: z.string().min(1).max(80).describe("What the customer called the vehicle.") }).strict(),
   async run(context, input) {
     const { fleet } = await context.catalogue();
@@ -165,7 +165,7 @@ export const getService = defineTool({
 const journeyInput = z
   .object({
     service: z.string().max(80).optional().describe("The service, by the name get_services lists."),
-    vehicle: z.string().max(80).optional().describe("The vehicle as the customer named it — resolved to a real one."),
+    vehicle: z.string().max(80).optional().describe("The vehicle as the customer named it, resolved to a real one."),
     pickup: z.string().max(160).optional().describe("Collection address, hotel or airport and terminal."),
     dropoff: z.string().max(160).optional().describe("Destination."),
     date: z.string().max(10).optional().describe("YYYY-MM-DD. Work out 'tomorrow' or 'Saturday' from today's date."),
@@ -188,7 +188,7 @@ function summarise(draft: JourneyDraft, fleet: FleetVehicle[]) {
 export const recordJourneyDetails = defineTool({
   name: "record_journey_details",
   description:
-    "Record journey details as soon as the customer gives them — any subset, every time something new is said. Each value is checked: a vehicle is matched to the real fleet, a service to the real catalogue, a date must exist and not have passed. Returns what is now recorded, anything refused with the reason, and what is still needed.",
+    "Record journey details as soon as the customer gives them: any subset, every time something new is said. Each value is checked: a vehicle is matched to the real fleet, a service to the real catalogue, a date must exist and not have passed. Returns what is now recorded, anything refused with the reason, and what is still needed.",
   input: journeyInput,
   async run(context, input) {
     const catalogue = await context.catalogue();
@@ -244,7 +244,7 @@ async function createRecord(context: ToolContext, kind: "enquiry" | "booking") {
 export const createEnquiry = defineTool({
   name: "create_enquiry",
   description:
-    "Record an enquiry for the City Chauffeurs team from the journey details already recorded — for a customer who wants a price, or is not ready to fix a date. Only call it after summarising the details and the customer confirming. Returns the enquiry reference; give it to the customer exactly as returned.",
+    "Record an enquiry for the City Chauffeurs team from the journey details already recorded, for a customer who wants a price, or is not ready to fix a date. Only call it after summarising the details and the customer confirming. Returns the enquiry reference; give it to the customer exactly as returned.",
   input: nothing,
   run: (context) => createRecord(context, "enquiry"),
 });
@@ -252,7 +252,7 @@ export const createEnquiry = defineTool({
 export const createBookingRequest = defineTool({
   name: "create_booking_request",
   description:
-    "Record a booking request from the journey details already recorded — for a customer asking for a specific journey on a specific date. It is a request, not a booking: the team confirms the vehicle and chauffeur and comes back. Needs a date and a pickup. Only call it after summarising the details and the customer confirming. Returns the booking reference; give it exactly as returned.",
+    "Record a booking request from the journey details already recorded, for a customer asking for a specific journey on a specific date. It is a request, not a booking: the team confirms the vehicle and chauffeur and comes back. Needs a date and a pickup. Only call it after summarising the details and the customer confirming. Returns the booking reference; give it exactly as returned.",
   input: nothing,
   run: (context) => createRecord(context, "booking"),
 });
@@ -291,7 +291,7 @@ export const getBookingStatus = defineTool({
 export const handoffToHuman = defineTool({
   name: "handoff_to_human",
   description:
-    "Hand the conversation to a person in the City Chauffeurs office. Use it when the customer asks for a person, has a complaint, an urgent or safety matter, a question about an existing booking you cannot answer, or anything else you cannot help with. After it, tell the customer a member of the team will reply here — and say nothing more.",
+    "Hand the conversation to a person in the City Chauffeurs office. Use it when the customer asks for a person, has a complaint, an urgent or safety matter, a question about an existing booking you cannot answer, or anything else you cannot help with. After it, tell the customer a member of the team will reply here, and say nothing more.",
   input: z
     .object({
       reason: z.enum(["customer_asked", "complaint", "urgent", "existing_booking", "cannot_help", "other"]),

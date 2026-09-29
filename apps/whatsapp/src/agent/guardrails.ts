@@ -49,7 +49,7 @@ export function escalationFor(text: string): Escalation | null {
     return { reason: "customer_asked", summary: "The customer asked to speak to a person." };
   }
   if (URGENT.some((pattern) => pattern.test(text))) {
-    return { reason: "urgent", summary: "The customer raised something urgent — read their last message first." };
+    return { reason: "urgent", summary: "The customer raised something urgent, read their last message first." };
   }
   if (COMPLAINT.some((pattern) => pattern.test(text))) {
     return { reason: "complaint", summary: "The customer raised a complaint, a refund or lost property." };
@@ -58,13 +58,13 @@ export function escalationFor(text: string): Escalation | null {
 }
 
 export const HANDOFF_REPLY =
-  "Thank you. I've asked a member of the City Chauffeurs team to pick this up, and they'll reply to you here as soon as they can.";
+  "Of course. I've asked someone from the team to pick this up, they'll reply to you here shortly.";
 
 export const URGENT_REPLY =
-  "I've passed this straight to the City Chauffeurs team so a person can help. If anyone is in danger or hurt, please call 999 first.";
+  "I've passed this to the team now so a person can help you. If anyone is hurt or in danger, please call 999 first.";
 
 export const UNSUPPORTED_REPLY =
-  "I can help with text messages only at the moment. If you'd like to send something else, just say so and I'll put you through to the team.";
+  "I can only read text messages, I'm afraid. Tell me what you need and I'll help, or say the word and I'll put you through to the team.";
 
 /**
  * A conversation that has had more turns in an hour than any real one does.
@@ -72,7 +72,7 @@ export const UNSUPPORTED_REPLY =
  * away, they are handed to a person.
  */
 export const TOO_MANY_REPLY =
-  "Thank you for all of this. I'm passing the conversation to a member of the City Chauffeurs team, who will reply here.";
+  "Let me get someone from the team onto this properly. They'll reply to you here.";
 
 export const FALLBACK_REPLY =
-  "I'm sorry, I couldn't answer that just now. I've let the City Chauffeurs team know, and a member of the team will reply to you here.";
+  "Sorry, I couldn't get you an answer on that just now. I've let the team know and someone will come back to you here.";

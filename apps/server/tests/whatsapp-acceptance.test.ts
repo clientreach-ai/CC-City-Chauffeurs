@@ -315,7 +315,7 @@ describe("Scenario 7 — a person", () => {
     await customerSays("SM1", "I want to speak to someone.");
 
     expect(model.requests).toHaveLength(0);
-    expect(lastReply()).toContain("member of the City Chauffeurs team");
+    expect(lastReply()).toContain("asked someone from the team to pick this up");
 
     const conversation = only(await rows("select status, handoff_reason, handoff_summary from whatsapp_conversation"));
     expect(conversation).toMatchObject({ status: "human_requested", handoff_reason: "customer_asked" });
