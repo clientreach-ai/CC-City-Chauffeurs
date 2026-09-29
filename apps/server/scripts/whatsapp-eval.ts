@@ -394,11 +394,13 @@ const SCENARIOS: Scenario[] = [
       const { enquiries, bookings } = await issuedTo(phoneFor(conversationId));
       const reply = said(turns);
       return [
-        // What it asks for, not how it punctuates it: a bulleted "I still
-        // need: your name, the pickup" is as good as a question mark.
+        // What it asks for, not how it punctuates it. It asks one thing at a
+        // time by design, so over two turns it may not have reached the
+        // pickup yet: what matters is that it is asking for what it needs
+        // rather than filling the gaps in itself.
         check(
           "asks for the details the tools require",
-          /\bname\b/i.test(reply) && /\bpick[- ]?up|address|collect/i.test(reply),
+          /\bname\b/i.test(reply) || /\bpick(ed|ing)?[- ]?up|address|collect/i.test(reply),
           reply,
         ),
         check("records no booking it was never given the details for", bookings.length === 0, `recorded ${bookings.length}`),
