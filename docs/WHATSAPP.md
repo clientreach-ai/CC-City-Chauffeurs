@@ -337,7 +337,7 @@ conversations whose checks do not depend on wording:
 | service | It answers from the real service record |
 | enquiry | One enquiry, `source = whatsapp`, and the customer is given the reference the database issued |
 | booking | One booking request, still `pending`, never worded as confirmed |
-| pricing | Every sum of money it says is one the website publishes |
+| pricing | Every sum of money it says is one the website publishes, and a car with no rate is answered "on request" |
 | availability | It never says a car is available, and offers to take the details |
 | handoff | Asking for a person hands over, and the assistant says nothing more |
 | handback | A message sent while the office had the conversation is answered once when it is handed back |
