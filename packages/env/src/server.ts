@@ -105,16 +105,14 @@ export const env = createEnv({
     OPENAI_API_KEY: z.string().min(1).optional(),
 
     /**
-     * Email. `off` — the default, and what the tests run with — records
-     * nothing and sends nothing. `smtp` is any mail server, including a
-     * Gmail account with an app password. `resend` is the transactional
-     * service, for production.
+     * Email, through Resend. `off` — the default, and what the tests run
+     * with — records nothing and sends nothing, so a deployment given no
+     * mail settings behaves as it did before there was any email at all.
+     * Every message the system sends goes through the one provider; see
+     * `./mail.ts` for what each setting has to be.
      */
-    MAIL_PROVIDER: z.enum(["off", "smtp", "resend"]).default("off"),
-    SMTP_HOST: z.string().min(1).optional(),
-    SMTP_PORT: z.coerce.number().int().positive().default(587),
-    SMTP_USER: z.string().min(1).optional(),
-    SMTP_PASSWORD: z.string().min(1).optional(),
+    MAIL_PROVIDER: z.enum(["off", "resend"]).default("off"),
+    /** A Resend API key, `re_…`. One restricted to sending is all this needs. */
     RESEND_API_KEY: z.string().min(1).optional(),
     /** The sender, e.g. `City Chauffeurs <bookings@citychauffeurs.co.uk>`. */
     MAIL_FROM: z.string().min(1).optional(),
@@ -124,8 +122,9 @@ export const env = createEnv({
     ADMIN_URL: z.url().default("http://localhost:3002"),
   },
   /**
-   * The WhatsApp settings are checked together, by the rules in
-   * `./whatsapp.ts`, so a half-configured channel never reaches a customer.
+   * The WhatsApp and mail settings are each checked together, by the rules in
+   * `./whatsapp.ts` and `./mail.ts`, so a half-configured channel never
+   * reaches a customer and a half-configured mailer never fails quietly.
    */
   createFinalSchema: (shape) =>
     z.object(shape).superRefine((value, context) => {
