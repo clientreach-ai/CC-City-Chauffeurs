@@ -104,8 +104,10 @@ export function setTestEnvironment() {
   process.env.R2_PREFIX = "test-site";
   // Set outright for the same reason as the bucket above: `bun test` loads
   // the developer's own .env, and a test must never post to a real mailbox
-  // or quote a real address back in an assertion.
+  // or quote a real address back in an assertion. The key goes too, so that
+  // even a mailer built by mistake has nothing real to send with.
   process.env.MAIL_PROVIDER = "off";
+  delete process.env.RESEND_API_KEY;
   process.env.MAIL_FROM = "City Chauffeurs <bookings@citychauffeurs.example>";
   process.env.OFFICE_EMAIL = "office@citychauffeurs.example";
   process.env.ADMIN_URL = "https://admin.example";
