@@ -173,6 +173,77 @@ describe("a price the customer is told", () => {
   });
 });
 
+describe("what is free, which nothing here knows", () => {
+  test("a reply that says a car is available never goes out", () => {
+    for (const reply of [
+      "Yes, the Cullinan is available on Saturday.",
+      "We have a Ghost available for your wedding.",
+      "That one's available, shall I put it through?",
+    ]) {
+      const checked = checkReply(reply, nothingCreated);
+      expect(checked.corrections, reply).toContain("availability_claim_dropped");
+      expect(checked.text).toContain("the team will confirm what they have");
+    }
+  });
+
+  test("being honest about it is left alone", () => {
+    for (const reply of [
+      "I can't check availability myself, the team will confirm it.",
+      "I cannot say whether it is available, but I can take the details.",
+      "The team will confirm what's available once they have the date.",
+      "Is the date flexible at all?",
+    ]) {
+      expect(checkReply(reply, nothingCreated).corrections, reply).not.toContain("availability_claim_dropped");
+    }
+  });
+});
+
+describe("a change the backend did not make", () => {
+  const moved = { created: null, references: [], changed: [{ kind: "updated" as const, reference: "ENQ-1100" }] };
+
+  test("is never claimed when nothing changed", () => {
+    for (const reply of [
+      "I've updated your enquiry to Friday at 4pm.",
+      "That's been moved to Friday.",
+      "Your enquiry has been cancelled.",
+      "I have rescheduled it for you.",
+      "Changed your pickup to Heathrow.",
+    ]) {
+      const checked = checkReply(reply, nothingCreated);
+      expect(checked.corrections, reply).toContain("unmade_change_claim_dropped");
+      expect(checked.text).toContain("couldn't make that change");
+    }
+  });
+
+  test("is allowed exactly when the backend made it", () => {
+    const reply = "I've updated your enquiry ENQ-1100 to Friday at 4pm.";
+    const checked = checkReply(reply, { ...moved, references: ["ENQ-1100"] });
+
+    expect(checked.text).toBe(reply);
+    expect(checked.corrections).toEqual([]);
+  });
+
+  test("recording an enquiry licenses its own 'all done'", () => {
+    const checked = checkReply("All done, your reference is ENQ-1100.", {
+      created: { kind: "enquiry", reference: "ENQ-1100" },
+      references: ["ENQ-1100"],
+    });
+
+    expect(checked.corrections).toEqual([]);
+  });
+
+  test("offering a change is not claiming one", () => {
+    for (const reply of [
+      "Would you like me to change it to Friday?",
+      "I can move that to Friday if you like.",
+      "Shall I cancel it?",
+      "You can change it any time, just say.",
+    ]) {
+      expect(checkReply(reply, nothingCreated).corrections, reply).not.toContain("unmade_change_claim_dropped");
+    }
+  });
+});
+
 describe("the dash a person would not type", () => {
   test("an em dash between clauses becomes a comma", () => {
     const checked = checkReply("The S-Class seats three — the team will confirm the price.", nothingCreated);
