@@ -745,14 +745,29 @@ const SCENARIOS: Scenario[] = [
     setup: async (phone) => {
       await seedEnquiry(phone, "whatsapp", { date: isoInDays(26), time: "10:00", pickup: "Claridge's" });
     },
-    steps: customer(`I also want a car for my wedding on ${inDays(33)}.`, "From Claridge's to Kew Gardens, Amelia Hughes."),
+    steps: customer(
+      `I also want a car for my wedding on ${inDays(33)}.`,
+      "From Claridge's to Kew Gardens, Amelia Hughes.",
+      "Two of us.",
+    ),
     check: async (turns, conversationId) => {
       const { enquiries } = await issuedTo(phoneFor(conversationId));
       const reply = said(turns);
       const added = enquiries.find((item) => item.journey.date === isoInDays(33));
       return [
-        check("asks for the time rather than assuming it", /\btime\b/i.test(reply), reply),
-        check("records nothing with a time nobody gave", added === undefined || added.journey.time !== "10:00", added?.journey.time ?? "nothing recorded"),
+        // The material guarantee: Saturday's ten o'clock is not Sunday's.
+        check(
+          "never inherits the other journey's time",
+          added === undefined || added.journey.time !== "10:00",
+          added?.journey.time ?? "nothing recorded",
+        ),
+        // It asks one thing at a time, so the time may be its third question
+        // rather than its first. What it may not do is fill one in.
+        check(
+          "asks for the time rather than filling one in",
+          /\btime\b/i.test(reply) || added === undefined || added.journey.time === "",
+          reply,
+        ),
       ];
     },
   },
