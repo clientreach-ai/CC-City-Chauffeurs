@@ -238,6 +238,12 @@ export const recordJourneyDetails = defineTool({
       stillNeededForEnquiry: missingFor("enquiry", draft),
       stillNeededForBookingRequest: missingFor("booking", draft),
       worthAsking: helpfulToAsk(draft),
+      // Next to the data rather than only in the prompt, because this is the
+      // moment it is needed: a reply that lists what has been written down
+      // and asks nothing leaves the customer with nothing to do.
+      ...(helpfulToAsk(draft).length
+        ? { askForOneOfThese: helpfulToAsk(draft), askingNote: "End your reply by asking for one of these. Do not simply read back what you have." }
+        : {}),
       // Here as well as on the fleet, so they are in front of you at the one
       // moment that matters: reading the journey back before you record it.
       ...termsFor(context, catalogue.terms),
