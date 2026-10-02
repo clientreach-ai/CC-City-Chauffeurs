@@ -48,6 +48,29 @@ const NOT_YET_CONFIRMED =
  * one thing a customer acts on, repeats to somebody else, and holds the
  * company to.
  */
+/**
+ * Saying a car is free, which nothing in this system can establish.
+ *
+ * There is no availability anywhere: the diary holds a date and a time and
+ * nothing that says when a car is back. Three facts get confused here and
+ * only the first two are knowable — the car is in the fleet, the customer
+ * asked for it, and the car is free that day. A reply that asserts the third
+ * is replaced rather than qualified, because a customer who has been told
+ * their car is available has stopped asking.
+ */
+const AVAILABILITY_FALLBACK =
+  "I can't check what's free myself, I'm afraid. Tell me the date and the journey and the team will confirm what they have.";
+
+/**
+ * A reply claiming a change the backend did not make.
+ *
+ * The one thing worse than failing to reschedule somebody is telling them
+ * you did. The tools record what actually changed; anything else that reads
+ * as a completed change goes.
+ */
+const NOT_CHANGED_FALLBACK =
+  "Sorry, I couldn't make that change just now. I've let the team know and someone will come back to you here.";
+
 const PRICE_FALLBACK =
   "Let me not guess at that. Tell me the date and where you're going and the City Chauffeurs team will come back to you with the figure.";
 
@@ -105,6 +128,31 @@ export function figuresIn(text: string): number[] {
   return found.map((match) => Number(match[1]!.replace(/,/g, ""))).filter((value) => !Number.isNaN(value));
 }
 
+/**
+ * A sentence that asserts something is available, rather than asking about
+ * it or saying it cannot be checked.
+ *
+ * Negations and the words the assistant uses when it is being honest are
+ * excluded, so "I can't confirm availability" and "the team will confirm
+ * what's available" read as what they are.
+ */
+const CLAIMS_AVAILABLE = /\bavailab/i;
+const HONEST_ABOUT_AVAILABILITY =
+  /\b(?:can'?t|cannot|can not|unable|not able|don'?t|do not|never|without|whether)\b|\b(?:check|checking|checked|confirm|confirms|confirming|confirmed|confirmation)\b|\b(?:team|office)\b|\bon request\b/i;
+
+/**
+ * A reply that says an existing record has been changed.
+ *
+ * Only the verbs that mean it: "done" and "sorted" are what anybody says
+ * after any favour, and reading them as a claim about the database turns
+ * "all done, your reference is ENQ-1100" into a failure.
+ */
+const CLAIMS_CHANGED =
+  /\b(?:i'?ve|i have|we'?ve|we have|that'?s|thats|it'?s|its|has been|have been|is now|now)\s+(?:now\s+)?(?:been\s+)?(?:updated|changed|amended|moved|rescheduled|cancelled|canceled)\b|\b(?:updated|changed|amended|moved|rescheduled|cancelled|canceled)\s+(?:your|the|that|it)\b/i;
+
+/** Sentences, roughly: enough to judge one claim at a time. */
+const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter(Boolean);
+
 export type ReplyCheck = {
   /** What this turn recorded, if anything. */
   created: CreatedRecord | null;
@@ -120,6 +168,11 @@ export type ReplyCheck = {
    * rather than waving them through.
    */
   figures?: number[];
+  /**
+   * Enquiries this turn actually changed, as the backend confirmed them.
+   * Left out means none did, so no claim of a change may go out.
+   */
+  changed?: { kind: "updated" | "cancelled"; reference: string }[];
 };
 
 /** The reply as it may be sent, and why it differs from what the model wrote. */
@@ -147,6 +200,18 @@ export function checkReply(reply: string, check: ReplyCheck): CheckedReply {
       text = SAFE_FALLBACK;
       corrections.push("invented_reference_dropped");
     }
+  }
+
+  // Nothing here can know what is free, so nothing here may say so.
+  if (sentences(text).some((sentence) => CLAIMS_AVAILABLE.test(sentence) && !HONEST_ABOUT_AVAILABILITY.test(sentence))) {
+    return { text: AVAILABILITY_FALLBACK, corrections: [...corrections, "availability_claim_dropped"] };
+  }
+
+  // "I have moved it to Friday" is a claim about the database. Only the
+  // database may license it, and it does so by returning the change — or by
+  // having just recorded the enquiry being talked about.
+  if (!check.changed?.length && !check.created && CLAIMS_CHANGED.test(text)) {
+    return { text: NOT_CHANGED_FALLBACK, corrections: [...corrections, "unmade_change_claim_dropped"] };
   }
 
   // A price is the one thing the model may not improvise, so this is not a

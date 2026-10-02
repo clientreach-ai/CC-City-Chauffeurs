@@ -71,6 +71,7 @@ export async function runAgentTurn(input: {
       created: context.createdFor,
       references: context.state.references,
       figures: [...figures],
+      changed: context.changed,
     });
     // Said once, then remembered. Recorded from what actually went out, not
     // from what the tools offered: offering them is not telling anybody.
