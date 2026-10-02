@@ -319,7 +319,7 @@ export const siteSettingsSchema = z.object({
 
 // ---------------------------------------------------------------- operations
 
-export const enquiryStatusSchema = z.enum(["new", "contacted", "quoted", "won", "lost"]);
+export const enquiryStatusSchema = z.enum(["new", "contacted", "quoted", "won", "lost", "cancelled"]);
 export const lostReasonSchema = z.enum(["price", "availability", "too-slow", "no-reply", "other"]);
 export const bookingStatusSchema = z.enum([
   "pending",
@@ -433,6 +433,39 @@ const publicJourney = {
   submissionId,
   website: honeypot,
 };
+
+/**
+ * Changing the journey on an enquiry that already exists.
+ *
+ * Every field is optional and nothing has a default, which is the whole
+ * point: a patch says what changed, and a field the caller left out keeps
+ * the value the enquiry already holds. Defaults would turn "move it to
+ * Friday" into "move it to Friday and forget the pickup".
+ *
+ * The rules are the form's own rules, so a journey cannot be edited into a
+ * state the form would have refused to create.
+ */
+export const enquiryJourneyPatchSchema = z
+  .object({
+    service: capped(PUBLIC_FORM_LIMITS.service, "service"),
+    vehicleId: z.string().nullable(),
+    pickup: capped(PUBLIC_FORM_LIMITS.pickup, "pick-up address"),
+    dropoff: capped(PUBLIC_FORM_LIMITS.dropoff, "destination"),
+    date: calendarDate.refine(
+      (value) => !value || value >= new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+      "That date has passed — choose today or later.",
+    ),
+    time: capped(PUBLIC_FORM_LIMITS.time, "time"),
+    passengers: passengerCount,
+    luggage: capped(PUBLIC_FORM_LIMITS.luggage, "luggage note"),
+    flight: capped(PUBLIC_FORM_LIMITS.flight, "flight number"),
+    message: capped(PUBLIC_FORM_LIMITS.message, "message"),
+  })
+  .partial()
+  .strict()
+  .refine((patch) => Object.keys(patch).length > 0, "Nothing to change.");
+
+export type EnquiryJourneyPatch = z.infer<typeof enquiryJourneyPatchSchema>;
 
 /** The public enquiry form on the website. */
 export const publicEnquirySchema = z.object({

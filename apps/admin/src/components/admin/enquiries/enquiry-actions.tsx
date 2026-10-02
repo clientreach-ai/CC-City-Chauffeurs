@@ -20,6 +20,7 @@ export async function changeStatus(enquiry: Enquiry, status: EnquiryStatus) {
     const messages: Partial<Record<EnquiryStatus, [string, string]>> = {
       contacted: ["Marked as contacted", "Recorded here only — the customer has not been sent anything."],
       won: ["Marked as won", "Create a booking when the details are agreed."],
+      cancelled: ["Marked as cancelled", "Recorded as withdrawn by the customer, not as lost business."],
       new: ["Reopened", ""],
     };
     const [title, description] = messages[status] ?? ["Status updated", ""];
