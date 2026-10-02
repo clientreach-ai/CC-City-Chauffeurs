@@ -23,10 +23,12 @@ setTestEnvironment();
 
 let database: TestDatabase;
 let backend: Backend;
+let operations: typeof import("../src/repositories/operations");
 
 beforeAll(async () => {
   database = await startDatabase();
   backend = (await import("../src/lib/whatsapp-backend")).createWhatsAppBackend();
+  operations = await import("../src/repositories/operations");
 
   await database.client.exec(`
     insert into vehicle (id, slug, name, make, model, short_description, status, specs, pricing, availability)
@@ -265,13 +267,141 @@ describe("what the website's form offers that has no page", () => {
   });
 });
 
+describe("managing one's own enquiries", () => {
+  const made = async (over: Partial<RequestJourney> = {}, submissionId = `wa:${Math.random()}:enquiry`) =>
+    backend.createEnquiry({ customer: customer(), journey: journey(over), submissionId });
+
+  test("the list is this number's WhatsApp enquiries, with the journey as the office holds it", async () => {
+    const { reference } = await made();
+    const mine = await backend.listMyEnquiries(AMELIA);
+
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      reference,
+      status: "New",
+      changeable: true,
+      note: "Ribbons, please.",
+      quote: null,
+    });
+    // The car by name, because that is what the customer asked for.
+    expect(mine[0]!.journey).toMatchObject({ vehicle: "Rolls-Royce Cullinan", date: "2027-05-08", time: "11:00" });
+  });
+
+  test("another number's list is empty, not somebody else's", async () => {
+    await made();
+    expect(await backend.listMyEnquiries("+447700900999" as E164)).toEqual([]);
+  });
+
+  test("an amendment moves only what it names, and reports the record back", async () => {
+    const { reference } = await made();
+    const after = await backend.updateMyEnquiry(reference, AMELIA, { date: "2027-05-14", time: "16:00" });
+
+    expect(after).toMatchObject({ reference, changeable: true });
+    expect(after!.journey).toMatchObject({
+      date: "2027-05-14",
+      time: "16:00",
+      pickup: "The Dorchester",
+      vehicle: "Rolls-Royce Cullinan",
+      passengers: 4,
+    });
+  });
+
+  test("cancelling says so, and says it cannot be changed again", async () => {
+    const { reference } = await made();
+    const after = await backend.cancelMyEnquiry(reference, AMELIA);
+
+    expect(after).toMatchObject({ reference, status: "Cancelled", changeable: false });
+    expect(after!.notChangeableBecause).toContain("already been cancelled");
+    expect(await backend.cancelMyEnquiry(reference, AMELIA).catch(() => "refused")).toBe("refused");
+  });
+
+  test("an enquiry from the website is readable but not changeable", async () => {
+    const enquiry = await operations.createPublicEnquiry(
+      {
+        name: "Amelia Hughes",
+        phone: AMELIA,
+        email: "",
+        replyBy: "whatsapp",
+        service: "weddings",
+        vehicleId: "veh-cullinan",
+        pickup: "Mayfair",
+        dropoff: "",
+        date: "2027-05-08",
+        time: "",
+        passengers: null,
+        luggage: "",
+        flight: "",
+        message: "",
+        submissionId: "",
+        website: "",
+      } as Parameters<typeof operations.createPublicEnquiry>[0],
+      { source: "website" },
+    );
+
+    expect((await backend.findEnquiry(enquiry.reference, AMELIA))?.reference).toBe(enquiry.reference);
+    expect(await backend.updateMyEnquiry(enquiry.reference, AMELIA, { date: "2027-06-01" })).toBeNull();
+    expect(await backend.cancelMyEnquiry(enquiry.reference, AMELIA)).toBeNull();
+    expect(await backend.listMyEnquiries(AMELIA)).toEqual([]);
+  });
+
+  test("somebody else's reference is null, exactly as one that does not exist", async () => {
+    const { reference } = await made();
+    const stranger = "+447700900999" as E164;
+
+    expect(await backend.updateMyEnquiry(reference, stranger, { date: "2027-06-01" })).toBeNull();
+    expect(await backend.cancelMyEnquiry(reference, stranger)).toBeNull();
+    expect(await backend.updateMyEnquiry("ENQ-9999", AMELIA, { date: "2027-06-01" })).toBeNull();
+  });
+
+  test("a refused amendment comes back as the server's own message", async () => {
+    const { reference } = await made();
+    const failed = await backend.updateMyEnquiry(reference, AMELIA, { date: "2020-01-01" }).catch((error: unknown) => error);
+
+    expect(failed).toBeInstanceOf(BackendValidationError);
+    expect((failed as BackendValidationError).fields.date).toBeDefined();
+  });
+});
+
+describe("what the company says about itself", () => {
+  test("comes from the settings the admin edits", async () => {
+    await database.client.exec(`
+      insert into site_settings (id, business, contact, booking, social, seo, footer)
+      values ('default',
+        '{"companyName":"City Chauffeurs","legalName":"CC City Chauffeurs","director":"","tagline":"Your city. Your chauffeur.","positioning":"A luxury, discreet way of travelling.","address":"","base":"London, United Kingdom","coverage":"London based. UK & Europe.","serviceAreas":["Mayfair","Chelsea"]}'::jsonb,
+        '{"phoneDisplay":"020 8443 3332","phoneE164":"+442084433332","whatsappDisplay":"07804 429407","whatsappNumber":"447804429407","whatsappIntro":"","email":"enquiries@city-chauffeurs.com","responseNote":""}'::jsonb,
+        '{"terms":["We ask for 48 hours notice wherever possible."]}'::jsonb,
+        '[]'::jsonb,
+        '{"siteUrl":"https://www.cccitychauffeurs.co.uk","siteTitle":"","defaultDescription":"","shareImage":null}'::jsonb,
+        '{"text":"","showServiceLinks":true,"showServiceAreas":true,"showContact":true}'::jsonb)
+      on conflict (id) do update set business = excluded.business, contact = excluded.contact, booking = excluded.booking, seo = excluded.seo
+    `);
+
+    const info = await backend.companyInfo();
+
+    expect(info).toMatchObject({
+      name: "City Chauffeurs",
+      base: "London, United Kingdom",
+      coverage: "London based. UK & Europe.",
+      phone: "020 8443 3332",
+      whatsapp: "07804 429407",
+      email: "enquiries@city-chauffeurs.com",
+      website: "https://www.cccitychauffeurs.co.uk",
+      serviceAreas: ["Mayfair", "Chelsea"],
+    });
+    // Companies House, from the one place the website prints it too.
+    expect(info.registeredName).toBe("CC City Chauffeurs Ltd");
+    expect(info.companyNumber).toBe("15481213");
+    // Nobody has published a timetable, and nothing here invents one.
+    expect(info.openingHours).toBe("");
+  });
+});
+
 describe("asking after a booking the office made", () => {
   /**
    * The only way a booking exists: a person in the office took it, or
    * converted a won enquiry. Nothing a customer says on WhatsApp gets here.
    */
   const requested = async (phone = AMELIA) => {
-    const operations = await import("../src/repositories/operations");
     const booking = await operations.createBooking({
       name: "Amelia Hughes",
       phone,
@@ -306,7 +436,6 @@ describe("asking after a booking the office made", () => {
 
   test("reads as confirmed only once a person has confirmed it", async () => {
     const { reference } = await requested();
-    const operations = await import("../src/repositories/operations");
     const [row] = (await database.client.query(`select id from booking where reference = '${reference}'`)).rows as {
       id: string;
     }[];

@@ -247,7 +247,7 @@ export async function updateEnquiryStatus(
  * reopening it by amendment would hide from the office that the customer
  * came back.
  */
-function settledReason(enquiry: { status: EnquiryStatus; bookingId: string | null }) {
+export function settledReason(enquiry: { status: EnquiryStatus; bookingId: string | null }) {
   if (enquiry.bookingId) return "This enquiry has already become a booking, so the office has to make the change.";
   if (enquiry.status === "won") return "The office has already agreed this one, so they have to make the change.";
   if (enquiry.status === "cancelled") return "This enquiry has already been cancelled.";

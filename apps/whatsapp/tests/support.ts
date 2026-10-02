@@ -17,6 +17,7 @@ import {
   type ConversationStatus,
   type ConversationStore,
   type E164,
+  type EnquiryStatusSummary,
   type FleetVehicle,
   type InboundMessage,
   type RecordedInbound,
@@ -319,9 +320,133 @@ export class FakeBackend implements Backend {
   async createBookingRequest(input: { customer: RequestCustomer; journey: RequestJourney; submissionId: string }) {
     return this.record("booking", input);
   }
+
+  /**
+   * The server's ownership rules in miniature.
+   *
+   * `source` is what matters for a change: an enquiry the office took on the
+   * website is readable by the number on it and not changeable from here.
+   * `status` is the other half: once the office has acted, nobody else moves
+   * it. Both are the server's decisions, so the fake makes them the same way
+   * rather than letting the tests pass on a laxer copy.
+   */
+  sources = new Map<string, "whatsapp" | "website">();
+  statuses = new Map<string, "New" | "Quoted" | "Won" | "Lost" | "Cancelled">();
+
+  /** An enquiry that came through the website on the same number. */
+  websiteEnquiry(reference: string, phone: E164, journey: Partial<RequestJourney> = {}) {
+    this.created.push({
+      kind: "enquiry",
+      reference,
+      submissionId: `web:${reference}`,
+      customer: { name: "Amelia Hughes", phone, email: "" },
+      journey: { service: "", vehicleId: null, pickup: "Mayfair", dropoff: "", date: "2027-03-03", time: "", passengers: null, luggage: "", flight: "", notes: "", ...journey },
+    });
+    this.sources.set(reference, "website");
+    return reference;
+  }
+
+  private summary(item: Created): EnquiryStatusSummary {
+    const status = this.statuses.get(item.reference) ?? "New";
+    const blocked =
+      status === "Won"
+        ? "The office has already agreed this one, so they have to make the change."
+        : status === "Cancelled"
+          ? "This enquiry has already been cancelled."
+          : status === "Lost"
+            ? "This enquiry was closed, so the office has to reopen it."
+            : null;
+    return {
+      reference: item.reference,
+      status,
+      changeable: blocked === null,
+      ...(blocked ? { notChangeableBecause: blocked } : {}),
+      journey: {
+        service: item.journey.service,
+        vehicle: item.journey.vehicleId ? (FLEET.find((car) => car.id === item.journey.vehicleId)?.name ?? null) : null,
+        pickup: item.journey.pickup,
+        dropoff: item.journey.dropoff,
+        date: item.journey.date,
+        time: item.journey.time,
+        passengers: item.journey.passengers,
+        luggage: item.journey.luggage,
+        flight: item.journey.flight,
+      },
+      note: item.journey.notes,
+      quote: null,
+      createdAt: "2027-01-10T09:00:00.000Z",
+      updatedAt: "2027-01-10T09:00:00.000Z",
+    };
+  }
+
+  /** Mine to read, whichever door it came through. */
   async findEnquiry(reference: string, phone: E164) {
-    const found = this.created.find((item) => item.reference === reference && item.customer.phone === phone);
-    return found ? { reference, status: "New", createdAt: "2027-01-10T09:00:00.000Z" } : null;
+    const found = this.created.find(
+      (item) => item.kind === "enquiry" && item.reference === reference && item.customer.phone === phone,
+    );
+    return found ? this.summary(found) : null;
+  }
+
+  /** Mine to change: this number's, and made on WhatsApp. */
+  private mineToChange(reference: string, phone: E164) {
+    return this.created.find(
+      (item) =>
+        item.kind === "enquiry" &&
+        item.reference === reference &&
+        item.customer.phone === phone &&
+        (this.sources.get(item.reference) ?? "whatsapp") === "whatsapp",
+    );
+  }
+
+  async listMyEnquiries(phone: E164) {
+    return this.created
+      .filter(
+        (item) =>
+          item.kind === "enquiry" && item.customer.phone === phone && (this.sources.get(item.reference) ?? "whatsapp") === "whatsapp",
+      )
+      .reverse()
+      .map((item) => this.summary(item));
+  }
+
+  async updateMyEnquiry(reference: string, phone: E164, patch: Record<string, unknown>) {
+    const found = this.mineToChange(reference, phone);
+    if (!found) return null;
+    const blocked = this.summary(found).notChangeableBecause;
+    if (blocked) throw new BackendValidationError({ status: blocked });
+    for (const [field, value] of Object.entries(patch)) {
+      if (value !== undefined) (found.journey as Record<string, unknown>)[field === "message" ? "notes" : field] = value;
+    }
+    return this.summary(found);
+  }
+
+  async cancelMyEnquiry(reference: string, phone: E164) {
+    const found = this.mineToChange(reference, phone);
+    if (!found) return null;
+    const blocked = this.summary(found).notChangeableBecause;
+    if (blocked) throw new BackendValidationError({ status: blocked });
+    this.statuses.set(reference, "Cancelled");
+    return this.summary(found);
+  }
+
+  async companyInfo() {
+    return {
+      name: "City Chauffeurs",
+      legalName: "CC City Chauffeurs",
+      registeredName: "CC City Chauffeurs Ltd",
+      companyNumber: "15481213",
+      registeredOffice: "21–25 Romford Road, London, E15 4LJ",
+      positioning: "A luxury, discreet way of travelling.",
+      tagline: "Your city. Your chauffeur.",
+      base: "London, United Kingdom",
+      coverage: "London based. UK & Europe.",
+      serviceAreas: ["Mayfair", "Knightsbridge"],
+      phone: "020 8443 3332",
+      whatsapp: "07804 429407",
+      email: "enquiries@city-chauffeurs.com",
+      website: "https://www.cccitychauffeurs.co.uk",
+      bookingTerms: ["We ask for 48 hours' notice wherever possible."],
+      openingHours: "",
+    };
   }
   /**
    * A booking the office made, which is the only way one exists: the
