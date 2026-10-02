@@ -3,6 +3,7 @@ import {
   bookingNotesSchema,
   bookingStatusUpdateSchema,
   customerInputSchema,
+  enquiryJourneyPatchSchema,
   enquiryStatusUpdateSchema,
   noteInputSchema,
   quoteInputSchema,
@@ -41,6 +42,16 @@ export const operationRoutes = new Hono<{ Variables: Variables }>()
   .patch("/enquiries/:id/status", requires("operations.edit"), async (c) => {
     const { status, lostReason } = enquiryStatusUpdateSchema.parse(await c.req.json());
     return c.json(await operations.updateEnquiryStatus(c.req.param("id"), status, { lostReason }));
+  })
+
+  /**
+   * Amending the journey, which the office could not do at all before: the
+   * only way to change a date was to take a note and remember. The same
+   * capability answers a customer rescheduling on WhatsApp.
+   */
+  .patch("/enquiries/:id/journey", requires("operations.edit"), async (c) => {
+    const patch = enquiryJourneyPatchSchema.parse(await c.req.json());
+    return c.json(await operations.updateEnquiryJourney(c.req.param("id"), patch));
   })
 
   .post("/enquiries/:id/quote", requires("operations.edit"), async (c) => {
