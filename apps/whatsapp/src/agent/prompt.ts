@@ -14,7 +14,7 @@
  * describes the boundaries — the code holds them.
  */
 
-import type { FleetVehicle, JourneyDraft } from "../ports";
+import type { FleetVehicle, JourneyDraft, RecordedEnquiry } from "../ports";
 import { missingFor } from "../conversation/journey";
 
 export const SYSTEM = `You are the City Chauffeurs virtual assistant, answering customers on WhatsApp.
@@ -83,6 +83,7 @@ export function buildContext(input: {
   profileName: string | null;
   journey: JourneyDraft;
   references: string[];
+  recorded: RecordedEnquiry[];
   fleet: FleetVehicle[] | null;
 }): string {
   const date = new Date(`${input.today}T12:00:00Z`);
@@ -102,10 +103,21 @@ export function buildContext(input: {
     const forEnquiry = missingFor("enquiry", { ...input.journey, name: input.journey.name ?? input.customerName ?? undefined });
     lines.push(`Still needed for an enquiry: ${forEnquiry.length ? forEnquiry.join(", ") : "nothing"}.`);
   } else {
-    lines.push("Nothing recorded about a journey yet.");
+    lines.push("No journey is being discussed at the moment.");
   }
 
-  if (input.references.length) {
+  // Each reference beside what it was for, so "the Saturday one" can be
+  // matched without asking the customer to find a number.
+  if (input.recorded.length) {
+    lines.push("Enquiries recorded in this conversation:");
+    for (const item of input.recorded) {
+      const about = [item.vehicle, item.date, item.time, item.pickup && `from ${item.pickup}`, item.dropoff && `to ${item.dropoff}`]
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`- ${item.reference}${about ? `: ${about}` : ""}`);
+    }
+    lines.push("Call get_my_enquiries for the office's own record of these, including any made before this conversation.");
+  } else if (input.references.length) {
     lines.push(`References already given in this conversation: ${input.references.join(", ")}.`);
   }
   return lines.join("\n");

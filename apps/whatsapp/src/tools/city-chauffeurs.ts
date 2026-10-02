@@ -202,6 +202,12 @@ const journeyInput = z
     notes: z.string().max(2000).optional().describe("Anything else the office should know."),
     name: z.string().max(80).optional().describe("The customer's name, as they gave it."),
     email: z.string().max(120).optional(),
+    startNew: z
+      .boolean()
+      .optional()
+      .describe(
+        "True when this is a separate journey from the one being discussed: everything recorded so far is forgotten before these details are taken. Use it when the customer starts on a different journey, never for a correction to this one.",
+      ),
   })
   .strict();
 
@@ -214,13 +220,18 @@ function summarise(draft: JourneyDraft, fleet: FleetVehicle[]) {
 export const recordJourneyDetails = defineTool({
   name: "record_journey_details",
   description:
-    "Record journey details as soon as the customer gives them: any subset, every time something new is said. Each value is checked: a vehicle is matched to the real fleet, a service to the real catalogue, a date must exist and not have passed. Returns what is now recorded, anything refused with the reason, and what is still needed.",
+    "Record journey details for the journey being discussed now, as soon as the customer gives them: any subset, every time something new is said. Each value is checked: a vehicle is matched to the real fleet, a service to the real catalogue, a date must exist and not have passed. Returns what is now recorded, anything refused with the reason, and what is still needed.",
   input: journeyInput,
   async run(context, input) {
     const catalogue = await context.catalogue();
-    const { draft, refused, notes } = mergeJourney(context.state.journey, input, catalogue);
+    const { startNew, ...said } = input;
+    // A separate journey starts from nothing, so no date, time or pickup can
+    // ride across from the last one.
+    const from = startNew ? {} : context.state.journey;
+    const { draft, refused, notes } = mergeJourney(from, said, catalogue);
     context.state.journey = draft;
     return success({
+      ...(startNew ? { startedAfresh: true } : {}),
       recorded: summarise(draft, catalogue.fleet),
       refused,
       notes,
@@ -271,11 +282,32 @@ async function createRecord(context: ToolContext, kind: "enquiry") {
     submissionId: `wa:${context.triggeringMessageId}:${kind}`,
   };
   const { reference } = await context.backend.createEnquiry(input);
+  const catalogue = await context.catalogue();
 
   context.state.lastRequest = { kind, fingerprint: print, reference };
   if (!context.state.references.includes(reference)) context.state.references.push(reference);
+  // Kept beside the reference, because a customer saying "cancel the Saturday
+  // one" is describing the journey and will never quote the number.
+  context.state.recorded = [
+    ...(context.state.recorded ?? []).filter((item) => item.reference !== reference),
+    {
+      reference,
+      ...(draft.date ? { date: draft.date } : {}),
+      ...(draft.time ? { time: draft.time } : {}),
+      ...(draft.pickup ? { pickup: draft.pickup } : {}),
+      ...(draft.dropoff ? { dropoff: draft.dropoff } : {}),
+      ...(() => {
+        const vehicle = draft.vehicleId ? catalogue.fleet.find((item) => item.id === draft.vehicleId)?.name : undefined;
+        return vehicle ? { vehicle } : {};
+      })(),
+    },
+  ];
+  // This journey is now a record the office can read, so the draft is spent.
+  // The next thing the customer asks for starts from nothing, and a change
+  // to this one goes through update_my_enquiry rather than the draft.
+  context.state.journey = {};
   context.createdFor = { kind, reference };
-  return success({ reference });
+  return success({ reference, journeyNowRecorded: true, draftCleared: true });
 }
 
 export const createEnquiry = defineTool({

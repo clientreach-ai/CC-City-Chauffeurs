@@ -65,10 +65,37 @@ export type JourneyDraft = {
   email?: string;
 };
 
+/**
+ * An enquiry this conversation recorded, and enough of it to tell two apart.
+ *
+ * A flat list of references cannot answer "cancel the one for Saturday": the
+ * reference is the one thing a customer never remembers, and the journey is
+ * the only thing they do. So what was asked for is kept beside it.
+ */
+export type RecordedEnquiry = {
+  reference: string;
+  date?: string;
+  time?: string;
+  pickup?: string;
+  dropoff?: string;
+  /** The vehicle by name, as the customer would say it. */
+  vehicle?: string;
+};
+
 export type ConversationState = {
+  /**
+   * The journey being discussed now, and only now.
+   *
+   * Cleared the moment it becomes an enquiry, because the next thing the
+   * customer asks for is a different journey. Leaving it in place is how
+   * "I also want the Urus on Sunday" quietly inherits Saturday's time and
+   * pickup and reaches the office as a journey nobody confirmed.
+   */
   journey: JourneyDraft;
   /** References already given in this conversation, so they are not given twice. */
   references: string[];
+  /** What each of those references actually was. */
+  recorded?: RecordedEnquiry[];
   /**
    * Whether the customer has been told what is charged on top.
    *
