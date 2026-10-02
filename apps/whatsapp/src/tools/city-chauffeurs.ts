@@ -447,11 +447,20 @@ export const getCompanyInfo = defineTool({
   input: nothing,
   async run(context) {
     const info = await context.backend.companyInfo();
+    const { registeredOffice, ...rest } = info;
     return success({
-      ...info,
-      note: info.openingHours
-        ? "These are the published hours. Quote them as they are."
-        : "No opening hours are published. The team can be reached at any hour, so say the customer is welcome to message or ring whenever, and do not give a timetable of days or hours, because there is not one to give.",
+      ...rest,
+      // Companies House, printed in the website's footer because the law says
+      // so. Nobody visits it, and the client has published no visiting
+      // address, so it is renamed out of the way of "where are you based"
+      // rather than left looking like the answer to it.
+      registeredOfficeForLegalPurposesOnly: registeredOffice,
+      note: [
+        info.openingHours
+          ? "These are the published hours. Quote them as they are."
+          : "No opening hours are published. The team can be reached at any hour, so say the customer is welcome to message or ring whenever, and do not give a timetable of days or hours, because there is not one to give.",
+        "Asked where the company is, answer with the base and the coverage. Never give the registered office as a location: it is a filing address, not somewhere a customer goes, and no visiting address has been published.",
+      ].join(" "),
     });
   },
 });
