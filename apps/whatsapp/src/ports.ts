@@ -283,11 +283,74 @@ export class BackendValidationError extends Error {
   }
 }
 
+/**
+ * An enquiry as the office holds it, not as the conversation remembers it.
+ *
+ * The journey comes back with it so the assistant reads the authoritative
+ * record rather than reconstructing one from what was said earlier, and so a
+ * customer asking "what did I ask for?" gets the office's answer.
+ */
 export type EnquiryStatusSummary = {
   reference: string;
-  /** The status label the admin uses — "New", "Quoted", "Won". */
+  /** The status label the admin uses — "New", "Quoted", "Won", "Cancelled". */
   status: string;
+  /** Whether the customer may still change it themselves. */
+  changeable: boolean;
+  /** Why not, in words that can be passed on, when they may not. */
+  notChangeableBecause?: string;
+  journey: {
+    service: string;
+    vehicle: string | null;
+    pickup: string;
+    dropoff: string;
+    date: string;
+    time: string;
+    passengers: number | null;
+    luggage: string;
+    flight: string;
+  };
+  /** The customer's own note on the enquiry. */
+  note: string;
+  /**
+   * A price the office has recorded, if any. Recording is not sending: the
+   * customer may never have been told, so it is "the figure the office has
+   * put against this" and nothing more.
+   */
+  quote: { amount: number | null; note: string } | null;
   createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * What the company is, in the words the client publishes.
+ *
+ * Every field comes from the settings the admin edits and the website
+ * prints, so the assistant and the site cannot tell a customer different
+ * things. Nothing here is written in the prompt.
+ */
+export type CompanyInfo = {
+  name: string;
+  legalName: string;
+  registeredName: string;
+  companyNumber: string;
+  registeredOffice: string;
+  positioning: string;
+  tagline: string;
+  base: string;
+  coverage: string;
+  serviceAreas: string[];
+  phone: string;
+  whatsapp: string;
+  email: string;
+  website: string;
+  /** The terms the website prints beside every service's quote brief. */
+  bookingTerms: string[];
+  /**
+   * Published opening hours, if the client has ever published any. Empty
+   * when they have not, which is the case today: the assistant says the team
+   * can be reached at any hour and does not invent a timetable.
+   */
+  openingHours: string;
 };
 
 /**
@@ -344,6 +407,43 @@ export interface Backend {
    * reference answers the same as one that does not exist.
    */
   findEnquiry(reference: string, phone: E164): Promise<EnquiryStatusSummary | null>;
+  /**
+   * Every enquiry this number made on WhatsApp, newest first.
+   *
+   * What makes a customer's "my enquiry" answerable: they never remember the
+   * reference, and asking them for one is how an assistant admits it is a
+   * form. Website enquiries are not here, because they are not the
+   * customer's to change from this channel.
+   */
+  listMyEnquiries(phone: E164): Promise<EnquiryStatusSummary[]>;
+  /**
+   * Amend the journey on an enquiry this number made on WhatsApp.
+   *
+   * The server decides whether it may be changed: the number must own it,
+   * the source must be WhatsApp, and the office must not have acted on it
+   * already. A reference that is not theirs is `null`, exactly as one that
+   * does not exist, so nothing is learned by guessing.
+   */
+  updateMyEnquiry(
+    reference: string,
+    phone: E164,
+    patch: {
+      service?: string;
+      vehicleId?: string | null;
+      pickup?: string;
+      dropoff?: string;
+      date?: string;
+      time?: string;
+      passengers?: number | null;
+      luggage?: string;
+      flight?: string;
+      message?: string;
+    },
+  ): Promise<EnquiryStatusSummary | null>;
+  /** Withdraw one of this number's own WhatsApp enquiries. */
+  cancelMyEnquiry(reference: string, phone: E164): Promise<EnquiryStatusSummary | null>;
+  /** What the company publishes about itself, from the settings the admin edits. */
+  companyInfo(): Promise<CompanyInfo>;
   /** Where one of this customer's own bookings stands. Only theirs. */
   findBooking(reference: string, phone: E164): Promise<BookingStatusSummary | null>;
   /** The customer on file for this number, if there is one. */
