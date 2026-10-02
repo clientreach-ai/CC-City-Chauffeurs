@@ -160,7 +160,10 @@ export async function getAnalytics(grain: Grain = "month"): Promise<Analytics> {
     Number(outcomes.find((row) => row.label === status)?.value ?? 0);
 
   // Won against everything decided either way: an enquiry still open has not
-  // failed to convert, it simply has not been answered yet.
+  // failed to convert, it simply has not been answered yet. A cancelled one
+  // is in neither column: the customer withdrew, which is not business the
+  // office failed to win, and counting it as lost would quietly drag the
+  // figure down every time somebody changed their mind.
   const won = byStatus("won");
   const decided = won + byStatus("lost");
 
