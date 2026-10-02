@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, CircleCheck, CircleX, Copy, MessageSquareText, PoundSterling, RotateCcw } from "lucide-react";
+import { Ban, CalendarClock, CalendarPlus, CircleCheck, CircleX, Copy, MessageSquareText, PoundSterling, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 import { useLookups } from "@/components/admin/lookups";
@@ -18,7 +18,7 @@ import { addEnquiryNote, createBookingFromEnquiry, getEnquiry } from "@/lib/api/
 import { enquirySources, enquiryStatuses, labelFor, lostReasons, replyChannels } from "@CC-City-Chauffeurs/core";
 import { CmsNotFoundError, CmsValidationError } from "@CC-City-Chauffeurs/core";
 
-import { changeStatus, LostDialog, QuoteDialog } from "./enquiry-actions";
+import { changeStatus, JourneyDialog, LostDialog, QuoteDialog } from "./enquiry-actions";
 
 function CopyValue({ value, label }: { value: string; label: string }) {
   if (!value) return <span className="text-white/45">—</span>;
@@ -52,6 +52,7 @@ export function EnquiryDetail({ id }: { id: string }) {
   const [savingNote, setSavingNote] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const [losing, setLosing] = useState(false);
+  const [amending, setAmending] = useState(false);
   const [working, setWorking] = useState(false);
   useUnsavedChanges(note.trim().length > 0);
 
@@ -109,6 +110,9 @@ export function EnquiryDetail({ id }: { id: string }) {
     }
   };
 
+  /** Still the office's to move: won, lost and cancelled are finished. */
+  const open = enquiry.status !== "won" && enquiry.status !== "lost" && enquiry.status !== "cancelled";
+
   const nextSteps = (
     <div className="flex flex-col gap-2">
       {enquiry.status === "new" ? (
@@ -117,13 +121,19 @@ export function EnquiryDetail({ id }: { id: string }) {
           Mark contacted
         </Button>
       ) : null}
-      {enquiry.status !== "won" && enquiry.status !== "lost" ? (
+      {open ? (
         <Button variant={enquiry.status === "new" ? "secondary" : "primary"} className="w-full" disabled={!canEdit || working} onClick={() => setQuoting(true)}>
           <PoundSterling aria-hidden />
           {enquiry.quote ? "Update quote" : "Record quote"}
         </Button>
       ) : null}
-      {enquiry.status !== "won" && enquiry.status !== "lost" ? (
+      {open ? (
+        <Button className="w-full" disabled={!canEdit || working} onClick={() => setAmending(true)}>
+          <CalendarClock aria-hidden />
+          Amend the journey
+        </Button>
+      ) : null}
+      {open ? (
         <div className="grid grid-cols-2 gap-2">
           <Button disabled={!canEdit || working} onClick={() => void run("won")}>
             <CircleCheck aria-hidden />
@@ -134,6 +144,13 @@ export function EnquiryDetail({ id }: { id: string }) {
             Lost
           </Button>
         </div>
+      ) : null}
+      {/* Withdrawn by the customer, which is not business we failed to win. */}
+      {open ? (
+        <Button variant="ghost" className="w-full" disabled={!canEdit || working} onClick={() => void run("cancelled")}>
+          <Ban aria-hidden />
+          Cancelled by the customer
+        </Button>
       ) : (
         <Button className="w-full" disabled={!canEdit || working} onClick={() => void run("contacted")}>
           <RotateCcw aria-hidden />
@@ -332,6 +349,7 @@ export function EnquiryDetail({ id }: { id: string }) {
 
       {!canEdit ? <Notice className="mt-8">Your role can view enquiries but not change them.</Notice> : null}
 
+      <JourneyDialog enquiry={amending ? enquiry : null} onClose={() => setAmending(false)} />
       <QuoteDialog enquiry={quoting ? enquiry : null} onClose={() => setQuoting(false)} />
       <LostDialog enquiry={losing ? enquiry : null} onClose={() => setLosing(false)} />
     </PageBody>
