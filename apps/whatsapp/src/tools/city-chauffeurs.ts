@@ -310,6 +310,13 @@ async function createRecord(context: ToolContext, kind: "enquiry") {
   return success({ reference, journeyNowRecorded: true, draftCleared: true });
 }
 
+/** A reference as the customer says it, which is not always how it is stored. */
+const enquiryReference = z
+  .string()
+  .min(3)
+  .max(20)
+  .describe("The enquiry reference, e.g. ENQ-1105. Take it from get_my_enquiries rather than asking the customer for it.");
+
 export const createEnquiry = defineTool({
   name: "create_enquiry",
   description:
@@ -321,13 +328,131 @@ export const createEnquiry = defineTool({
 export const getEnquiryStatus = defineTool({
   name: "get_enquiry_status",
   description:
-    "Where one of this customer's own enquiries stands, by its reference (ENQ-1234). Only enquiries made from this WhatsApp number can be found.",
-  input: z.object({ reference: z.string().min(3).max(20).describe("The enquiry reference, e.g. ENQ-1105.") }).strict(),
+    "One of this customer's own enquiries in full: where it stands, the journey as the office holds it, any price the office has recorded, and whether the customer may still change it. Works for an enquiry made on the website as well as on WhatsApp, because reading your own enquiry is not changing it. Read from here rather than from what was said earlier in the conversation.",
+  input: z.object({ reference: enquiryReference }).strict(),
   async run(context, input) {
     const found = await context.backend.findEnquiry(input.reference.trim().toUpperCase(), context.conversation.phone);
     // Another customer's reference answers exactly as one that does not exist.
     if (!found) return failure("not_found", "No enquiry with that reference was made from this number.");
     return success(found);
+  },
+});
+
+export const getMyEnquiries = defineTool({
+  name: "get_my_enquiries",
+  description:
+    "Every enquiry this customer has made on WhatsApp, newest first, with the journey as the office holds it and whether it can still be changed. Call it before changing or cancelling anything, and before asking the customer for a reference: they will not remember one. If more than one could be what they mean, ask which, naming the journeys rather than the references.",
+  input: nothing,
+  async run(context) {
+    const enquiries = await context.backend.listMyEnquiries(context.conversation.phone);
+    return success({
+      enquiries,
+      note:
+        enquiries.length === 0
+          ? "This number has no enquiries from WhatsApp. An enquiry made on the website does not appear here and is not yours to change: the team handles those."
+          : "These are the only enquiries this customer may change from WhatsApp. Anything made on the website is the team's to amend.",
+    });
+  },
+});
+
+export const updateMyEnquiry = defineTool({
+  name: "update_my_enquiry",
+  description:
+    "Change the journey on one of this customer's own WhatsApp enquiries: a new date or time, a different car, a different pickup. Only the fields you give are changed; everything else stays as it is. It can fail, and the reply must not say anything was changed unless it returned the change. Never call it on an enquiry from the website.",
+  input: z
+    .object({
+      reference: enquiryReference,
+      service: z.string().max(80).optional().describe("The service, by the name get_services lists."),
+      vehicle: z.string().max(80).optional().describe("The vehicle as the customer named it, resolved against the real fleet."),
+      pickup: z.string().max(160).optional(),
+      dropoff: z.string().max(160).optional(),
+      date: z.string().max(10).optional().describe("YYYY-MM-DD. Work out 'Friday' from today's date."),
+      time: z.string().max(10).optional().describe("HH:MM, 24-hour."),
+      passengers: z.number().int().min(1).max(50).optional(),
+      luggage: z.string().max(200).optional(),
+      flight: z.string().max(40).optional(),
+      note: z.string().max(2000).optional().describe("The customer's own note on the enquiry, replacing what is there."),
+    })
+    .strict(),
+  async run(context, input) {
+    const { reference, vehicle, note, ...rest } = input;
+    const catalogue = await context.catalogue();
+
+    // The same resolution a new journey gets: "the Ghost" has to become a car
+    // the client actually publishes, and an ambiguous name is a question for
+    // the customer rather than a guess.
+    let vehicleId: string | null | undefined;
+    if (vehicle !== undefined) {
+      const match = resolveVehicle(vehicle, catalogue.fleet);
+      if ("ambiguous" in match) {
+        return failure("ambiguous", `That could be: ${match.ambiguous.map((item) => item.name).join(", ")}. Ask which one.`);
+      }
+      if ("unknown" in match) {
+        return failure("not_found", `No published vehicle matches "${vehicle}". The fleet is: ${catalogue.fleet.map((item) => item.name).join(", ")}.`);
+      }
+      vehicleId = match.vehicle.id;
+    }
+
+    if (rest.date && rest.date < context.today) {
+      return failure("refused", `${rest.date} has passed. Today is ${context.today}: ask the customer which date they meant.`);
+    }
+
+    const patch = {
+      ...rest,
+      ...(vehicleId === undefined ? {} : { vehicleId }),
+      ...(note === undefined ? {} : { message: note }),
+    };
+    if (Object.keys(patch).length === 0) {
+      return failure("nothing_to_change", "Say what is changing. Ask the customer if you do not know yet.");
+    }
+
+    const updated = await context.backend.updateMyEnquiry(reference.trim().toUpperCase(), context.conversation.phone, patch);
+    // Not theirs, not from WhatsApp, or not an enquiry at all: one answer for
+    // all three, so nothing can be learned by trying references.
+    if (!updated) {
+      return failure(
+        "not_found",
+        "No enquiry with that reference was made from this number on WhatsApp. If the customer made it on the website, the team has to change it: hand over.",
+      );
+    }
+
+    context.changed.push({ kind: "updated", reference: updated.reference });
+    return success({ enquiry: updated, changed: Object.keys(patch) });
+  },
+});
+
+export const cancelMyEnquiry = defineTool({
+  name: "cancel_my_enquiry",
+  description:
+    "Cancel one of this customer's own WhatsApp enquiries. Call get_my_enquiries first and be certain which one they mean: if more than one could be it, ask. It can fail, and the reply must not say anything was cancelled unless it returned the cancellation. Never call it on an enquiry from the website.",
+  input: z.object({ reference: enquiryReference }).strict(),
+  async run(context, input) {
+    const cancelled = await context.backend.cancelMyEnquiry(input.reference.trim().toUpperCase(), context.conversation.phone);
+    if (!cancelled) {
+      return failure(
+        "not_found",
+        "No enquiry with that reference was made from this number on WhatsApp. If the customer made it on the website, the team has to cancel it: hand over.",
+      );
+    }
+
+    context.changed.push({ kind: "cancelled", reference: cancelled.reference });
+    return success({ enquiry: cancelled });
+  },
+});
+
+export const getCompanyInfo = defineTool({
+  name: "get_company_info",
+  description:
+    "What City Chauffeurs publishes about itself: who the company is, where it is based, where it works, the telephone number, the WhatsApp number, the email address, the website, and the booking terms. Call it for any question about the company rather than handing the customer to a person. Everything here is the client's own published wording.",
+  input: nothing,
+  async run(context) {
+    const info = await context.backend.companyInfo();
+    return success({
+      ...info,
+      note: info.openingHours
+        ? "These are the published hours. Quote them as they are."
+        : "No opening hours are published. The team can be reached at any hour, so say the customer is welcome to message or ring whenever, and do not give a timetable of days or hours, because there is not one to give.",
+    });
   },
 });
 
@@ -367,7 +492,11 @@ export const handoffToHuman = defineTool({
 
 /** In name order, so the tool list is byte-identical on every request and the prompt cache holds. */
 export const cityChauffeursTools: Tool[] = [
+  cancelMyEnquiry,
   createEnquiry,
+  getCompanyInfo,
+  getMyEnquiries,
+  updateMyEnquiry,
   getBookingStatus,
   getEnquiryStatus,
   getFleet,

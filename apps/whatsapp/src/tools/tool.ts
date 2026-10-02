@@ -34,6 +34,14 @@ export type ToolContext = {
   handoff: { reason: string; summary: string } | null;
   /** Set when a record is created, so the channel can link the customer. */
   createdFor: { kind: "enquiry"; reference: string } | null;
+  /**
+   * Enquiries this turn actually changed, as the backend confirmed them.
+   *
+   * The reply check reads this and nothing else: "I have updated it" is a
+   * claim about the database, so it is allowed only where the database said
+   * yes. A tool that failed leaves nothing here.
+   */
+  changed: { kind: "updated" | "cancelled"; reference: string }[];
 };
 
 export type ToolResult =

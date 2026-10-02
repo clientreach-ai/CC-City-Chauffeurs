@@ -224,6 +224,132 @@ describe("an enquiry", () => {
 // The diary belongs to the office. A customer asking to book a specific car
 // on a specific day is recorded the same way as one asking for a price, and
 // a person turns it into a booking once it is won.
+// The lifecycle a customer can run themselves: see what they have, change
+// one, cancel one. Ownership is the server's decision; these prove the
+// channel asks it the right question and passes on the answer.
+describe("a customer managing their own enquiries", () => {
+  /** An enquiry already recorded from this number, as a previous conversation would have left it. */
+  async function existing() {
+    const whatsapp = channel([
+      calls("record_journey_details", { name: "Amelia Hughes", vehicle: "Ghost", pickup: "Claridge's", date: "2027-06-19", time: "10:00" }),
+      calls("create_enquiry"),
+      says("That is with the team as ENQ-1101."),
+    ]);
+    await say(whatsapp, "m1", "The Ghost, Claridge's, 19 June at 10, Amelia Hughes");
+    return { whatsapp, reference: backend.created[0]!.reference };
+  }
+
+  const resultOf = (request = -1) => {
+    const message = model.requests.at(request)!.messages.at(-1) as { results: { content: string }[] };
+    return JSON.parse(message.results[0]!.content);
+  };
+
+  test("sees the journey the office holds, not what it remembers", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("get_my_enquiries"), says("You have one, the Ghost on 19 June."));
+    await say(whatsapp, "m2", "what enquiries do I have?");
+
+    const { enquiries } = resultOf().data;
+    expect(enquiries).toHaveLength(1);
+    expect(enquiries[0]).toMatchObject({ reference, changeable: true });
+    expect(enquiries[0].journey).toMatchObject({ vehicle: "Rolls-Royce Ghost", date: "2027-06-19", time: "10:00" });
+  });
+
+  test("an amendment changes the record and reports what moved", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(
+      calls("update_my_enquiry", { reference, date: "2027-06-25", time: "16:00" }),
+      says("Done, that is now Friday the 25th at 4pm."),
+    );
+    await say(whatsapp, "m2", "can you move it to Friday the 25th at 4pm?");
+
+    const { ok, data } = resultOf();
+    expect(ok).toBe(true);
+    expect(data.changed.sort()).toEqual(["date", "time"]);
+    expect(data.enquiry.journey).toMatchObject({ date: "2027-06-25", time: "16:00", pickup: "Claridge's" });
+  });
+
+  test("a car is resolved against the real fleet, and an unknown one is refused", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("update_my_enquiry", { reference, vehicle: "Ferrari" }), says("We do not have a Ferrari."));
+    await say(whatsapp, "m2", "can we use the Ferrari instead?");
+
+    const result = resultOf();
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe("not_found");
+  });
+
+  test("a name that fits two cars asks which, rather than picking", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("update_my_enquiry", { reference, vehicle: "Mercedes" }), says("Which Mercedes were you thinking?"));
+    await say(whatsapp, "m2", "make it the Mercedes");
+
+    const result = resultOf();
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe("ambiguous");
+  });
+
+  test("a date that has passed is refused before the server is asked", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("update_my_enquiry", { reference, date: "2020-01-01" }), says("That date has gone."));
+    await say(whatsapp, "m2", "move it to 1 January 2020");
+
+    expect(resultOf().error.code).toBe("refused");
+  });
+
+  test("cancelling is recorded, and the enquiry says it cannot change again", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("cancel_my_enquiry", { reference }), says("That is cancelled."));
+    await say(whatsapp, "m2", "cancel it please");
+
+    const { data } = resultOf();
+    expect(data.enquiry).toMatchObject({ reference, status: "Cancelled", changeable: false });
+    expect((await backend.listMyEnquiries(CUSTOMER))[0]!.status).toBe("Cancelled");
+  });
+
+  test("an enquiry made on the website is readable but not changeable here", async () => {
+    const reference = backend.websiteEnquiry("ENQ-9001", CUSTOMER);
+    const whatsapp = channel([calls("get_enquiry_status", { reference }), says("That one is with the team.")]);
+
+    await say(whatsapp, "m1", `what is happening with ${reference}?`);
+    expect(resultOf().data.reference).toBe(reference);
+
+    model.push(calls("update_my_enquiry", { reference, date: "2027-07-07" }), says("The team will have to change that one."));
+    await say(whatsapp, "m2", "change it to 7 July");
+
+    const refused = resultOf();
+    expect(refused.ok).toBe(false);
+    expect(refused.error.message).toContain("hand over");
+    // And nothing moved.
+    expect(backend.created.find((item) => item.reference === reference)!.journey.date).toBe("2027-03-03");
+  });
+
+  test("somebody else's reference answers exactly as one that does not exist", async () => {
+    const { reference } = await existing();
+    const stranger = channel([calls("cancel_my_enquiry", { reference }), says("I cannot find that one.")]);
+    await say(stranger, "m9", `cancel ${reference}`, { from: "+447700900999" });
+
+    expect(resultOf().error.code).toBe("not_found");
+    expect((await backend.listMyEnquiries(CUSTOMER))[0]!.status).toBe("New");
+  });
+
+  test("an enquiry the office has won is not the customer's to change", async () => {
+    const { whatsapp, reference } = await existing();
+    backend.statuses.set(reference, "Won");
+
+    model.push(calls("update_my_enquiry", { reference, time: "18:00" }), says("The team will sort that out."));
+    await say(whatsapp, "m2", "move it to 6pm");
+
+    expect(resultOf().ok).toBe(false);
+  });
+});
+
 // Nothing a customer asks for second should arrive carrying the details of
 // what they asked for first. That is how a journey nobody confirmed reaches
 // the office looking confirmed.
