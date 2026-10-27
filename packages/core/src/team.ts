@@ -1,0 +1,87 @@
+import type { Role } from "./permissions";
+import type { ISODateTime } from "./types";
+import { validator, type FieldErrors } from "./validation";
+
+/**
+ * The team: everyone who can sign in to the admin.
+ *
+ * Sign-up stays closed. An admin invites someone by name, email and role; the
+ * invitation is an email with a single-use link (and the same link, shown
+ * once, for the admin to pass on by hand). Opening it lets them choose their
+ * own password, which makes the account active. Nobody else ever knows it.
+ */
+
+/**
+ * `invited`     — asked, has not chosen a password yet. Cannot sign in.
+ * `active`      — can sign in.
+ * `deactivated` — kept for the history it is attached to, but signed out and
+ *                 unable to sign in again until reactivated.
+ */
+export type MemberStatus = "invited" | "active" | "deactivated";
+
+export const memberStatuses: readonly { value: MemberStatus; label: string; note: string }[] = [
+  { value: "active", label: "Active", note: "Can sign in." },
+  { value: "invited", label: "Invited", note: "Has not chosen a password yet." },
+  { value: "deactivated", label: "Deactivated", note: "Cannot sign in." },
+];
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  status: MemberStatus;
+  createdAt: ISODateTime;
+  lastActiveAt: ISODateTime | null;
+  /** When the current invitation stops working; null unless status is `invited`. */
+  invitationExpiresAt: ISODateTime | null;
+};
+
+export type InviteMemberInput = { name: string; email: string; role: Role };
+
+/** Any one of these, alone or together. */
+export type UpdateMemberInput = {
+  role?: Role;
+  status?: Extract<MemberStatus, "active" | "deactivated">;
+};
+
+/**
+ * What the admin gets back when it sends an invitation: the member, the link
+ * (shown once — only its hash is stored) and whether the email went out.
+ * With mail switched off nothing is sent, so the admin passes the link on.
+ */
+export type InvitationIssued = {
+  member: TeamMember;
+  link: string;
+  emailed: boolean;
+};
+
+/** What an invitation link shows before the password is chosen. */
+export type InvitationPreview = { name: string; email: string };
+
+export type AcceptInvitationInput = { password: string };
+
+export const INVITATION_DAYS = 7;
+
+export const PASSWORD_LENGTH = { min: 12, max: 128 } as const;
+
+export function passwordProblem(password: string): string | null {
+  if (password.length < PASSWORD_LENGTH.min) return `Use at least ${PASSWORD_LENGTH.min} characters.`;
+  if (password.length > PASSWORD_LENGTH.max) return `Use at most ${PASSWORD_LENGTH.max} characters.`;
+  return null;
+}
+
+export function normaliseEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+/** Run by the invite form and by the API. */
+export function validateInvite(input: InviteMemberInput): FieldErrors {
+  return validator()
+    .required("name", input.name, "Add their name.")
+    .maxLength("name", input.name, 120)
+    .required("email", input.email, "Add the email address they will sign in with.")
+    .maxLength("email", input.email, 160)
+    .email("email", input.email)
+    .result();
+}
