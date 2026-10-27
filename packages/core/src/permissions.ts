@@ -7,6 +7,8 @@
  * made outside the admin altogether meets the same check.
  */
 
+import { labelFor } from "./status";
+
 export type Role = "admin" | "manager" | "editor";
 
 export type Capability =
@@ -19,13 +21,15 @@ export type Capability =
   | "content.publish"
   /** Delete content permanently. */
   | "content.delete"
-  | "settings.edit";
+  | "settings.edit"
+  /** Invite people to the admin, change their role, deactivate them. */
+  | "team.manage";
 
 export const roles: readonly { value: Role; label: string; summary: string }[] = [
   {
     value: "admin",
     label: "Admin",
-    summary: "Everything, including site settings.",
+    summary: "Everything, including site settings and the team.",
   },
   {
     value: "manager",
@@ -39,6 +43,15 @@ export const roles: readonly { value: Role; label: string; summary: string }[] =
   },
 ];
 
+/** The role values alone, for a request body to be checked against. */
+export const roleValues = roles.map((role) => role.value) as [Role, ...Role[]];
+
+/** "an Admin", "a Manager", "an Editor" — for a sentence that names a role. */
+export function roleWithArticle(role: Role) {
+  const label = labelFor(roles, role);
+  return `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;
+}
+
 const grants: Record<Role, readonly Capability[]> = {
   admin: [
     "operations.view",
@@ -47,6 +60,7 @@ const grants: Record<Role, readonly Capability[]> = {
     "content.publish",
     "content.delete",
     "settings.edit",
+    "team.manage",
   ],
   manager: ["operations.view", "operations.edit", "content.edit", "content.publish", "content.delete"],
   editor: ["content.edit"],
@@ -66,6 +80,8 @@ export function deniedReason(capability: Capability) {
       return "Only a manager or admin can delete content.";
     case "settings.edit":
       return "Only an admin can change site settings.";
+    case "team.manage":
+      return "Only an admin can manage the team.";
     default:
       return "Your role does not include this.";
   }

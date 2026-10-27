@@ -40,9 +40,10 @@ export const config = {
    *   stays first-party (see `next.config.ts`). Redirecting a 401 to an HTML
    *   page here would break the sign-in call itself and hide every real error
    *   the admin's client knows how to show.
-   * - `/sign-in` — the one screen that runs without a session.
+   * - `/sign-in` and `/accept-invite` — the screens that run without a
+   *   session: signing in, and choosing a password from an invitation link.
    * - `/_next/*` and anything with a file extension — assets, which a
    *   redirect would simply stop from loading.
    */
-  matcher: ["/((?!api/|_next/|sign-in|.*\\.).*)"],
+  matcher: ["/((?!api/|_next/|sign-in|accept-invite|.*\\.).*)"],
 };

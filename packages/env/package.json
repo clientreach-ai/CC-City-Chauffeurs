@@ -9,6 +9,7 @@
     "./admin": "./src/admin.ts",
     "./whatsapp": "./src/whatsapp.ts",
     "./mail": "./src/mail.ts",
+    "./links": "./src/links.ts",
     "./images": "./src/images.ts"
   },
   "dependencies": {

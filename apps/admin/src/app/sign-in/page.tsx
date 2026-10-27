@@ -15,15 +15,28 @@ import { signIn, useAuthSession } from "@/lib/auth-client";
  * real. Everything else is a problem the person can actually act on, so it
  * says what it is: hiding a rate limit behind "wrong password" sends people
  * round in circles.
+ *
+ * A deactivated account is refused after its password has been checked:
+ * better-auth's session hook declines to create the session, which arrives
+ * as FAILED_TO_CREATE_SESSION. The password was right by then, so saying the
+ * account is switched off gives nothing away. (An invited account has no
+ * password yet, so it reads as the generic mismatch.)
  */
-function signInError(status: number | undefined, code: string | undefined) {
+function signInError(status: number | undefined, code: string | undefined, message?: string) {
   if (status === 429) return "Too many attempts. Wait a minute and try again.";
   if (code === "INVALID_EMAIL") return "That does not look like an email address.";
+  if (code === "FAILED_TO_CREATE_SESSION") {
+    return "This account has been deactivated. Ask an admin to reactivate it.";
+  }
   if (status === 401 || code === "INVALID_EMAIL_OR_PASSWORD") {
     return "That email address and password do not match an account.";
   }
   if (!status) return "Could not reach the server. Check your connection and try again.";
-  return "Could not sign you in. Try again.";
+  // A refusal for the account itself, in the server's own words where it gives any.
+  if (status === 403) {
+    return message || "This account cannot sign in at the moment. Ask an admin to check it.";
+  }
+  return "Could not sign you in. Try again, or ask an admin if it keeps happening.";
 }
 
 /**
@@ -69,7 +82,7 @@ export default function SignInPage() {
     setBusy(false);
 
     if (result.error) {
-      setError(signInError(result.error.status, result.error.code));
+      setError(signInError(result.error.status, result.error.code, result.error.message));
       return;
     }
     router.replace("/dashboard");

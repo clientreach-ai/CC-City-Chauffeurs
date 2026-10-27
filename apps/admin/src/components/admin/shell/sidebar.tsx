@@ -21,6 +21,7 @@ import {
   PanelsTopLeft,
   Quote,
   Settings,
+  UserCog,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -72,7 +73,14 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { label: "Legal pages", href: adminRoutes.legal, icon: Scale },
     ],
   },
-  { label: "System", items: [{ label: "Settings", href: adminRoutes.settings, icon: Settings }] },
+  {
+    label: "System",
+    items: [
+      { label: "Settings", href: adminRoutes.settings, icon: Settings },
+      // Everyone sees who else can sign in; only an admin changes anything there.
+      { label: "Team", href: adminRoutes.team, icon: UserCog },
+    ],
+  },
 ];
 
 function useNewEnquiries(enabled: boolean) {
