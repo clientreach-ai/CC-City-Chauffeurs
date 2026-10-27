@@ -7,6 +7,8 @@
  * made outside the admin altogether meets the same check.
  */
 
+import { labelFor } from "./status";
+
 export type Role = "admin" | "manager" | "editor";
 
 export type Capability =
@@ -40,6 +42,15 @@ export const roles: readonly { value: Role; label: string; summary: string }[] =
     summary: "Website content as drafts. Cannot publish, delete or see operations.",
   },
 ];
+
+/** The role values alone, for a request body to be checked against. */
+export const roleValues = roles.map((role) => role.value) as [Role, ...Role[]];
+
+/** "an Admin", "a Manager", "an Editor" — for a sentence that names a role. */
+export function roleWithArticle(role: Role) {
+  const label = labelFor(roles, role);
+  return `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;
+}
 
 const grants: Record<Role, readonly Capability[]> = {
   admin: [

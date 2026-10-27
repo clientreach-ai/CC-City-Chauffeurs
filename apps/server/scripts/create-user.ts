@@ -21,14 +21,11 @@
  * else is invited from the admin's Team page and chooses their own password.
  */
 
-import { auth } from "@CC-City-Chauffeurs/auth";
+import { auth, CREDENTIAL } from "@CC-City-Chauffeurs/auth";
 import { db, schema } from "@CC-City-Chauffeurs/db";
-import { roles, type Role } from "@CC-City-Chauffeurs/core";
+import { canSignInWith, normaliseEmail, passwordProblem, roles, type Role } from "@CC-City-Chauffeurs/core";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-
-/** What better-auth writes on the account row behind an email and password. */
-const CREDENTIAL_ISSUER = "local:credential";
 
 const [email, password, name, role = "admin"] = process.argv.slice(2);
 
@@ -42,12 +39,20 @@ if (!roles.some((known) => known.value === role)) {
   process.exit(1);
 }
 
-if (password.length < 12) {
-  console.error("Use a longer password — at least 12 characters.");
+// The same rules an invitation is held to, so this way in makes nothing the
+// rest of the system would treat differently.
+const problem = passwordProblem(password);
+if (problem) {
+  console.error(problem);
   process.exit(1);
 }
 
-const address = email.trim().toLowerCase();
+if (!canSignInWith(email)) {
+  console.error("That address can't be used to sign in. Use a plain one, like name@company.co.uk.");
+  process.exit(1);
+}
+
+const address = normaliseEmail(email);
 const context = await auth.$context;
 const hash = await context.password.hash(password);
 const now = new Date();
@@ -82,8 +87,8 @@ if (existing) {
     await db.insert(schema.account).values({
       id: randomUUID(),
       accountId: existing.id,
-      providerId: "credential",
-      issuer: CREDENTIAL_ISSUER,
+      providerId: CREDENTIAL.providerId,
+      issuer: CREDENTIAL.issuer,
       userId: existing.id,
       password: hash,
       createdAt: now,
@@ -108,19 +113,12 @@ await db.insert(schema.user).values({
   updatedAt: now,
 });
 
-/**
- * better-auth looks an email/password sign-in up by `providerId: "credential"`
- * with `accountId` set to the user's own id, and it qualifies that lookup by
- * `issuer`, which for a local password is "local:credential" and not
- * "credential". An account written with anything else is a row it will never
- * find: the sign-in answers "Invalid email or password" for a password that
- * is perfectly correct.
- */
+/** The row better-auth looks a password sign-in up by — see `CREDENTIAL`. */
 await db.insert(schema.account).values({
   id: randomUUID(),
   accountId: id,
-  providerId: "credential",
-  issuer: CREDENTIAL_ISSUER,
+  providerId: CREDENTIAL.providerId,
+  issuer: CREDENTIAL.issuer,
   userId: id,
   password: hash,
   createdAt: now,

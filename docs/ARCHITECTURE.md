@@ -215,14 +215,18 @@ the account `active` again — the way back in if every admin is locked out.
 
 Everyone else is invited from the admin's **Team** page (admins only, the
 `team.manage` capability). An invitation makes an `invited` account with no
-password and a single-use link to `ADMIN_URL/accept-invite?token=…`, valid for
+password and a single-use link to `ADMIN_URL/accept-invite#token=…`, valid for
 seven days. It is emailed when mail is on; either way the admin is shown the
 link once, to pass on by hand. Opening it lets the person choose their own
 password, which makes the account `active`. Only the SHA-256 of the token is
-stored, and the token is cut out of the request log.
+stored. The token rides in the link's fragment and goes to the API in a
+request body, so it is in no request line and no access log. In production
+the API will not start while `ADMIN_URL` still points at localhost.
 
 - `invited` and `deactivated` accounts cannot hold a session: better-auth's
-  session hook refuses one, and the API treats any it finds as signed out.
+  session hook refuses one, the database refuses to insert one (a trigger,
+  migration `0007`, so a sign-in racing a deactivation cannot slip through),
+  and the API treats any it finds as signed out.
 - Deactivating someone signs them out everywhere and withdraws their
   invitation. Their row stays, so the name on what they wrote still means
   someone; only an invitation nobody accepted is ever deleted.

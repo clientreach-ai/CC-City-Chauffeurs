@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+import { linkConfigProblems } from "./links";
 import { mailConfigProblems } from "./mail";
 import { DEFAULT_WHATSAPP_MODEL, whatsappConfigProblems } from "./whatsapp";
 
@@ -122,18 +123,24 @@ export const env = createEnv({
     OFFICE_EMAIL: z.string().min(1).optional(),
     /**
      * Where the admin lives, so an alert can link straight to the record —
-     * and the start of every team invitation link (`/accept-invite?token=…`),
-     * so in production it must be the admin's real public address.
+     * and the start of every team invitation link (`/accept-invite#token=…`).
+     * Refused in production while it still points at this machine; see
+     * `./links.ts`.
      */
     ADMIN_URL: z.url().default("http://localhost:3002"),
   },
   /**
    * The WhatsApp settings are checked together, by the rules in
-   * `./whatsapp.ts`, so a half-configured channel never reaches a customer.
+   * `./whatsapp.ts`, so a half-configured channel never reaches a customer;
+   * the mail and link settings the same way.
    */
   createFinalSchema: (shape) =>
     z.object(shape).superRefine((value, context) => {
-      for (const problem of [...whatsappConfigProblems(value), ...mailConfigProblems(value)]) {
+      for (const problem of [
+        ...whatsappConfigProblems(value),
+        ...mailConfigProblems(value),
+        ...linkConfigProblems(value),
+      ]) {
         context.addIssue({ code: "custom", path: [problem.path], message: problem.message });
       }
     }),
