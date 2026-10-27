@@ -1,3 +1,5 @@
+import { regexes } from "zod/v4/core";
+
 import type { Role } from "./permissions";
 import type { ISODateTime } from "./types";
 import { validator, type FieldErrors } from "./validation";
@@ -59,7 +61,7 @@ export type InvitationIssued = {
 /** What an invitation link shows before the password is chosen. */
 export type InvitationPreview = { name: string; email: string };
 
-export type AcceptInvitationInput = { password: string };
+export type AcceptInvitationInput = { token: string; password: string };
 
 export const INVITATION_DAYS = 7;
 
@@ -75,13 +77,29 @@ export function normaliseEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-/** Run by the invite form and by the API. */
+/**
+ * Run by the invite form and by the API.
+ *
+ * The address is checked a second time, against the rule better-auth's
+ * sign-in applies. The general email check lets through addresses such as
+ * `jo&ann@example.com` or `user@müller.de`, which sign-in then refuses — so
+ * an invitation to one makes an account that can accept and never sign in.
+ */
 export function validateInvite(input: InviteMemberInput): FieldErrors {
-  return validator()
+  const errors = validator()
     .required("name", input.name, "Add their name.")
     .maxLength("name", input.name, 120)
     .required("email", input.email, "Add the email address they will sign in with.")
     .maxLength("email", input.email, 160)
     .email("email", input.email)
     .result();
+  if (!errors.email && input.email.trim() && !canSignInWith(input.email)) {
+    errors.email = "This address can't be used to sign in. Use a plain one, like name@company.co.uk.";
+  }
+  return errors;
+}
+
+/** Whether better-auth will accept this address at sign-in: the `z.email()` it checks with. */
+export function canSignInWith(email: string) {
+  return regexes.email.test(normaliseEmail(email));
 }

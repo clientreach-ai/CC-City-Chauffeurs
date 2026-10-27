@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { auth } from "@CC-City-Chauffeurs/auth";
+import { auth, CREDENTIAL } from "@CC-City-Chauffeurs/auth";
 import {
   assertValid,
   CmsNotFoundError,
@@ -56,12 +56,6 @@ type Db = typeof db | Tx;
 
 /** Who is making the change, as the session describes them. */
 export type Actor = { id: string; name: string; email: string };
-
-/**
- * What better-auth writes on the account row behind an email and password.
- * Anything else is a row it never finds — see `scripts/create-user.ts`.
- */
-const CREDENTIAL = { providerId: "credential", issuer: "local:credential" } as const;
 
 const INVITATION_MS = INVITATION_DAYS * 24 * 60 * 60 * 1000;
 
@@ -123,9 +117,24 @@ export function listMembers(): Promise<TeamMember[]> {
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
-/** Where the link lands: the admin's own accept page. */
+/**
+ * The stored form of a token from a link. A token is 43 characters; anything
+ * far from that is not one, and gets the same 410 as every other link that
+ * does not work rather than a lookup.
+ */
+function hashOf(token: string) {
+  if (token.length < 20 || token.length > 100) throw invalidInvitation();
+  return sha256(token);
+}
+
+/**
+ * Where the link lands: the admin's own accept page. The token rides in the
+ * fragment, which a browser never sends anywhere — so it is in no request
+ * line, no access log and no Referer, on the admin's host or in front of the
+ * API. The page reads it and posts it in a body.
+ */
 const invitationLink = (token: string) =>
-  `${env.ADMIN_URL.replace(/\/+$/, "")}/accept-invite?token=${encodeURIComponent(token)}`;
+  `${env.ADMIN_URL.replace(/\/+$/, "")}/accept-invite#token=${encodeURIComponent(token)}`;
 
 /**
  * A fresh link for this member, replacing any earlier one — which stops
@@ -242,7 +251,7 @@ export async function previewInvitation(token: string): Promise<InvitationPrevie
     .innerJoin(schema.user, eq(schema.user.id, schema.teamInvitation.userId))
     .where(
       and(
-        eq(schema.teamInvitation.tokenHash, sha256(token)),
+        eq(schema.teamInvitation.tokenHash, hashOf(token)),
         isNull(schema.teamInvitation.usedAt),
         gt(schema.teamInvitation.expiresAt, new Date()),
         eq(schema.user.status, "invited"),
@@ -261,10 +270,15 @@ export async function acceptInvitation(token: string, password: string): Promise
   const problem = passwordProblem(password);
   if (problem) throw new CmsValidationError({ password: problem });
 
-  const tokenHash = sha256(token);
-  // Hashed before the transaction: scrypt is deliberately slow, and row locks
-  // should not be held while it runs. better-auth owns the format — a hash
-  // made any other way fails to verify at sign-in with nothing to say why.
+  const tokenHash = hashOf(token);
+  // The cheap check first. scrypt is deliberately slow, so it runs only for a
+  // link that is live right now: a made-up token costs a lookup, never a
+  // hash. The transaction below checks again, under lock, for real.
+  await previewInvitation(token);
+
+  // Hashed before the transaction, so no row lock is held while it runs.
+  // better-auth owns the format — a hash made any other way fails to verify
+  // at sign-in with nothing to say why.
   const hash = await (await auth.$context).password.hash(password);
 
   await db.transaction(async (tx) => {

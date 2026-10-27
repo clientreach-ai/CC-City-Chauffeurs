@@ -12,7 +12,7 @@ import { resumeWhatsApp, whatsappChannel, whatsappMode } from "./lib/whatsapp";
 import { contentRoutes } from "./routes/content";
 import { fleetRoutes } from "./routes/fleet";
 import { galleryRoutes } from "./routes/gallery";
-import { invitationRoutes, redactInvitationTokens } from "./routes/invitations";
+import { invitationRoutes } from "./routes/invitations";
 import { legalRoutes } from "./routes/legal";
 import { mediaRoutes } from "./routes/media";
 import { operationRoutes } from "./routes/operations";
@@ -35,8 +35,7 @@ import { whatsappAdminRoutes, whatsappWebhookRoutes } from "./routes/whatsapp";
 
 const app = new Hono<{ Variables: Variables }>();
 
-// One line per request, with any invitation token cut out of the path.
-app.use(logger((line, ...rest) => console.log(redactInvitationTokens(line), ...rest)));
+app.use(logger());
 // nosniff, frame-deny, a strict referrer policy and HSTS on every response.
 app.use(secureHeaders());
 const browserCors = cors({
