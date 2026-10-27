@@ -179,3 +179,30 @@ export const webhookRateLimit = rateLimiter({
   refuse: (c, retryAfter) =>
     c.text("Too many requests.", 429, { "Retry-After": String(retryAfter) }),
 });
+
+/**
+ * The invitation links — the one door into the admin with no session behind
+ * it. A token is 256 random bits, so guessing one is not the threat; this is
+ * here so that trying costs a script something, and so a scrypt hash on
+ * every accept cannot be used to keep the server busy.
+ *
+ * Its own counters: somebody opening their invitation a few times, mistyping
+ * a password and trying again, never comes close, and an office enquiring
+ * from the same address never uses up its allowance.
+ */
+export const invitationRateLimit = rateLimiter({
+  burst: { limit: 10, windowMs: 60_000 },
+  sustained: { limit: 20, windowMs: 10 * 60_000 },
+  refuse: (c, retryAfter) =>
+    c.json(
+      { error: "Too many attempts from this connection. Wait a few minutes and try again." },
+      429,
+      { "Retry-After": String(retryAfter) },
+    ),
+});
+
+/** A password and nothing else: a kilobyte is generous. */
+export const invitationBodyLimit = bodyLimit({
+  maxSize: 1024,
+  onError: (c) => c.json({ error: "That request is larger than this form sends." }, 413),
+});

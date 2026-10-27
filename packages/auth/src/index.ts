@@ -25,11 +25,11 @@ export function createAuth() {
        * it only refuses new registrations: existing accounts sign in exactly
        * as before, and sessions already issued are untouched.
        *
-       * A new account is made by hand against the database, which is how the
-       * current one exists — insert the `user` row with its `role`, and the
-       * matching `account` row carrying better-auth's password hash. There is
-       * no other way in now, and that is deliberate: this admin has one
-       * client and a handful of staff, not a sign-up funnel.
+       * The first admin is made by `apps/server/scripts/create-user.ts`;
+       * everyone after that is invited from the admin's Team page and chooses
+       * their own password from a single-use link. There is no other way in,
+       * and that is deliberate: this admin has one client and a handful of
+       * staff, not a sign-up funnel.
        */
       disableSignUp: true,
     },
@@ -45,6 +45,41 @@ export function createAuth() {
           required: false,
           defaultValue: "editor",
           input: false,
+        },
+        /**
+         * Whether they may sign in at all: `invited`, `active` or
+         * `deactivated`. Never accepted from a request — it changes only
+         * through the Team routes and the invitation a member accepts.
+         */
+        status: {
+          type: "string",
+          required: false,
+          defaultValue: "active",
+          input: false,
+        },
+      },
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          /**
+           * Only an active member may hold a session, however it was asked
+           * for. An invited account has no password yet and a deactivated one
+           * has been switched off, but either could still have a credential
+           * row — this is the check that makes the right password not enough.
+           * Returning `false` makes better-auth refuse the sign-in.
+           *
+           * Read fresh from the table rather than trusting whatever user
+           * object better-auth has in hand, because that is exactly the
+           * value a deactivation has just changed.
+           */
+          before: async (created) => {
+            const member = await db.query.user.findFirst({
+              where: (row, { eq }) => eq(row.id, created.userId),
+              columns: { status: true },
+            });
+            if (member && member.status !== "active") return false;
+          },
         },
       },
     },

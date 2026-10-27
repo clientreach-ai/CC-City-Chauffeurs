@@ -120,7 +120,11 @@ export const env = createEnv({
     MAIL_FROM: z.string().min(1).optional(),
     /** Where the office hears that somebody is waiting. */
     OFFICE_EMAIL: z.string().min(1).optional(),
-    /** Where the admin lives, so an alert can link straight to the record. */
+    /**
+     * Where the admin lives, so an alert can link straight to the record —
+     * and the start of every team invitation link (`/accept-invite?token=…`),
+     * so in production it must be the admin's real public address.
+     */
     ADMIN_URL: z.url().default("http://localhost:3002"),
   },
   /**

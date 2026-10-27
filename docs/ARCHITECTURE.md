@@ -196,25 +196,41 @@ pnpm dev
 | Website | http://localhost:3001 |
 | Admin | http://localhost:3002 |
 
-### The first account
+### The first account, and everyone after
 
 Sign-up is closed. `emailAndPassword.disableSignUp` refuses
 `/api/auth/sign-up/email` outright, because the API answers to the internet and
 an account made there would arrive with the `editor` role and the run of the
-client's content. Accounts are made against the database instead:
+client's content.
+
+The first admin is made against the database:
 
 ```bash
 # Hash the password the way better-auth reads it back.
 bun --filter server run scripts/create-user.ts you@example.com 'a-long-password' 'Your Name' admin
 ```
 
-If that script has not been written yet, the two rows can be inserted by hand —
-a `user` row carrying the role, and an `account` row whose `password` holds
-better-auth's scrypt hash of the password. Copy the shape from the row that is
-already there; a hash written any other way will not verify.
+Re-running it for an existing email resets that password and role and makes
+the account `active` again — the way back in if every admin is locked out.
+
+Everyone else is invited from the admin's **Team** page (admins only, the
+`team.manage` capability). An invitation makes an `invited` account with no
+password and a single-use link to `ADMIN_URL/accept-invite?token=…`, valid for
+seven days. It is emailed when mail is on; either way the admin is shown the
+link once, to pass on by hand. Opening it lets the person choose their own
+password, which makes the account `active`. Only the SHA-256 of the token is
+stored, and the token is cut out of the request log.
+
+- `invited` and `deactivated` accounts cannot hold a session: better-auth's
+  session hook refuses one, and the API treats any it finds as signed out.
+- Deactivating someone signs them out everywhere and withdraws their
+  invitation. Their row stays, so the name on what they wrote still means
+  someone; only an invitation nobody accepted is ever deleted.
+- There is always at least one active admin, and nobody can deactivate
+  themselves.
 
 Roles: `editor` — drafts only, no publishing, no operations. `manager` adds
-operations and publishing. `admin` adds site settings.
+operations and publishing. `admin` adds site settings and the team.
 
 ## What is still not real
 
