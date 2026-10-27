@@ -19,7 +19,7 @@
  *   and a link straight to the record.
  */
 
-import { INVITATION_DAYS, roles, type Booking, type Enquiry, type Role } from "@CC-City-Chauffeurs/core";
+import { INVITATION_DAYS, roles, roleWithArticle, type Booking, type Enquiry, type Role } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/server";
 
 import * as fleet from "../repositories/fleet";
@@ -287,7 +287,7 @@ export async function teamInvitation(invite: {
   const text = [
     `Dear ${invite.name},`,
     "",
-    `${invite.invitedBy} has invited you to the City Chauffeurs admin, as ${article(role?.label ?? invite.role)}.`,
+    `${invite.invitedBy} has invited you to the City Chauffeurs admin, as ${roleWithArticle(invite.role)}.`,
     ...(role ? [`${role.label}: ${role.summary}`] : []),
     "",
     "Open this link to choose your password:",
@@ -306,6 +306,3 @@ export async function teamInvitation(invite: {
     { about: "team_invitation", memberId: invite.memberId },
   );
 }
-
-/** "an Admin", "a Manager", "an Editor". */
-const article = (label: string) => `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;

@@ -4,7 +4,7 @@ import { RotateCcw, Send, ShieldCheck, UserMinus, UserPlus, UserX } from "lucide
 import { useState } from "react";
 
 import { cn } from "@CC-City-Chauffeurs/ui/lib/utils";
-import { deniedReason, roles, type InvitationIssued, type TeamMember } from "@CC-City-Chauffeurs/core";
+import { deniedReason, labelFor, roles, type InvitationIssued, type TeamMember } from "@CC-City-Chauffeurs/core";
 
 import { usePreferences } from "@/components/admin/shell/preferences";
 import { StatusBadge, Tag } from "@/components/admin/ui/badge";
@@ -19,7 +19,7 @@ import { errorMessage, useCmsQuery } from "@/lib/query";
 
 import { InvitationLinkDialog } from "./invitation-link-dialog";
 import { InviteDialog } from "./invite-dialog";
-import { activityLine, initials, roleLabel } from "./member-format";
+import { activityLine, initials } from "./member-format";
 import { RoleDialog } from "./role-dialog";
 
 /**
@@ -41,11 +41,12 @@ export function TeamManager() {
   const members = data ?? [];
   const isSelf = (member: TeamMember) => member.id === user?.id;
 
-  const run = async (member: TeamMember, action: () => Promise<void>) => {
-    if (working) return;
+  /** Runs one action at a time; answers what it returned, or nothing if another was under way. */
+  const run = async <T,>(member: TeamMember, action: () => Promise<T>): Promise<T | undefined> => {
+    if (working) return undefined;
     setWorking(member.id);
     try {
-      await action();
+      return await action();
     } finally {
       setWorking(null);
     }
@@ -98,16 +99,13 @@ export function TeamManager() {
   };
 
   const reactivate = async (member: TeamMember) => {
-    let updated: TeamMember;
-    try {
-      setWorking(member.id);
-      updated = await updateMember(member.id, { status: "active" });
-    } catch (err) {
-      notify.error("Not reactivated", errorMessage(err));
-      return;
-    } finally {
-      setWorking(null);
-    }
+    const updated = await run(member, () =>
+      updateMember(member.id, { status: "active" }).catch((err: unknown) => {
+        notify.error("Not reactivated", errorMessage(err));
+        return undefined;
+      }),
+    );
+    if (!updated) return;
     if (updated.status === "active") {
       notify.success(`${member.name} can sign in again`);
       return;
@@ -175,7 +173,7 @@ export function TeamManager() {
 
   const columns: Column<TeamMember>[] = [
     { id: "name", header: "Name", cell: nameBlock },
-    { id: "role", header: "Role", cell: (member) => <Tag>{roleLabel(member.role)}</Tag> },
+    { id: "role", header: "Role", cell: (member) => <Tag>{labelFor(roles, member.role)}</Tag> },
     { id: "status", header: "Status", cell: (member) => <StatusBadge kind="member" value={member.status} /> },
     { id: "activity", header: "Last active", cell: activity },
   ];
@@ -232,7 +230,7 @@ export function TeamManager() {
                 <div className={cn("min-w-0", member.status === "deactivated" ? "opacity-55" : "")}>
                   {nameBlock(member)}
                   <div className="mt-3 flex flex-wrap items-center gap-2 pl-12">
-                    <Tag>{roleLabel(member.role)}</Tag>
+                    <Tag>{labelFor(roles, member.role)}</Tag>
                     <StatusBadge kind="member" value={member.status} />
                   </div>
                   <p className="mt-2 pl-12">{activity(member)}</p>

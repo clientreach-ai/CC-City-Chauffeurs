@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { CmsValidationError, type Role, type TeamMember } from "@CC-City-Chauffeurs/core";
+import { CmsValidationError, roleWithArticle, type Role, type TeamMember } from "@CC-City-Chauffeurs/core";
 
 import { Button } from "@/components/admin/ui/button";
 import { Dialog } from "@/components/admin/ui/dialog";
@@ -12,7 +12,6 @@ import { updateMember } from "@/lib/api/team";
 import { errorMessage } from "@/lib/query";
 
 import { roleOptions } from "./invite-dialog";
-import { roleLabel } from "./member-format";
 
 /** Mounted only while open, so it always starts at the member's current role. */
 export function RoleDialog({ member, onClose }: { member: TeamMember; onClose: () => void }) {
@@ -25,7 +24,7 @@ export function RoleDialog({ member, onClose }: { member: TeamMember; onClose: (
     setError(null);
     try {
       await updateMember(member.id, { role });
-      notify.success("Role changed", `${member.name} is now ${/^[aeiou]/i.test(roleLabel(role)) ? "an" : "a"} ${roleLabel(role)}.`);
+      notify.success("Role changed", `${member.name} is now ${roleWithArticle(role)}.`);
       onClose();
     } catch (err) {
       // The API words the refusals people can hit here (the last admin).

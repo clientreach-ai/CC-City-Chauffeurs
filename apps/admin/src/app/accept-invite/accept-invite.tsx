@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { PASSWORD_LENGTH, passwordProblem, type InvitationPreview } from "@CC-City-Chauffeurs/core";
 
@@ -16,6 +16,10 @@ import { signIn } from "@/lib/auth-client";
  *
  * Plain `fetch` rather than the admin's API client: that one speaks to
  * `/api/admin`, which needs a session, and treats a 401 as "signed out".
+ *
+ * The token is in the link's fragment (`#token=…`), which the browser never
+ * sends to any server, and it goes to the API in a request body — so it
+ * appears in no request line and no access log on the way.
  */
 
 type State =
@@ -26,6 +30,25 @@ type State =
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
+/** The token from the fragment; "" when there is none. */
+const readToken = () => new URLSearchParams(window.location.hash.slice(1)).get("token")?.trim() ?? "";
+
+function onHashChange(change: () => void) {
+  window.addEventListener("hashchange", change);
+  return () => window.removeEventListener("hashchange", change);
+}
+
+/** null while rendering on the server, where there is no fragment to read. */
+const noToken = () => null;
+
+const post = (path: string, body: unknown) =>
+  fetch(`/api/public/invitations/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
 async function readBody(response: Response) {
   return (await response.json().catch(() => null)) as { error?: string; fields?: Record<string, string> } | null;
 }
@@ -34,7 +57,7 @@ const inputClass =
   "mt-2 h-11 w-full border border-white/15 bg-obsidian px-3 text-[0.9375rem] text-white outline-none focus:border-white aria-[invalid=true]:border-alert";
 
 export function AcceptInvite() {
-  const token = useSearchParams().get("token")?.trim() ?? "";
+  const token = useSyncExternalStore(onHashChange, readToken, noToken);
   const router = useRouter();
   const [state, setState] = useState<State>({ step: "loading" });
   const [error, setError] = useState<string | null>(null);
@@ -42,14 +65,15 @@ export function AcceptInvite() {
   const [busy, setBusy] = useState<"saving" | "signing-in" | null>(null);
 
   // Known without asking the server, so shown at once.
-  const view: State = token
-    ? state
-    : { step: "invalid", message: "This link is incomplete. Open the link from your invitation again, or ask an admin to send a new one." };
+  const view: State =
+    token === null || token
+      ? state
+      : { step: "invalid", message: "This link is incomplete. Open the link from your invitation again, or ask an admin to send a new one." };
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    fetch(`/api/public/invitations/${encodeURIComponent(token)}`, { cache: "no-store" })
+    post("lookup", { token })
       .then(async (response) => {
         if (cancelled) return;
         if (!response.ok) {
@@ -72,7 +96,7 @@ export function AcceptInvite() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (view.step !== "form" || busy) return;
+    if (view.step !== "form" || !token || busy) return;
     const { email } = view.invitation;
 
     // From the form, not React state: a password manager may fill the inputs
@@ -92,11 +116,7 @@ export function AcceptInvite() {
     setBusy("saving");
     let response: Response;
     try {
-      response = await fetch(`/api/public/invitations/${encodeURIComponent(token)}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
+      response = await post("accept", { token, password });
     } catch {
       setBusy(null);
       setError(OFFLINE);
