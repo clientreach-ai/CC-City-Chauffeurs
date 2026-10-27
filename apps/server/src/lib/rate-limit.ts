@@ -182,17 +182,20 @@ export const webhookRateLimit = rateLimiter({
 
 /**
  * The invitation links — the one door into the admin with no session behind
- * it. A token is 256 random bits, so guessing one is not the threat; this is
- * here so that trying costs a script something, and so a scrypt hash on
- * every accept cannot be used to keep the server busy.
+ * it. A flood guard, like the webhook's, and deliberately not a tight limit.
  *
- * Its own counters: somebody opening their invitation a few times, mistyping
- * a password and trying again, never comes close, and an office enquiring
- * from the same address never uses up its allowance.
+ * The accept page is served by the admin and reaches the API through the
+ * admin's own `/api` rewrite, so the address this sees is the admin host's,
+ * not the invitee's: every invitee shares one counter. A tight limit here
+ * would let one person exhaust it and lock every real invitee out. Nor does
+ * it need to be tight — a token is 256 random bits, so guessing is not the
+ * threat, and a token that is not live is refused before the slow password
+ * hash ever runs (see `acceptInvitation`), so trying costs a lookup. What is
+ * left is a flood, which this turns into a counter rather than queries.
  */
 export const invitationRateLimit = rateLimiter({
-  burst: { limit: 10, windowMs: 60_000 },
-  sustained: { limit: 20, windowMs: 10 * 60_000 },
+  burst: { limit: 300, windowMs: 60_000 },
+  sustained: { limit: 2_000, windowMs: 10 * 60_000 },
   refuse: (c, retryAfter) =>
     c.json(
       { error: "Too many attempts from this connection. Wait a few minutes and try again." },

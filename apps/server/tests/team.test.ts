@@ -88,16 +88,19 @@ const invite = async (name = "Amelia Hughes", email = "amelia@example.test", rol
   return (await response.json()) as InvitationIssued;
 };
 
-const tokenOf = (link: string) => new URL(link).searchParams.get("token")!;
+/** The token rides in the fragment, which a browser never sends. */
+const tokenOf = (link: string) => new URLSearchParams(new URL(link).hash.slice(1)).get("token")!;
 
-const preview = (token: string) => app.request(`/api/public/invitations/${token}`, { headers: fromSomewhere() });
-
-const accept = (token: string, password = "a-long-enough-password") =>
-  app.request(`/api/public/invitations/${token}/accept`, {
+const post = (path: string, body: unknown, headers: Record<string, string> = fromSomewhere()) =>
+  app.request(`/api/public/invitations/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...fromSomewhere() },
-    body: JSON.stringify({ password }),
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
   });
+
+const preview = (token: string) => post("lookup", { token });
+
+const accept = (token: string, password = "a-long-enough-password") => post("accept", { token, password });
 
 const rows = async <T>(query: string, params: unknown[] = []) =>
   (await database.client.query<T>(query, params)).rows;
@@ -161,9 +164,12 @@ describe("inviting someone", () => {
     expect(days).toBeGreaterThan(6.9);
     expect(days).toBeLessThanOrEqual(7);
 
-    expect(issued.link.startsWith("https://admin.example/accept-invite?token=")).toBe(true);
+    expect(issued.link.startsWith("https://admin.example/accept-invite#token=")).toBe(true);
     const token = tokenOf(issued.link);
     expect(token.length).toBe(43);
+    // Nothing a server would see — the path and the query — carries it.
+    const { pathname, search } = new URL(issued.link);
+    expect(pathname + search).toBe("/accept-invite");
 
     // Only the hash is kept: the token itself is nowhere in the database.
     const [stored] = await rows<{ token_hash: string; invited_by: string }>(`select token_hash, invited_by from team_invitation`);
@@ -216,6 +222,22 @@ describe("inviting someone", () => {
     expect(fields.email).toEqual(expect.any(String));
   });
 
+  test("an address sign-in would refuse is refused before anyone is invited with it", async () => {
+    // Each passes a loose "looks like an email" check, and each is one
+    // better-auth's sign-in rejects — an account made with it could accept
+    // and then never sign in.
+    for (const email of ["jo&ann@example.com", "user@müller.de", "john.@example.com", "a#b@example.co.uk"]) {
+      const response = await call("POST", "/team", "admin", { name: "Someone", email, role: "editor" });
+      expect(response.status).toBe(422);
+      expect(((await response.json()) as { fields: Record<string, string> }).fields.email).toContain("can't be used to sign in");
+    }
+    expect(await rows(`select id from "user"`)).toEqual([{ id: ADMIN.id }]);
+
+    // Ordinary addresses, including the less common ones, still go through.
+    await invite("Siobhan O'Brien", "o'brien@example.ie");
+    await invite("Ben Carter", "Ben.Carter+admin@Sub.Example.co.uk");
+  });
+
   test("the team lists active, then invited, then deactivated, by name", async () => {
     await activeMember("zara");
     await activeMember("adam");
@@ -250,7 +272,7 @@ describe("an invitation link", () => {
     const issued = await invite();
     const token = tokenOf(issued.link);
 
-    for (const wrong of ["x".repeat(43), "short", "y".repeat(101)]) {
+    for (const wrong of ["x".repeat(43), "short", "y".repeat(101), ""]) {
       const response = await preview(wrong);
       expect(response.status).toBe(410);
       expect(response.headers.get("cache-control")).toBe("no-store");
@@ -306,7 +328,12 @@ describe("an invitation link", () => {
     expect((await preview(token)).status).toBe(200);
   });
 
-  test("two accepts at once: exactly one wins", async () => {
+  /**
+   * PGlite has one connection, so these two run one after the other: this
+   * proves the outcome, not the lock that produces it under real overlap.
+   * `team-postgres.test.ts` runs the same race on a real Postgres.
+   */
+  test("the same link accepted twice: exactly one wins", async () => {
     const issued = await invite();
     const token = tokenOf(issued.link);
     const results = await Promise.all([accept(token, "first-long-password"), accept(token, "second-long-password")]);
@@ -336,35 +363,54 @@ describe("an invitation link", () => {
 
   test("the accept is refused when another site's page sends it", async () => {
     const issued = await invite();
-    const response = await app.request(`/api/public/invitations/${tokenOf(issued.link)}/accept`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Origin: "https://evil.example", ...fromSomewhere() },
-      body: JSON.stringify({ password: "a-long-enough-password" }),
-    });
+    const response = await post(
+      "accept",
+      { token: tokenOf(issued.link), password: "a-long-enough-password" },
+      { Origin: "https://evil.example", ...fromSomewhere() },
+    );
     expect(response.status).toBe(403);
     expect((await preview(tokenOf(issued.link))).status).toBe(200);
   });
 
-  test("the token never reaches the request log", async () => {
-    const { redactInvitationTokens } = await import("../src/routes/invitations");
-    const token = "AbC-123_xyzAbC-123_xyzAbC-123_xyzAbC-123_x";
-    expect(redactInvitationTokens(`--> GET /api/public/invitations/${token} 200 4ms`)).toBe(
-      "--> GET /api/public/invitations/[token] 200 4ms",
-    );
-    expect(redactInvitationTokens(`<-- POST /api/public/invitations/${token}/accept`)).toBe(
-      "<-- POST /api/public/invitations/[token]/accept",
-    );
-    // The resend route has no token in it and is left alone.
-    expect(redactInvitationTokens("--> POST /api/admin/team/abc/invitation 200")).toBe("--> POST /api/admin/team/abc/invitation 200");
+  test("the token is never part of a path", async () => {
+    const issued = await invite();
+    const token = tokenOf(issued.link);
+    // The old shape, with the token in the path, is not a route at all.
+    expect((await app.request(`/api/public/invitations/${token}`)).status).toBe(404);
+    expect((await app.request(`/api/public/invitations/${token}/accept`, { method: "POST" })).status).toBe(404);
+    expect((await preview(token)).status).toBe(200);
   });
 
-  test("one address trying link after link is slowed down", async () => {
+  test("a made-up token is refused without hashing a password", async () => {
+    const context = await auth.$context;
+    const hash = context.password.hash;
+    let hashed = 0;
+    context.password.hash = async (password: string) => {
+      hashed++;
+      return hash(password);
+    };
+    try {
+      expect((await accept("z".repeat(43))).status).toBe(410);
+      expect(hashed).toBe(0);
+
+      const issued = await invite();
+      expect((await accept(tokenOf(issued.link))).status).toBe(204);
+      expect(hashed).toBe(1);
+    } finally {
+      context.password.hash = hash;
+    }
+  });
+
+  test("invitees share the admin's address, so only a flood from it is cut off", async () => {
+    // Every request below comes from one address, as they do in production
+    // through the admin's /api rewrite. Ordinary use never comes near the
+    // guard; a flood meets it.
     const headers = { "x-forwarded-for": "203.0.113.77" };
     const statuses: number[] = [];
-    for (let attempt = 0; attempt < 12; attempt++) {
-      statuses.push((await app.request(`/api/public/invitations/${"z".repeat(43)}`, { headers })).status);
+    for (let attempt = 0; attempt < 301; attempt++) {
+      statuses.push((await post("lookup", { token: "z".repeat(43) }, headers)).status);
     }
-    expect(statuses.slice(0, 10).every((status) => status === 410)).toBe(true);
+    expect(statuses.slice(0, 300).every((status) => status === 410)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
   });
 });
@@ -434,7 +480,8 @@ describe("changing a member", () => {
     expect(await rows(`select role, status from "user" where id = 'second-admin'`)).toEqual([{ role: "admin", status: "active" }]);
   });
 
-  test("two admins demoting each other at once cannot leave none", async () => {
+  /** One after the other on PGlite, as above; `team-postgres.test.ts` runs it with real overlap. */
+  test("two admins demoting each other cannot leave none", async () => {
     await activeMember("second-admin", "admin");
     const results = await Promise.allSettled([
       team.updateMember("second-admin", { role: "editor" }, ADMIN),
@@ -537,5 +584,24 @@ describe("signing in", () => {
     await database.client.query(`update "user" set status = 'deactivated' where id = $1`, [issued.member.id]);
     expect(await whoIs(cookie)).toBeNull();
     expect((await signIn("amelia@example.test", password)).ok).toBe(false);
+  });
+
+  test("the database itself refuses a session to anyone not active", async () => {
+    await activeMember("adam");
+    const issued = await invite();
+    await activeMember("zara");
+    await team.updateMember("zara", { status: "deactivated" }, ADMIN);
+
+    const insertSession = (id: string, userId: string) =>
+      database.client.query(
+        `insert into session (id, expires_at, token, updated_at, user_id) values ($1, now() + interval '1 day', $1, now(), $2)`,
+        [id, userId],
+      );
+
+    await insertSession("for-adam", "adam");
+    // Written straight to the table, past better-auth and its hook.
+    await expect(insertSession("for-invited", issued.member.id)).rejects.toThrow("Only an active member may hold a session.");
+    await expect(insertSession("for-zara", "zara")).rejects.toThrow("Only an active member may hold a session.");
+    expect(await rows(`select id from session order by id`)).toEqual([{ id: "for-adam" }]);
   });
 });

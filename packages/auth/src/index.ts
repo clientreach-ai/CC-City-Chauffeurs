@@ -4,6 +4,16 @@ import { env } from "@CC-City-Chauffeurs/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
+/**
+ * What better-auth writes on the account row behind an email and password.
+ * It finds a password login by `providerId` with `accountId` set to the
+ * user's own id, qualified by `issuer` — "local:credential", not
+ * "credential". A row written with anything else is one it never finds: the
+ * sign-in answers "Invalid email or password" for a password that is
+ * correct. Anything here that writes a password row uses this.
+ */
+export const CREDENTIAL = { providerId: "credential", issuer: "local:credential" } as const;
+
 export function createAuth() {
   const db = createDb();
 
@@ -72,6 +82,11 @@ export function createAuth() {
            * Read fresh from the table rather than trusting whatever user
            * object better-auth has in hand, because that is exactly the
            * value a deactivation has just changed.
+           *
+           * This is the polite refusal, not the only one. A deactivation
+           * committing between this read and the insert would slip past it,
+           * so the database refuses the insert too (migration 0007), under
+           * the same row lock the deactivation takes.
            */
           before: async (created) => {
             const member = await db.query.user.findFirst({

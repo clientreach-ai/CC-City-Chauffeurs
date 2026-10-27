@@ -25,8 +25,11 @@ import * as schema from "@CC-City-Chauffeurs/db/schema/index";
 
 const MIGRATIONS = join(import.meta.dir, "../../../packages/db/src/migrations");
 
-/** The real migrations, in order, exactly as they will run in production. */
-async function migrate(client: PGlite) {
+/**
+ * The real migrations, in order, exactly as they will run in production —
+ * into PGlite here, or into a real Postgres for `team-postgres.test.ts`.
+ */
+export async function migrate(client: { exec(sql: string): Promise<unknown> }) {
   const files = (await readdir(MIGRATIONS)).filter((name) => name.endsWith(".sql")).sort();
 
   for (const file of files) {
