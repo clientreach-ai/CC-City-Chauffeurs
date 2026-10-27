@@ -43,6 +43,13 @@
       "when": 1790900000000,
       "tag": "0005_legal_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0006_team",
+      "breakpoints": true
     }
   ]
 }

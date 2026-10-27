@@ -532,3 +532,24 @@ export const legalDocumentSchema = z.object({
     }),
   ),
 });
+
+// ---------------------------------------------------------------- team
+
+const teamRoleSchema = z.enum(["admin", "manager", "editor"]);
+
+export const inviteMemberSchema = z.object({
+  name: trimmed,
+  email: trimmed,
+  role: teamRoleSchema,
+});
+
+export const updateMemberSchema = z
+  .object({
+    role: teamRoleSchema.optional(),
+    status: z.enum(["active", "deactivated"]).optional(),
+  })
+  .refine((value) => value.role !== undefined || value.status !== undefined, "Say what to change.");
+
+export const acceptInvitationSchema = z.object({
+  password: z.string().max(200),
+});
