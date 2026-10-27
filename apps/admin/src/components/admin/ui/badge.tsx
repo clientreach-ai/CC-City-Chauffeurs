@@ -4,10 +4,11 @@ import {
   bookingStatuses,
   enquiryStatuses,
   labelFor,
+  memberStatuses,
   publishStatuses,
   visibilityStatuses,
 } from "@CC-City-Chauffeurs/core";
-import type { BookingStatus, EnquiryStatus, PublishStatus, Visibility } from "@CC-City-Chauffeurs/core";
+import type { BookingStatus, EnquiryStatus, MemberStatus, PublishStatus, Visibility } from "@CC-City-Chauffeurs/core";
 
 import { conversationStatuses, type ConversationStatus } from "@/lib/api/whatsapp";
 
@@ -48,6 +49,7 @@ const styles = {
     ai_active: outline,
     closed: dashed,
   } satisfies Record<ConversationStatus, string>,
+  member: { active: solid, invited: outline, deactivated: dashed } satisfies Record<MemberStatus, string>,
 };
 
 type BadgeProps =
@@ -55,7 +57,8 @@ type BadgeProps =
   | { kind: "visibility"; value: Visibility }
   | { kind: "enquiry"; value: EnquiryStatus }
   | { kind: "booking"; value: BookingStatus }
-  | { kind: "whatsapp"; value: ConversationStatus };
+  | { kind: "whatsapp"; value: ConversationStatus }
+  | { kind: "member"; value: MemberStatus };
 
 export function StatusBadge(props: BadgeProps & { className?: string }) {
   let label: string;
@@ -80,6 +83,10 @@ export function StatusBadge(props: BadgeProps & { className?: string }) {
     case "whatsapp":
       label = labelFor(conversationStatuses, props.value);
       style = styles.whatsapp[props.value];
+      break;
+    case "member":
+      label = labelFor(memberStatuses, props.value);
+      style = styles.member[props.value];
       break;
   }
   const live =
