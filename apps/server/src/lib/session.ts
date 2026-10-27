@@ -1,7 +1,9 @@
 import { auth } from "@CC-City-Chauffeurs/auth";
 import { can } from "@CC-City-Chauffeurs/core";
-import type { Capability, Role } from "@CC-City-Chauffeurs/core";
+import type { Capability, MemberStatus, Role } from "@CC-City-Chauffeurs/core";
+import { db, schema } from "@CC-City-Chauffeurs/db";
 import { env } from "@CC-City-Chauffeurs/env/server";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 
@@ -25,32 +27,87 @@ export type SessionUser = {
 
 export type Variables = { user: SessionUser | null };
 
+/**
+ * Who a better-auth session says is asking, or null for nobody.
+ *
+ * A member who is not `active` is treated as signed out even while holding a
+ * session. Deactivating someone deletes their sessions, so this is the second
+ * lock rather than the first: it covers a session that outlived the delete by
+ * a moment, and anything that changes the status without going through the
+ * Team routes. The status is read with the session on every request, so it
+ * costs nothing extra.
+ */
+export function sessionUser(raw: unknown): SessionUser | null {
+  const user = raw as (SessionUser & { role?: Role; status?: MemberStatus }) | null | undefined;
+  if (!user) return null;
+  // A row from before statuses existed reads as active, as the migration made it.
+  if ((user.status ?? "active") !== "active") return null;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image ?? null,
+    // A user created before roles existed can still sign in; they get
+    // the least privileged role rather than none at all.
+    role: user.role ?? "editor",
+  };
+}
+
 /** Reads the session cookie, if there is one. Never rejects. */
 export const withSession = createMiddleware<{ Variables: Variables }>(async (c, next) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  const user = session?.user as (SessionUser & { role?: Role }) | undefined;
-  c.set(
-    "user",
-    user
-      ? {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image ?? null,
-          // A user created before roles existed can still sign in; they get
-          // the least privileged role rather than none at all.
-          role: user.role ?? "editor",
-        }
-      : null,
-  );
+  c.set("user", sessionUser(session?.user));
   await next();
 });
 
 /** Everything behind this needs a signed-in user. */
 export const requireUser = createMiddleware<{ Variables: Variables }>(async (c, next) => {
-  if (!c.get("user")) throw new UnauthorisedError();
+  const user = c.get("user");
+  if (!user) throw new UnauthorisedError();
+  noteActivity(user.id);
   await next();
 });
+
+/**
+ * How stale "last active" on the Team page may be. Writing it on every
+ * request would put a write behind every read the admin makes; once in five
+ * minutes answers the only question anyone asks of it — is this person still
+ * using the admin?
+ */
+const ACTIVITY_EVERY_MS = 5 * 60_000;
+
+/** When each user was last written, so most requests skip the database entirely. */
+const lastNoted = new Map<string, number>();
+
+/**
+ * Records that this user is using the admin. Fire-and-forget: it is a
+ * courtesy on the Team page, so it never delays a request and a failure is
+ * swallowed rather than turning a successful read into an error.
+ *
+ * The in-memory map spares the database; the `where` clause is what keeps a
+ * second API instance, or a restart that forgot the map, from writing more
+ * often than the interval.
+ */
+function noteActivity(userId: string) {
+  const now = Date.now();
+  if (now - (lastNoted.get(userId) ?? 0) < ACTIVITY_EVERY_MS) return;
+  lastNoted.set(userId, now);
+  const stale = new Date(now - ACTIVITY_EVERY_MS);
+  void db
+    .update(schema.user)
+    // `updatedAt` is left as it was: using the admin is not editing the account.
+    .set({ lastActiveAt: new Date(now), updatedAt: sql`${schema.user.updatedAt}` })
+    .where(
+      and(
+        eq(schema.user.id, userId),
+        or(isNull(schema.user.lastActiveAt), lt(schema.user.lastActiveAt, stale)),
+      ),
+    )
+    .catch(() => {
+      // Let the next request try again rather than waiting out the interval.
+      lastNoted.delete(userId);
+    });
+}
 
 /** Everything behind this needs a specific capability. */
 export function requires(capability: Capability) {

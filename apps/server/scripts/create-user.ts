@@ -13,7 +13,12 @@
  *   bun run scripts/create-user.ts <email> <password> <name> [role]
  *
  * Role defaults to `admin`. Re-running for an existing email changes that
- * account's password and role rather than making a second one.
+ * account's password and role rather than making a second one — and makes it
+ * `active`, so this is also the way back in for an admin who has been
+ * deactivated, or who never accepted their invitation.
+ *
+ * This is for the first admin, and for getting back in when nobody can. Everyone
+ * else is invited from the admin's Team page and chooses their own password.
  */
 
 import { auth } from "@CC-City-Chauffeurs/auth";
@@ -56,8 +61,11 @@ const [existing] = await db
 if (existing) {
   await db
     .update(schema.user)
-    .set({ name, role: role as Role, updatedAt: now })
+    .set({ name, role: role as Role, status: "active", emailVerified: true, updatedAt: now })
     .where(eq(schema.user.id, existing.id));
+
+  // An invitation they had not accepted would otherwise still set a password.
+  await db.delete(schema.teamInvitation).where(eq(schema.teamInvitation.userId, existing.id));
 
   const [account] = await db
     .select()
@@ -83,7 +91,7 @@ if (existing) {
     });
   }
 
-  console.log(`Updated ${address} — role ${role}.`);
+  console.log(`Updated ${address} — role ${role}, active.`);
   process.exit(0);
 }
 
@@ -94,6 +102,7 @@ await db.insert(schema.user).values({
   email: address,
   name,
   role: role as Role,
+  status: "active",
   emailVerified: true,
   createdAt: now,
   updatedAt: now,

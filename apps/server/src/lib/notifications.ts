@@ -19,11 +19,11 @@
  *   and a link straight to the record.
  */
 
-import type { Booking, Enquiry } from "@CC-City-Chauffeurs/core";
+import { INVITATION_DAYS, roles, type Booking, type Enquiry, type Role } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/server";
 
 import * as fleet from "../repositories/fleet";
-import { mailer, type Email } from "./mail";
+import { mailer, SilentMailer, type Email } from "./mail";
 
 /** One line of JSON per email, the same shape the WhatsApp channel logs. */
 function log(event: string, fields: Record<string, unknown>) {
@@ -33,16 +33,22 @@ function log(event: string, fields: Record<string, unknown>) {
 /**
  * Sends, and swallows everything. The caller has already done the part that
  * mattered; this is the part that can safely fail.
+ *
+ * Answers whether the email actually left: `false` when it failed, and also
+ * when mail is switched off — the silent mailer agrees to everything, but
+ * nobody received anything.
  */
-async function post(email: Email, about: Record<string, unknown>) {
+async function post(email: Email, about: Record<string, unknown>): Promise<boolean> {
   const post = mailer();
   try {
     const outcome = await post.send(email);
     if (outcome.ok) log("sent", { ...about, mailer: post.name, id: outcome.id });
     else log("failed", { ...about, mailer: post.name, code: outcome.code, detail: outcome.detail });
+    return outcome.ok && !(post instanceof SilentMailer);
   } catch (error) {
     // A mailer is not supposed to throw. If one does, it stops here.
     log("failed", { ...about, mailer: post.name, code: "threw", detail: error instanceof Error ? error.name : "unknown" });
+    return false;
   }
 }
 
@@ -256,3 +262,50 @@ export function bookingConfirmed(booking: Booking, contact: { name: string; emai
     );
   });
 }
+
+/**
+ * An invitation to the admin, sent to the person being invited.
+ *
+ * Unlike everything above, this one is awaited and answers whether it was
+ * sent, because the admin who sent it is still looking at the screen: told
+ * the email did not go, they copy the link and pass it on themselves. It
+ * still never throws — the invitation is already saved, and the link works
+ * however it reaches them.
+ *
+ * The link is the whole of the credential, so it appears in the email and
+ * nowhere else: not in the log line, not in the subject.
+ */
+export async function teamInvitation(invite: {
+  memberId: string;
+  name: string;
+  email: string;
+  role: Role;
+  invitedBy: string;
+  link: string;
+}): Promise<boolean> {
+  const role = roles.find((known) => known.value === invite.role);
+  const text = [
+    `Dear ${invite.name},`,
+    "",
+    `${invite.invitedBy} has invited you to the City Chauffeurs admin, as ${article(role?.label ?? invite.role)}.`,
+    ...(role ? [`${role.label}: ${role.summary}`] : []),
+    "",
+    "Open this link to choose your password:",
+    "",
+    invite.link,
+    "",
+    `It works once and expires in ${INVITATION_DAYS} days. Once your password is chosen, sign in with ${invite.email}.`,
+    "",
+    "If you were not expecting this, you can ignore this email — nothing happens unless the link is opened.",
+    "",
+    "City Chauffeurs",
+  ].join("\n");
+
+  return post(
+    { to: invite.email, subject: "You're invited to the City Chauffeurs admin", text },
+    { about: "team_invitation", memberId: invite.memberId },
+  );
+}
+
+/** "an Admin", "a Manager", "an Editor". */
+const article = (label: string) => `${/^[aeiou]/i.test(label) ? "an" : "a"} ${label}`;
