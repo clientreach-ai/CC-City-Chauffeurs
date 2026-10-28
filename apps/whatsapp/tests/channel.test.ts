@@ -224,6 +224,79 @@ describe("an enquiry", () => {
 // The diary belongs to the office. A customer asking to book a specific car
 // on a specific day is recorded the same way as one asking for a price, and
 // a person turns it into a booking once it is won.
+// Nothing a customer asks for second should arrive carrying the details of
+// what they asked for first. That is how a journey nobody confirmed reaches
+// the office looking confirmed.
+describe("a second journey in the same conversation", () => {
+  test("starts from nothing once the first is recorded", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", {
+        name: "Amelia Hughes",
+        vehicle: "Ghost",
+        pickup: "Claridge's",
+        date: "2027-06-19",
+        time: "10:00",
+      }),
+      calls("create_enquiry"),
+      says("That is with the team as ENQ-1101."),
+    ]);
+    await say(whatsapp, "m1", "The Ghost for my wedding, Claridge's, 19 June at 10, Amelia Hughes");
+
+    const state = () => [...store.conversations.values()][0]!.state;
+    // The draft is spent: it became a record, so it is no longer a draft.
+    expect(state().journey).toEqual({});
+    expect(state().recorded).toEqual([
+      { reference: "ENQ-1101", date: "2027-06-19", time: "10:00", pickup: "Claridge's", vehicle: "Rolls-Royce Ghost" },
+    ]);
+
+    model.push(
+      calls("record_journey_details", { vehicle: "Bentayga", date: "2027-06-20" }),
+      says("The Bentayga on the 20th. What time, and where from?"),
+    );
+    await say(whatsapp, "m2", "I also want the Bentayga on the 20th");
+
+    const results = model.requests.at(-1)!.messages.at(-1) as { results: { content: string }[] };
+    const recorded = JSON.parse(results.results[0]!.content).data.recorded;
+    expect(recorded.vehicle).toBe("Bentley Bentayga");
+    expect(recorded.date).toBe("2027-06-20");
+    // Saturday's ten o'clock and Claridge's have not come along for the ride.
+    expect(recorded.time).toBeUndefined();
+    expect(recorded.pickup).toBeUndefined();
+  });
+
+  test("startNew forgets a draft that was never recorded", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { pickup: "Claridge's", date: "2027-06-19", time: "10:00" }),
+      says("Noted. What car were you thinking?"),
+    ]);
+    await say(whatsapp, "m1", "Claridge's on 19 June at 10");
+
+    model.push(
+      calls("record_journey_details", { startNew: true, pickup: "Heathrow" }),
+      says("A separate one from Heathrow. What date?"),
+    );
+    await say(whatsapp, "m2", "Forget that, I need something from Heathrow instead");
+
+    const results = model.requests.at(-1)!.messages.at(-1) as { results: { content: string }[] };
+    const data = JSON.parse(results.results[0]!.content).data;
+    expect(data.startedAfresh).toBe(true);
+    expect(data.recorded).toEqual({ pickup: "Heathrow" });
+  });
+
+  test("a correction is not a new journey", async () => {
+    const whatsapp = channel([
+      calls("record_journey_details", { pickup: "Claridge's", date: "2027-06-19", time: "10:00" }),
+      calls("record_journey_details", { time: "16:00" }),
+      says("Four o'clock it is."),
+    ]);
+    await say(whatsapp, "m1", "Claridge's 19 June at 10. Actually make it 4pm");
+
+    const results = model.requests.at(-1)!.messages.at(-1) as { results: { content: string }[] };
+    const recorded = JSON.parse(results.results[0]!.content).data.recorded;
+    expect(recorded).toEqual({ pickup: "Claridge's", date: "2027-06-19", time: "16:00" });
+  });
+});
+
 describe("a customer who asks to book", () => {
   test("is recorded as an enquiry, not a row in the diary", async () => {
     const whatsapp = channel([

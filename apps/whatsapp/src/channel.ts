@@ -350,6 +350,7 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
           profileName: conversation.profileName,
           journey: context.state.journey,
           references: context.state.references,
+          recorded: context.state.recorded ?? [],
           fleet: catalogue?.fleet ?? null,
         }),
       maxIterations: config.maxIterations,

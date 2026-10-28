@@ -25,7 +25,12 @@ import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
-import type { BookingInput, PublicEnquiryInput } from "@CC-City-Chauffeurs/core/schemas";
+import {
+  enquiryJourneyPatchSchema,
+  type BookingInput,
+  type EnquiryJourneyPatch,
+  type PublicEnquiryInput,
+} from "@CC-City-Chauffeurs/core/schemas";
 
 /**
  * Operations — enquiries, the bookings they become, and the customers behind
@@ -200,6 +205,7 @@ export async function updateEnquiryStatus(
   status: EnquiryStatus,
   options: { lostReason?: LostReason } = {},
 ): Promise<Enquiry> {
+  if (status === "cancelled") return cancelEnquiry(id, "office");
   if (status === "lost" && !options.lostReason) {
     assertValid({ lostReason: "Choose why the enquiry was lost." });
   }
@@ -225,6 +231,127 @@ export async function updateEnquiryStatus(
       status === "lost"
         ? `Status changed to Lost — ${labelFor(lostReasons, lostReason)}`
         : `Status changed to ${labelFor(enquiryStatuses, status)}`,
+    );
+  });
+
+  return getEnquiry(id);
+}
+
+/**
+ * Statuses an enquiry cannot be amended or cancelled out of, in words the
+ * caller can pass on.
+ *
+ * `won` and anything already turned into a booking are commitments the
+ * office has made with the customer, and a reschedule would have to move the
+ * booking too. `cancelled` is finished. `lost` is finished, and quietly
+ * reopening it by amendment would hide from the office that the customer
+ * came back.
+ */
+export function settledReason(enquiry: { status: EnquiryStatus; bookingId: string | null }) {
+  if (enquiry.bookingId) return "This enquiry has already become a booking, so the office has to make the change.";
+  if (enquiry.status === "won") return "The office has already agreed this one, so they have to make the change.";
+  if (enquiry.status === "cancelled") return "This enquiry has already been cancelled.";
+  if (enquiry.status === "lost") return "This enquiry was closed, so the office has to reopen it.";
+  return null;
+}
+
+/** "the date, the time and the pick-up", for the trail the office reads. */
+const listed = (parts: string[]) =>
+  parts.length < 2 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+
+const FIELD_NAMES: Record<keyof EnquiryJourneyPatch, string> = {
+  service: "service",
+  vehicleId: "vehicle",
+  pickup: "pick-up",
+  dropoff: "destination",
+  date: "date",
+  time: "time",
+  passengers: "passenger count",
+  luggage: "luggage",
+  flight: "flight",
+  message: "note",
+};
+
+/**
+ * Amend the journey on an enquiry.
+ *
+ * One capability, two doors: the office amending an enquiry in the admin and
+ * a customer rescheduling their own on WhatsApp arrive here. Only the fields
+ * in the patch move; everything else is left exactly as it was, because a
+ * customer saying "make it Friday" has said nothing about their luggage.
+ *
+ * Whoever is calling has already decided they are allowed to. This decides
+ * whether the enquiry can take the change at all.
+ */
+export async function updateEnquiryJourney(id: string, patch: EnquiryJourneyPatch): Promise<Enquiry> {
+  const { message, ...clean } = enquiryJourneyPatchSchema.parse(patch);
+
+  await db.transaction(async (tx) => {
+    const [current] = await tx.select().from(schema.enquiry).where(eq(schema.enquiry.id, id)).limit(1);
+    if (!current) throw new CmsNotFoundError("This enquiry");
+
+    const blocked = settledReason({ status: current.status, bookingId: current.bookingId });
+    if (blocked) assertValid({ status: blocked });
+
+    // A car that is not in the fleet is refused rather than dropped: unlike a
+    // new enquiry, there is an existing value here and silently keeping it
+    // would read as though the change had been made.
+    if (clean.vehicleId && !(await vehicleExists(tx, clean.vehicleId))) {
+      assertValid({ vehicleId: "That vehicle is not in the fleet." });
+    }
+
+    const journey = { ...current.journey };
+    const changed: string[] = [];
+    for (const [field, value] of Object.entries(clean) as [keyof typeof clean, never][]) {
+      if (value === undefined) continue;
+      if (journey[field] === value) continue;
+      journey[field] = value;
+      changed.push(FIELD_NAMES[field]);
+    }
+    if (message !== undefined && message !== current.message) changed.push(FIELD_NAMES.message);
+
+    if (!changed.length) return;
+
+    await tx
+      .update(schema.enquiry)
+      .set({
+        journey,
+        ...(message === undefined ? {} : { message }),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.enquiry.id, id));
+
+    await log(tx, { enquiryId: id }, "edit", `Journey amended: ${listed(changed)}`);
+  });
+
+  return getEnquiry(id);
+}
+
+/**
+ * The customer has withdrawn.
+ *
+ * Its own status rather than Lost, so the office can see the difference
+ * between business it did not win and business nobody competed for, and so
+ * the conversion figure is not dragged down by a change of mind.
+ */
+export async function cancelEnquiry(id: string, by: "customer" | "office" = "office"): Promise<Enquiry> {
+  await db.transaction(async (tx) => {
+    const [current] = await tx.select().from(schema.enquiry).where(eq(schema.enquiry.id, id)).limit(1);
+    if (!current) throw new CmsNotFoundError("This enquiry");
+
+    const blocked = settledReason({ status: current.status, bookingId: current.bookingId });
+    if (blocked) assertValid({ status: blocked });
+
+    await tx
+      .update(schema.enquiry)
+      .set({ status: "cancelled", lostReason: null, updatedAt: new Date() })
+      .where(eq(schema.enquiry.id, id));
+
+    await log(
+      tx,
+      { enquiryId: id },
+      "status",
+      by === "customer" ? "Cancelled by the customer on WhatsApp" : "Cancelled by the office",
     );
   });
 
@@ -736,6 +863,70 @@ export async function enquiryForPhone(reference: string, phone: string): Promise
     )
     .limit(1);
   return row ? getEnquiry(row.id) : null;
+}
+
+/**
+ * An enquiry a customer on WhatsApp is allowed to change.
+ *
+ * Stricter than `enquiryForPhone` on purpose, and deliberately not built on
+ * it. Reading your own enquiry is fair wherever it came from; changing one
+ * is not. An enquiry made on the website was taken by a person, may have
+ * been quoted or discussed by telephone, and is the office's to amend, so
+ * the source is part of the permission and not a detail the assistant is
+ * asked to remember.
+ *
+ * A reference that exists but is not theirs, and one that does not exist at
+ * all, both come back `null`. The caller cannot tell them apart, so nothing
+ * can be learned by trying references in turn.
+ */
+export async function whatsappEnquiryForPhone(reference: string, phone: string): Promise<Enquiry | null> {
+  const digits = phone.replace(/\D/g, "");
+  const wanted = reference.trim().toUpperCase();
+  if (digits.length < 7 || !wanted) return null;
+
+  const [row] = await db
+    .select({ id: schema.enquiry.id })
+    .from(schema.enquiry)
+    .innerJoin(schema.customer, eq(schema.customer.id, schema.enquiry.customerId))
+    .where(
+      and(
+        eq(schema.enquiry.reference, wanted),
+        eq(schema.enquiry.source, "whatsapp"),
+        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
+      ),
+    )
+    .limit(1);
+  return row ? getEnquiry(row.id) : null;
+}
+
+/**
+ * Every enquiry this number made on WhatsApp, newest first.
+ *
+ * What makes "cancel the one for Saturday" answerable: the assistant can see
+ * what the customer has, so it never has to ask them to find a reference,
+ * and it can tell when a request matches more than one and has to ask which.
+ *
+ * Closed ones are included and labelled rather than hidden, because "what
+ * happened to my enquiry?" about a cancelled one deserves an answer.
+ */
+export async function whatsappEnquiriesForPhone(phone: string): Promise<Enquiry[]> {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return [];
+
+  const rows = await db
+    .select({ id: schema.enquiry.id })
+    .from(schema.enquiry)
+    .innerJoin(schema.customer, eq(schema.customer.id, schema.enquiry.customerId))
+    .where(
+      and(
+        eq(schema.enquiry.source, "whatsapp"),
+        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
+      ),
+    )
+    .orderBy(desc(schema.enquiry.createdAt))
+    .limit(20);
+
+  return Promise.all(rows.map((row) => getEnquiry(row.id)));
 }
 
 /**
