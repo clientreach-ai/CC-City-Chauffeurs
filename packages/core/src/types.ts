@@ -388,7 +388,13 @@ export type SiteSettings = {
 
 // ---------------------------------------------------------------- operations
 
-export type EnquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost";
+/**
+ * `cancelled` is the customer's own withdrawal, and it is deliberately not
+ * `lost`. Lost is business we tried for and did not win, and it is half of
+ * the conversion figure the office reads; a customer who changed their mind
+ * before anybody quoted them is neither.
+ */
+export type EnquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost" | "cancelled";
 
 /** PRD §10.5 — a one-tap reason whenever an enquiry is lost. */
 export type LostReason = "price" | "availability" | "too-slow" | "no-reply" | "other";

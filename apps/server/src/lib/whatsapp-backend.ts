@@ -1,8 +1,10 @@
 import {
   bookingStatuses,
   CmsValidationError,
+  company,
   enquiryStatuses,
   labelFor,
+  type Enquiry,
   type Service,
   type Vehicle,
 } from "@CC-City-Chauffeurs/core";
@@ -10,6 +12,7 @@ import { publicEnquirySchema } from "@CC-City-Chauffeurs/core/schemas";
 import {
   type Backend,
   BackendValidationError,
+  type EnquiryStatusSummary,
   type FleetVehicle,
   type RequestCustomer,
   type ServiceDetail,
@@ -101,6 +104,51 @@ const toSummary = (service: Service): ServiceSummary => ({
   summary: service.summary,
 });
 
+/**
+ * An enquiry as the assistant is allowed to see it.
+ *
+ * The journey, the note and any recorded quote, plus whether the customer
+ * may still change it and why not — answered by the same rule the mutation
+ * itself applies, so the assistant never offers a change the server is
+ * about to refuse. The vehicle is a name rather than an id: the customer
+ * asked for a Ghost, not for `veh-ghost`.
+ */
+function toEnquirySummary(enquiry: Enquiry, vehicleName: (id: string | null) => string | null): EnquiryStatusSummary {
+  const blocked = operations.settledReason({ status: enquiry.status, bookingId: enquiry.bookingId });
+  return {
+    reference: enquiry.reference,
+    status: labelFor(enquiryStatuses, enquiry.status),
+    changeable: blocked === null,
+    ...(blocked ? { notChangeableBecause: blocked } : {}),
+    journey: {
+      service: enquiry.journey.service,
+      vehicle: vehicleName(enquiry.journey.vehicleId),
+      pickup: enquiry.journey.pickup,
+      dropoff: enquiry.journey.dropoff,
+      date: enquiry.journey.date,
+      time: enquiry.journey.time,
+      passengers: enquiry.journey.passengers,
+      luggage: enquiry.journey.luggage,
+      flight: enquiry.journey.flight,
+    },
+    note: enquiry.message,
+    quote: enquiry.quote ? { amount: enquiry.quote.amount, note: enquiry.quote.note } : null,
+    createdAt: enquiry.createdAt,
+    updatedAt: enquiry.updatedAt,
+  };
+}
+
+/**
+ * Vehicle names by id, including cars no longer published: an enquiry is a
+ * record of what was asked for, and a car withdrawn from the website since
+ * does not make the customer's own enquiry unreadable.
+ */
+async function vehicleNamer() {
+  const vehicles = await fleet.getVehicles();
+  const names = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle.name]));
+  return (id: string | null) => (id ? (names.get(id) ?? null) : null);
+}
+
 export function createWhatsAppBackend(): Backend {
   return {
     async listFleet() {
@@ -181,13 +229,64 @@ export function createWhatsAppBackend(): Backend {
       });
     },
 
+    /**
+     * Reading your own enquiry, wherever it came from. The website's form and
+     * WhatsApp both belong to the person whose number is on them, and being
+     * told the state of your own enquiry is not a change to it.
+     */
     async findEnquiry(reference, phone) {
       const enquiry = await operations.enquiryForPhone(reference, phone);
+      return enquiry ? toEnquirySummary(enquiry, await vehicleNamer()) : null;
+    },
+
+    async listMyEnquiries(phone) {
+      const [enquiries, nameOf] = await Promise.all([operations.whatsappEnquiriesForPhone(phone), vehicleNamer()]);
+      return enquiries.map((enquiry) => toEnquirySummary(enquiry, nameOf));
+    },
+
+    /**
+     * Changing one, which is a different permission from reading one, so it
+     * goes through the source-aware lookup rather than the general one.
+     */
+    async updateMyEnquiry(reference, phone, patch) {
+      const enquiry = await operations.whatsappEnquiryForPhone(reference, phone);
       if (!enquiry) return null;
+      return refusalsAsBackendErrors(async () =>
+        toEnquirySummary(await operations.updateEnquiryJourney(enquiry.id, patch), await vehicleNamer()),
+      );
+    },
+
+    async cancelMyEnquiry(reference, phone) {
+      const enquiry = await operations.whatsappEnquiryForPhone(reference, phone);
+      if (!enquiry) return null;
+      return refusalsAsBackendErrors(async () =>
+        toEnquirySummary(await operations.cancelEnquiry(enquiry.id, "customer"), await vehicleNamer()),
+      );
+    },
+
+    /** What the client publishes about itself, from the settings they edit. */
+    async companyInfo() {
+      const settings = await content.getSettings();
       return {
-        reference: enquiry.reference,
-        status: labelFor(enquiryStatuses, enquiry.status),
-        createdAt: enquiry.createdAt,
+        name: settings.business.companyName,
+        legalName: settings.business.legalName,
+        registeredName: company.registeredName,
+        companyNumber: company.number,
+        registeredOffice: company.registeredOffice,
+        positioning: settings.business.positioning,
+        tagline: settings.business.tagline,
+        base: settings.business.base,
+        coverage: settings.business.coverage,
+        serviceAreas: [...settings.business.serviceAreas],
+        phone: settings.contact.phoneDisplay,
+        whatsapp: settings.contact.whatsappDisplay,
+        email: settings.contact.email,
+        website: settings.seo.siteUrl,
+        bookingTerms: [...settings.booking.terms],
+        // Nothing in the settings publishes a timetable and the website
+        // prints none, so empty is the honest answer. What the assistant
+        // says in its place is in the prompt, not invented here.
+        openingHours: "",
       };
     },
 
