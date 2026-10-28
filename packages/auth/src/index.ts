@@ -42,6 +42,17 @@ export function createAuth() {
        * staff, not a sign-up funnel.
        */
       disableSignUp: true,
+      /**
+       * The same bounds as `PASSWORD_LENGTH` in @CC-City-Chauffeurs/core —
+       * the rule an invitation applies when a password is first chosen. Set
+       * here so that better-auth's own `/change-password`, which the admin's
+       * account page calls, holds a new password to that rule too rather
+       * than to its default of eight. Sign-in does not check length, so an
+       * existing password keeps working whatever it is. A test keeps the two
+       * in step (tests/password.test.ts).
+       */
+      minPasswordLength: 12,
+      maxPasswordLength: 128,
     },
     user: {
       additionalFields: {

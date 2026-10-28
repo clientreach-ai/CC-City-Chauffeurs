@@ -103,3 +103,24 @@ export function validateInvite(input: InviteMemberInput): FieldErrors {
 export function canSignInWith(email: string) {
   return regexes.email.test(normaliseEmail(email));
 }
+
+/** The signed-in person changing their own password, from their account page. */
+export type ChangePasswordInput = { currentPassword: string; newPassword: string; confirmPassword: string };
+
+/**
+ * Run by the account page before anything is sent. The server applies the
+ * same length rule itself (better-auth, configured with `PASSWORD_LENGTH`)
+ * and is what checks the current password.
+ */
+export function validatePasswordChange(input: ChangePasswordInput): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!input.currentPassword) errors.currentPassword = "Enter the password you sign in with now.";
+  const weak = passwordProblem(input.newPassword);
+  if (weak) errors.newPassword = weak;
+  else if (input.currentPassword && input.newPassword === input.currentPassword) {
+    errors.newPassword = "Choose a password different from your current one.";
+  }
+  if (!input.confirmPassword) errors.confirmPassword = "Type the new password again.";
+  else if (input.confirmPassword !== input.newPassword) errors.confirmPassword = "The two new passwords do not match.";
+  return errors;
+}
