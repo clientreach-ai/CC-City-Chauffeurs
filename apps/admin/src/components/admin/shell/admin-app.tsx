@@ -153,7 +153,7 @@ function Frame({ children }: { children: ReactNode }) {
           <SidebarNav onNavigate={() => setDrawer(false)} />
         </div>
         <div className="border-t border-hairline py-4">
-          <AccountPanel collapsed={false} />
+          <AccountPanel collapsed={false} onNavigate={() => setDrawer(false)} />
           <a
             href={SITE_URL}
             target="_blank"

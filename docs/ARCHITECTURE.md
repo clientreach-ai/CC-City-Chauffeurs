@@ -253,6 +253,13 @@ the API will not start while `ADMIN_URL` still points at localhost.
   someone; only an invitation nobody accepted is ever deleted.
 - There is always at least one active admin, and nobody can deactivate
   themselves.
+- Anyone signed in changes their own password from **Your account**
+  (`/account`, linked under their name in the sidebar). It calls better-auth's
+  `/change-password` directly: the current password is required, the new one
+  is held to the same 12–128 characters as an invitation
+  (`minPasswordLength`/`maxPasswordLength` in `packages/auth`, matching
+  `PASSWORD_LENGTH` in core), and every other session is revoked while this
+  one is reissued.
 
 Roles: `editor` — drafts only, no publishing, no operations. `manager` adds
 operations and publishing. `admin` adds site settings and the team.
