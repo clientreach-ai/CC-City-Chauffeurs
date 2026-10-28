@@ -56,6 +56,27 @@ server is what actually refuses.
 Repositories (`src/repositories/`) hold all the SQL and all the rules. Routes
 parse, authorise and hand off; they contain no logic of their own.
 
+### Email goes out through Resend, or not at all
+
+One provider behind one seam. `src/lib/mail/` holds the `Mailer` interface and
+the single adapter that knows Resend's API; `src/lib/notifications.ts` holds
+the four messages the system actually sends — the office hears about an
+enquiry, a booking request and a customer waiting on WhatsApp, and the
+customer hears once a person has confirmed their booking.
+
+`MAIL_PROVIDER` is `off` by default, which is what every test runs with and
+what a deployment given no mail settings does: a mailer that agrees and sends
+nothing. Set it to `resend` and the settings are checked together at boot
+(`packages/env/src/mail.ts`), because a key that is not a key fails on every
+send and leaves nothing behind but a log line.
+
+Nothing about the post is allowed to cost the client a record. Every
+notification is called after the thing it describes is written, runs after the
+response has gone, and cannot throw. A send that Resend refuses outright is
+reported and dropped; a rate limit or a server error is tried twice more; a
+request that got no answer at all is left alone, because Resend may have taken
+it and the office would rather hear once than twice.
+
 ### Errors keep their shape across the wire
 
 A failed write throws `CmsValidationError` with per-field messages. The API

@@ -1,10 +1,10 @@
 /**
  * Sending an email, as the rest of the server sees it.
  *
- * Vendor-neutral on purpose: exactly one file knows what an SMTP
- * conversation looks like and exactly one knows Resend's API, which is what
- * lets production swap between them with a setting, and lets every test use
- * a mailer that records instead of sends.
+ * Vendor-neutral on purpose: exactly one file knows Resend's API, which is
+ * what lets a deployment turn sending off with a setting, lets another
+ * provider arrive one day without the rest of the server hearing about it,
+ * and lets every test use a mailer that records instead of sends.
  *
  * Nothing here throws. An email that could not be sent is an outcome, not an
  * exception: the enquiry it was telling somebody about is already saved, and
@@ -25,7 +25,7 @@ export type SendOutcome =
   | { ok: false; code: string; detail: string };
 
 export interface Mailer {
-  /** Which adapter — "smtp", "resend", "off", "memory". Recorded in the log. */
+  /** Which adapter — "resend", "off", "memory". Recorded in the log. */
   readonly name: string;
   send(email: Email): Promise<SendOutcome>;
 }

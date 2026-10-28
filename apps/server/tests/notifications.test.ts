@@ -245,7 +245,7 @@ describe("a customer waiting for a person", () => {
 
 describe("when the post cannot go out", () => {
   test("the enquiry is still recorded, and the failure is only a failure to tell", async () => {
-    post.failNext({ ok: false, code: "smtp_econnrefused", detail: "connect ECONNREFUSED" });
+    post.failNext({ ok: false, code: "resend_rate_limit_exceeded", detail: "Too many requests." });
 
     const enquiry = await operations.createPublicEnquiry(visitor);
     notifications.enquiryRecorded(enquiry);
