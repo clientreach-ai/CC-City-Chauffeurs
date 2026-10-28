@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Images,
   Inbox,
+  KeyRound,
   Library,
   Scale,
   LogOut,
@@ -202,7 +203,7 @@ export function Wordmark({ compact }: { compact?: boolean }) {
  * Who is signed in, the role the API will hold them to, and the way out.
  * The role is not a choice made here — it is what the session says.
  */
-function AccountPanel({ collapsed }: { collapsed: boolean }) {
+function AccountPanel({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const { user, role } = usePreferences();
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
@@ -219,6 +220,14 @@ function AccountPanel({ collapsed }: { collapsed: boolean }) {
       <p className="mt-1 text-[0.6875rem] leading-snug text-white/50">
         <span className="text-white/75">{summary?.label ?? role}</span> — {summary?.summary}
       </p>
+      <GuardedLink
+        href={adminRoutes.account}
+        onClick={onNavigate}
+        className="label-xs mt-3 flex h-8 items-center gap-2 text-white/60 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+      >
+        <KeyRound className="size-3.5" strokeWidth={1.5} aria-hidden />
+        Your account
+      </GuardedLink>
       <button
         type="button"
         disabled={leaving}
@@ -227,7 +236,7 @@ function AccountPanel({ collapsed }: { collapsed: boolean }) {
           await signOut();
           router.replace("/sign-in");
         }}
-        className="label-xs mt-3 flex h-8 items-center gap-2 text-white/60 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50"
+        className="label-xs flex h-8 items-center gap-2 text-white/60 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50"
       >
         <LogOut className="size-3.5" strokeWidth={1.5} aria-hidden />
         {leaving ? "Signing out…" : "Sign out"}
