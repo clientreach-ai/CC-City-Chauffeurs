@@ -31,6 +31,7 @@ export const adminRoutes = {
   legal: "/legal" as Route,
   legalDocument: (id: string) => `/legal/${id}` as Route,
   settings: "/settings" as Route,
+  account: "/account" as Route,
   team: "/team" as Route,
   signIn: "/sign-in" as Route,
 } as const;
