@@ -179,3 +179,33 @@ export const webhookRateLimit = rateLimiter({
   refuse: (c, retryAfter) =>
     c.text("Too many requests.", 429, { "Retry-After": String(retryAfter) }),
 });
+
+/**
+ * The invitation links — the one door into the admin with no session behind
+ * it. A flood guard, like the webhook's, and deliberately not a tight limit.
+ *
+ * The accept page is served by the admin and reaches the API through the
+ * admin's own `/api` rewrite, so the address this sees is the admin host's,
+ * not the invitee's: every invitee shares one counter. A tight limit here
+ * would let one person exhaust it and lock every real invitee out. Nor does
+ * it need to be tight — a token is 256 random bits, so guessing is not the
+ * threat, and a token that is not live is refused before the slow password
+ * hash ever runs (see `acceptInvitation`), so trying costs a lookup. What is
+ * left is a flood, which this turns into a counter rather than queries.
+ */
+export const invitationRateLimit = rateLimiter({
+  burst: { limit: 300, windowMs: 60_000 },
+  sustained: { limit: 2_000, windowMs: 10 * 60_000 },
+  refuse: (c, retryAfter) =>
+    c.json(
+      { error: "Too many attempts from this connection. Wait a few minutes and try again." },
+      429,
+      { "Retry-After": String(retryAfter) },
+    ),
+});
+
+/** A password and nothing else: a kilobyte is generous. */
+export const invitationBodyLimit = bodyLimit({
+  maxSize: 1024,
+  onError: (c) => c.json({ error: "That request is larger than this form sends." }, 413),
+});

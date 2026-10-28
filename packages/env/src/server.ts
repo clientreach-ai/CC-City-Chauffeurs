@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+import { linkConfigProblems } from "./links";
 import { mailConfigProblems } from "./mail";
 import { DEFAULT_WHATSAPP_MODEL, whatsappConfigProblems } from "./whatsapp";
 
@@ -118,17 +119,28 @@ export const env = createEnv({
     MAIL_FROM: z.string().min(1).optional(),
     /** Where the office hears that somebody is waiting. */
     OFFICE_EMAIL: z.string().min(1).optional(),
-    /** Where the admin lives, so an alert can link straight to the record. */
+    /**
+     * Where the admin lives, so an alert can link straight to the record —
+     * and the start of every team invitation link (`/accept-invite#token=…`).
+     * Refused in production while it still points at this machine; see
+     * `./links.ts`.
+     */
     ADMIN_URL: z.url().default("http://localhost:3002"),
   },
   /**
-   * The WhatsApp and mail settings are each checked together, by the rules in
-   * `./whatsapp.ts` and `./mail.ts`, so a half-configured channel never
-   * reaches a customer and a half-configured mailer never fails quietly.
+   * The WhatsApp, mail and link settings are each checked together, by the
+   * rules in `./whatsapp.ts`, `./mail.ts` and `./links.ts`, so a
+   * half-configured channel never reaches a customer, a half-configured
+   * mailer never fails quietly, and a production API never sends links to
+   * localhost.
    */
   createFinalSchema: (shape) =>
     z.object(shape).superRefine((value, context) => {
-      for (const problem of [...whatsappConfigProblems(value), ...mailConfigProblems(value)]) {
+      for (const problem of [
+        ...whatsappConfigProblems(value),
+        ...mailConfigProblems(value),
+        ...linkConfigProblems(value),
+      ]) {
         context.addIssue({ code: "custom", path: [problem.path], message: problem.message });
       }
     }),
