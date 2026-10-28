@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { roleValues } from "./permissions";
 import { PUBLIC_FORM_LIMITS } from "./validation";
 
 /**
@@ -531,4 +532,35 @@ export const legalDocumentSchema = z.object({
       points: z.array(z.string()),
     }),
   ),
+});
+
+// ---------------------------------------------------------------- team
+
+const teamRoleSchema = z.enum(roleValues);
+
+export const inviteMemberSchema = z.object({
+  name: trimmed,
+  email: trimmed,
+  role: teamRoleSchema,
+});
+
+export const updateMemberSchema = z
+  .object({
+    role: teamRoleSchema.optional(),
+    status: z.enum(["active", "deactivated"]).optional(),
+  })
+  .refine((value) => value.role !== undefined || value.status !== undefined, "Say what to change.");
+
+/**
+ * The token travels in the body, never the path, so no access log in front
+ * of the API records it. Its length is not checked here: a token that is the
+ * wrong length gets the same 410 as any other link that does not work.
+ */
+export const invitationLookupSchema = z.object({
+  token: z.string(),
+});
+
+export const acceptInvitationSchema = z.object({
+  token: z.string(),
+  password: z.string().max(200),
 });

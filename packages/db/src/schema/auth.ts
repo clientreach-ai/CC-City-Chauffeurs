@@ -1,24 +1,42 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import type { Role } from "@CC-City-Chauffeurs/core/permissions";
-import { pgTable, text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import type { MemberStatus } from "@CC-City-Chauffeurs/core/team";
+import { pgTable, text, timestamp, boolean, check, index, uniqueIndex } from "drizzle-orm/pg-core";
 
-export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
+export const user = pgTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    image: text("image"),
+    /**
+     * What this user may do in the admin. Enforced on the server for every
+     * write; the admin UI reads the same value to hide what it cannot do.
+     */
+    role: text("role").$type<Role>().default("editor").notNull(),
+    /**
+     * Whether they can sign in. `invited` until they choose a password from
+     * their invitation; `deactivated` keeps the row (and the name on the notes
+     * they wrote) while refusing every session.
+     */
+    status: text("status").$type<MemberStatus>().default("active").notNull(),
+    /** Bumped at most every few minutes by the admin API; shown on the Team page. */
+    lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
   /**
-   * What this user may do in the admin. Enforced on the server for every
-   * write; the admin UI reads the same value to hide what it cannot do.
+   * Declared here as well as in migration 0006, so `db:push` keeps it rather
+   * than dropping what it does not know about. Sessions for anyone not
+   * `active` are refused by a trigger in 0007, which push leaves alone.
    */
-  role: text("role").$type<Role>().default("editor").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+  (table) => [check("user_status_known", sql`${table.status} IN ('invited', 'active', 'deactivated')`)],
+);
 
 export const session = pgTable(
   "session",
@@ -81,6 +99,27 @@ export const verification = pgTable(
       .notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+/**
+ * A pending invitation. Only the SHA-256 of the link's token is stored, so a
+ * copy of the database cannot be used to accept one. One live row per member:
+ * sending again replaces it, and the old link stops working.
+ */
+export const teamInvitation = pgTable(
+  "team_invitation",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedBy: text("invited_by"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("team_invitation_userId_idx").on(table.userId)],
 );
 
 export const userRelations = relations(user, ({ many }) => ({

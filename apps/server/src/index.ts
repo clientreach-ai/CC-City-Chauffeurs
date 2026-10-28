@@ -12,11 +12,13 @@ import { resumeWhatsApp, whatsappChannel, whatsappMode } from "./lib/whatsapp";
 import { contentRoutes } from "./routes/content";
 import { fleetRoutes } from "./routes/fleet";
 import { galleryRoutes } from "./routes/gallery";
+import { invitationRoutes } from "./routes/invitations";
 import { legalRoutes } from "./routes/legal";
 import { mediaRoutes } from "./routes/media";
 import { operationRoutes } from "./routes/operations";
 import { publicRoutes } from "./routes/public";
 import { serviceRoutes } from "./routes/services";
+import { teamRoutes } from "./routes/team";
 import { testimonialRoutes } from "./routes/testimonials";
 import { whatsappAdminRoutes, whatsappWebhookRoutes } from "./routes/whatsapp";
 
@@ -24,7 +26,8 @@ import { whatsappAdminRoutes, whatsappWebhookRoutes } from "./routes/whatsapp";
  * The API.
  *
  *   /api/auth/*     sessions, from better-auth
- *   /api/public/*   what the website reads — published records, no session
+ *   /api/public/*   what the website reads — published records, no session —
+ *                   and the invitation links, whose token is the credential
  *   /api/admin/*    the admin — every route needs a session, writes need a role
  *   /api/whatsapp/* the WhatsApp webhook — signed by the provider, no session;
  *                   mounted only when WHATSAPP_PROVIDER is set
@@ -51,6 +54,7 @@ app.onError((error, c) => errorResponse(error, c));
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api/public", publicRoutes);
+app.route("/api/public/invitations", invitationRoutes);
 
 /**
  * The WhatsApp webhook, outside /api/admin on purpose: the caller is Twilio,
@@ -79,7 +83,8 @@ const admin = new Hono<{ Variables: Variables }>()
   .route("/", contentRoutes)
   .route("/", legalRoutes)
   .route("/", mediaRoutes)
-  .route("/", operationRoutes);
+  .route("/", operationRoutes)
+  .route("/", teamRoutes);
 
 if (whatsappMode) admin.route("/", whatsappAdminRoutes(whatsappChannel));
 
