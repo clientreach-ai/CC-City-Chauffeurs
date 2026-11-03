@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 
 import { requires, type Variables } from "../lib/session";
-import { MAX_BYTES, storeUpload } from "../lib/storage";
+import { keyFromSrc, MAX_BYTES, storeUpload } from "../lib/storage";
 import * as media from "../repositories/media";
 
 /** Refused before it is read, rather than buffered whole and then measured. */
@@ -46,10 +46,15 @@ export const mediaRoutes = new Hono<{ Variables: Variables }>()
     return c.json(await media.createMedia({ ...stored, alt }), 201);
   })
 
-  /** Registers an address that is already stored elsewhere. */
+  /**
+   * Registers an address that is already stored elsewhere. The bucket key is
+   * worked out from the address, never taken from the request: the key is
+   * what deleting the record later deletes, so a key the browser chose could
+   * name any file in the bucket.
+   */
   .post("/media", requires("content.edit"), async (c) => {
     const input = mediaInputSchema.parse(await c.req.json());
-    return c.json(await media.createMedia(input), 201);
+    return c.json(await media.createMedia({ ...input, key: keyFromSrc(input.src) }), 201);
   })
 
   .patch("/media/:id", requires("content.edit"), async (c) => {

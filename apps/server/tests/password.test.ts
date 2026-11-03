@@ -151,3 +151,13 @@ describe("the account page's own checks", () => {
     expect(validatePasswordChange(input({ confirmPassword: "" })).confirmPassword).toBeDefined();
   });
 });
+
+describe("the rest of your account", () => {
+  test("your name is not yours to change — it is what your notes are signed with", async () => {
+    const cookie = (await signIn(PASSWORD))!;
+    const response = await request("/update-user", { name: "Sarah (Admin)" }, cookie);
+    expect(response.status).toBe(403);
+    const { rows } = await database.client.query(`select name from "user" where id = 'admin-1'`);
+    expect(rows).toEqual([{ name: "Faheem" }]);
+  });
+});

@@ -360,7 +360,7 @@ export async function replaceMedia(
     );
   });
 
-  if (current.key && current.key !== stored.key) await deleteObject(current.key);
+  if (current.key && current.key !== stored.key && !(await keyStillHeld(current.key))) await deleteObject(current.key);
 
   return { asset: await getAsset(id), replaced };
 }
@@ -384,5 +384,19 @@ export async function deleteMedia(id: string): Promise<void> {
   if (usages.length) throw new ConflictError(describe(usages));
 
   await db.delete(schema.mediaAsset).where(eq(schema.mediaAsset.id, id));
-  if (row.key) await deleteObject(row.key);
+  if (row.key && !(await keyStillHeld(row.key))) await deleteObject(row.key);
+}
+
+/**
+ * Whether another record still points at this file. Two records can name the
+ * same file — one registered by address after the other was uploaded — and
+ * deleting the spare must not take the photograph the other still shows.
+ */
+async function keyStillHeld(key: string) {
+  const [other] = await db
+    .select({ id: schema.mediaAsset.id })
+    .from(schema.mediaAsset)
+    .where(eq(schema.mediaAsset.key, key))
+    .limit(1);
+  return other !== undefined;
 }

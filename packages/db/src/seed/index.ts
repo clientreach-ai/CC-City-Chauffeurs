@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { createDb } from "../index";
 import * as schema from "../schema";
 import { buildContentSeed } from "./content";
+import { seedRefusal } from "./guard";
 import { buildSampleOperations } from "./operations";
 
 /**
@@ -23,6 +24,14 @@ import { buildSampleOperations } from "./operations";
  * Operational data is real work — enquiries from real people — so it is
  * never touched unless asked for explicitly.
  */
+
+// Before anything connects: never against a database that is not this machine's
+// unless it was named on purpose — see `guard.ts`.
+const refusal = seedRefusal(process.env.DATABASE_URL, process.env.SEED_DATABASE_HOST);
+if (refusal) {
+  console.error(refusal);
+  process.exit(1);
+}
 
 const args = new Set(process.argv.slice(2));
 const withSamples = args.has("--samples");

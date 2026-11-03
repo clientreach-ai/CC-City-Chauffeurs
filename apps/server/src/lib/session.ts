@@ -2,6 +2,7 @@ import { auth } from "@CC-City-Chauffeurs/auth";
 import { can } from "@CC-City-Chauffeurs/core";
 import type { Capability, MemberStatus, Role } from "@CC-City-Chauffeurs/core";
 import { db, schema } from "@CC-City-Chauffeurs/db";
+import { adminOrigins } from "@CC-City-Chauffeurs/env/links";
 import { env } from "@CC-City-Chauffeurs/env/server";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
@@ -126,6 +127,9 @@ export function authorName(user: SessionUser | null) {
 
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+/** The pages trusted to write as staff: the admin's, not the website's — see `adminOrigins`. */
+const ADMIN_ORIGINS = adminOrigins(env);
+
 /**
  * Refuses a write that a browser made on another site's behalf.
  *
@@ -143,7 +147,7 @@ export const sameSiteWrites = createMiddleware(async (c, next) => {
   if (UNSAFE.has(c.req.method)) {
     const origin = c.req.header("origin")?.replace(/\/+$/, "");
     const crossSite = c.req.header("sec-fetch-site") === "cross-site";
-    if ((origin && !env.CORS_ORIGIN.includes(origin)) || (!origin && crossSite)) {
+    if ((origin && !ADMIN_ORIGINS.includes(origin)) || (!origin && crossSite)) {
       throw new ForbiddenError("This request did not come from the admin.");
     }
   }

@@ -29,3 +29,27 @@ export function linkConfigProblems(value: LinkSettings): ConfigProblem[] {
     },
   ];
 }
+
+/**
+ * Where the admin is served from — the only pages trusted to act as a
+ * signed-in member of staff.
+ *
+ * `CORS_ORIGIN` lists every page allowed to call the API, the website's
+ * included, because the website posts its enquiry form. But the website is
+ * not the admin. While it lives on vercel.app it is cross-site to the
+ * dashboard and the browser keeps the session cookie from it; once it moves
+ * to cccitychauffeurs.co.uk it is the same *site* as
+ * dashboard.cccitychauffeurs.co.uk, the cookie goes along, and any script
+ * running on the website — a compromised dependency, an injected tag — could
+ * read and write the admin with a staff member's session, if the website's
+ * origin were trusted for it.
+ *
+ * So in production the admin's trust is `ADMIN_URL`'s origin alone. Anywhere
+ * else every `CORS_ORIGIN` is trusted too, so a developer's admin on another
+ * local port keeps working without setting anything.
+ */
+export function adminOrigins(value: { NODE_ENV?: string; ADMIN_URL: string; CORS_ORIGIN: string[] }): string[] {
+  const admin = new URL(value.ADMIN_URL).origin;
+  if (value.NODE_ENV === "production") return [admin];
+  return [...new Set([admin, ...value.CORS_ORIGIN])];
+}
