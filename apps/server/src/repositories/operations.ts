@@ -21,6 +21,7 @@ import {
   type Note,
 } from "@CC-City-Chauffeurs/core";
 import { db, schema } from "@CC-City-Chauffeurs/db";
+import { tryNormalisePhone } from "@CC-City-Chauffeurs/whatsapp/phone";
 import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
@@ -836,33 +837,54 @@ export async function customerMatch(phone: string, email: string): Promise<Custo
 }
 
 /**
+ * Whether the number on a record is the number a WhatsApp message came from.
+ *
+ * What makes an enquiry or a booking someone's is the number written on it —
+ * not the customer record it was filed under. Customers are matched by email
+ * before telephone (`findCustomerId`), and nothing about a public form proves
+ * an email address belongs to whoever typed it: someone could submit the form
+ * with another person's email and their own number first, and every enquiry
+ * that person made afterwards would be filed under a customer carrying the
+ * stranger's number. So ownership is read from the record itself.
+ *
+ * And it is the whole number, in E.164, not its last ten digits. The office
+ * writes UK numbers without the +44, which is why the stored one is read as
+ * British when it has no country code; but ten digits are shared across
+ * countries — +1 771 234 5678 and +44 7712 345678 both end in 7712345678 —
+ * and the last ten digits once let one read the other's enquiry. A number
+ * that cannot be read as a real one matches nothing.
+ */
+export function isSendersNumber(onFile: string | null | undefined, sender: string): boolean {
+  // WhatsApp always delivers +44…; reading a bare number as British only
+  // matters for the one on file, and changes nothing for one with its code.
+  const from = tryNormalisePhone(sender, { defaultRegion: "GB" });
+  const stored = onFile ? tryNormalisePhone(onFile, { defaultRegion: "GB" }) : null;
+  return from !== null && stored === from;
+}
+
+/** The last ten digits of the enquiry's own number, as SQL — a coarse filter, finished by `isSendersNumber`. */
+const enquiryPhoneTail = sql`right(regexp_replace(${schema.enquiry.contact} ->> 'phone', '\\D', '', 'g'), 10)`;
+
+/**
  * An enquiry, but only for the person it belongs to.
  *
  * A customer on WhatsApp may ask how their enquiry is getting on, quoting its
  * reference. References are sequential, so anybody could guess the next one;
- * what makes it theirs is that the customer on the enquiry has the number
- * they are writing from. Matched on the last ten digits, the same rule
- * `findCustomerId` uses, so `07700 900321` on file answers to
- * `+447700900321`. Somebody else's reference comes back exactly as one that
- * does not exist.
+ * what makes it theirs is that the enquiry carries the number they are
+ * writing from (`isSendersNumber`), so `07700 900321` typed on the website
+ * answers to `+447700900321`. Somebody else's reference comes back exactly as
+ * one that does not exist.
  */
 export async function enquiryForPhone(reference: string, phone: string): Promise<Enquiry | null> {
-  const digits = phone.replace(/\D/g, "");
   const wanted = reference.trim().toUpperCase();
-  if (digits.length < 7 || !wanted) return null;
+  if (!wanted) return null;
 
   const [row] = await db
-    .select({ id: schema.enquiry.id })
+    .select({ id: schema.enquiry.id, contact: schema.enquiry.contact })
     .from(schema.enquiry)
-    .innerJoin(schema.customer, eq(schema.customer.id, schema.enquiry.customerId))
-    .where(
-      and(
-        eq(schema.enquiry.reference, wanted),
-        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
-      ),
-    )
+    .where(eq(schema.enquiry.reference, wanted))
     .limit(1);
-  return row ? getEnquiry(row.id) : null;
+  return row && isSendersNumber(row.contact?.phone, phone) ? getEnquiry(row.id) : null;
 }
 
 /**
@@ -880,23 +902,15 @@ export async function enquiryForPhone(reference: string, phone: string): Promise
  * can be learned by trying references in turn.
  */
 export async function whatsappEnquiryForPhone(reference: string, phone: string): Promise<Enquiry | null> {
-  const digits = phone.replace(/\D/g, "");
   const wanted = reference.trim().toUpperCase();
-  if (digits.length < 7 || !wanted) return null;
+  if (!wanted) return null;
 
   const [row] = await db
-    .select({ id: schema.enquiry.id })
+    .select({ id: schema.enquiry.id, contact: schema.enquiry.contact })
     .from(schema.enquiry)
-    .innerJoin(schema.customer, eq(schema.customer.id, schema.enquiry.customerId))
-    .where(
-      and(
-        eq(schema.enquiry.reference, wanted),
-        eq(schema.enquiry.source, "whatsapp"),
-        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
-      ),
-    )
+    .where(and(eq(schema.enquiry.reference, wanted), eq(schema.enquiry.source, "whatsapp")))
     .limit(1);
-  return row ? getEnquiry(row.id) : null;
+  return row && isSendersNumber(row.contact?.phone, phone) ? getEnquiry(row.id) : null;
 }
 
 /**
@@ -914,46 +928,37 @@ export async function whatsappEnquiriesForPhone(phone: string): Promise<Enquiry[
   if (digits.length < 7) return [];
 
   const rows = await db
-    .select({ id: schema.enquiry.id })
+    .select({ id: schema.enquiry.id, contact: schema.enquiry.contact })
     .from(schema.enquiry)
-    .innerJoin(schema.customer, eq(schema.customer.id, schema.enquiry.customerId))
-    .where(
-      and(
-        eq(schema.enquiry.source, "whatsapp"),
-        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
-      ),
-    )
+    .where(and(eq(schema.enquiry.source, "whatsapp"), sql`${enquiryPhoneTail} = ${digits.slice(-10)}`))
     .orderBy(desc(schema.enquiry.createdAt))
-    .limit(20);
+    .limit(60);
 
-  return Promise.all(rows.map((row) => getEnquiry(row.id)));
+  const theirs = rows.filter((row) => isSendersNumber(row.contact?.phone, phone)).slice(0, 20);
+  return Promise.all(theirs.map((row) => getEnquiry(row.id)));
 }
 
 /**
  * A booking, but only for the person it belongs to.
  *
- * The same rule as `enquiryForPhone`, and for the same reason: references are
- * sequential, so what makes one theirs is that the customer on it has the
- * number they are writing from. Somebody else's reference comes back exactly
- * as one that does not exist.
+ * The same rule as `enquiryForPhone`: the number that makes it theirs is the
+ * one on the enquiry it was made from. A booking the office took itself, with
+ * no enquiry behind it, has only its customer's number to go by.
  */
 export async function bookingForPhone(reference: string, phone: string): Promise<Booking | null> {
-  const digits = phone.replace(/\D/g, "");
   const wanted = reference.trim().toUpperCase();
-  if (digits.length < 7 || !wanted) return null;
+  if (!wanted) return null;
 
   const [row] = await db
-    .select({ id: schema.booking.id })
+    .select({ id: schema.booking.id, contact: schema.enquiry.contact, customerPhone: schema.customer.phone })
     .from(schema.booking)
-    .innerJoin(schema.customer, eq(schema.customer.id, schema.booking.customerId))
-    .where(
-      and(
-        eq(schema.booking.reference, wanted),
-        sql`right(regexp_replace(${schema.customer.phone}, '\\D', '', 'g'), 10) = ${digits.slice(-10)}`,
-      ),
-    )
+    .leftJoin(schema.enquiry, eq(schema.enquiry.id, schema.booking.enquiryId))
+    .leftJoin(schema.customer, eq(schema.customer.id, schema.booking.customerId))
+    .where(eq(schema.booking.reference, wanted))
     .limit(1);
-  return row ? getBooking(row.id) : null;
+  if (!row) return null;
+  const onFile = row.contact ? row.contact.phone : row.customerPhone;
+  return isSendersNumber(onFile, phone) ? getBooking(row.id) : null;
 }
 
 export async function clashesFor(

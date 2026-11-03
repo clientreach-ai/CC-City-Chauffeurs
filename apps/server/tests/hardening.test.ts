@@ -87,3 +87,13 @@ test("an admin write from another site is refused", async () => {
   expect(await post({})).toBe(200);
   expect((await app.request("/read", { headers: { Origin: "https://evil.example" } })).status).toBe(200);
 });
+
+test("an enormous email address is refused without the pattern ever running over it", () => {
+  // A run of dots that never finds its ending: the pattern tries every split.
+  const huge = `a@${".".repeat(15_000)}@`;
+  const started = performance.now();
+  const result = publicEnquirySchema.safeParse({ ...visitor, email: huge });
+  expect(result.success).toBe(false);
+  // The pattern on its own takes a third of a second on this input.
+  expect(performance.now() - started).toBeLessThan(20);
+});

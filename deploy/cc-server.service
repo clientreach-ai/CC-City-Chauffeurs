@@ -16,6 +16,34 @@ Environment=PORT=3300
 # unit rather than .env.production so it cannot be lost by editing a file.
 Environment=NODE_ENV=production
 MemoryMax=500M
+# Reachable only through Caddy on this host, whatever the firewall says.
+Environment=HOST=127.0.0.1
+
+# What the API may do to the machine it runs on: nothing beyond serving.
+# It writes no files (photographs go to R2), needs no privilege and binds an
+# unprivileged port, so a flaw in it is a flaw in a process that cannot
+# escalate, cannot change the system, and cannot write to anybody's home.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+# Bun caches transpiled files under the home directory, which is read-only here.
+Environment=BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
 
 [Install]
 WantedBy=multi-user.target

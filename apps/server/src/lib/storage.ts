@@ -126,7 +126,20 @@ export async function objectExists(key: string): Promise<boolean> {
  * bucket is a small cost, whereas an error here would report a deletion that
  * did happen as one that did not.
  */
+/**
+ * Whether a key is under this site's prefix. The bucket is shared, and a key
+ * to delete comes from a database row: nothing outside the prefix is ever
+ * ours to delete, whatever a row says.
+ */
+export function isOurKey(key: string) {
+  return key.startsWith(`${env.R2_PREFIX}/`) && !key.split("/").includes("..");
+}
+
 export async function deleteObject(key: string): Promise<void> {
+  if (!isOurKey(key)) {
+    console.error(`[storage] refused to delete ${key} — it is outside ${env.R2_PREFIX}/`);
+    return;
+  }
   try {
     await bucket().delete(key);
   } catch (error) {

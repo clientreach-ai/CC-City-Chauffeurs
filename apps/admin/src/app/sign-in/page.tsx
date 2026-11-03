@@ -23,7 +23,8 @@ import { signIn, useAuthSession } from "@/lib/auth-client";
  * password yet, so it reads as the generic mismatch.)
  */
 function signInError(status: number | undefined, code: string | undefined, message?: string) {
-  if (status === 429) return "Too many attempts. Wait a minute and try again.";
+  // The API says how long: an account locked by wrong passwords waits minutes, not one.
+  if (status === 429) return message || "Too many attempts. Wait a few minutes and try again.";
   if (code === "INVALID_EMAIL") return "That does not look like an email address.";
   if (code === "FAILED_TO_CREATE_SESSION") {
     return "This account has been deactivated. Ask an admin to reactivate it.";
