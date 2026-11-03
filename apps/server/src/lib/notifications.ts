@@ -142,8 +142,78 @@ export function conversationNeedsAPerson(waiting: {
  * The subject carries the reference and the name, because that is what the
  * office reads on a phone without opening anything.
  */
+/**
+ * How many enquiry alerts the office gets before they pause.
+ *
+ * The public form is open to anyone, and every enquiry it records sends the
+ * office an email. A flood of submissions — many addresses, each inside its
+ * own rate limit — would otherwise bury the office's inbox under hundreds of
+ * alerts and spend the month's sending allowance in an afternoon. Thirty in
+ * ten minutes is far beyond a real day for a chauffeur firm; past it the
+ * office gets one email saying alerts are paused, and nothing more until the
+ * window turns over. Nothing is lost by it: every enquiry is still recorded
+ * and waiting in the admin.
+ */
+export const ENQUIRY_ALERTS = { limit: 30, windowMs: 10 * 60_000 } as const;
+
+let alertWindow = { start: 0, count: 0 };
+
+/** The enquiries already alerted, so a retried submission — which returns the same one — is not alerted twice. */
+const alerted = new Set<string>();
+const ALERTED_REMEMBERED = 2_000;
+
+/** For tests: forget every alert counted and every enquiry alerted. */
+export function resetEnquiryAlerts() {
+  alertWindow = { start: 0, count: 0 };
+  alerted.clear();
+}
+
+function alertTurn(now: number): "send" | "pause" | "skip" {
+  if (now - alertWindow.start >= ENQUIRY_ALERTS.windowMs) alertWindow = { start: now, count: 0 };
+  alertWindow.count += 1;
+  if (alertWindow.count <= ENQUIRY_ALERTS.limit) return "send";
+  return alertWindow.count === ENQUIRY_ALERTS.limit + 1 ? "pause" : "skip";
+}
+
+/** A value that came from a form, made safe for a one-line header like a subject. */
+const oneLine = (value: string) => value.replace(/[\r\n\t\u0000-\u001f\u007f]+/g, " ").trim();
+
 export function enquiryRecorded(enquiry: Enquiry): void {
   if (!env.OFFICE_EMAIL) return;
+
+  if (alerted.has(enquiry.id)) {
+    log("skipped", { about: "enquiry", reference: enquiry.reference, reason: "already_alerted" });
+    return;
+  }
+  alerted.add(enquiry.id);
+  if (alerted.size > ALERTED_REMEMBERED) alerted.delete(alerted.values().next().value!);
+
+  const turn = alertTurn(Date.now());
+  if (turn === "skip") {
+    log("skipped", { about: "enquiry", reference: enquiry.reference, reason: "paused" });
+    return;
+  }
+  if (turn === "pause") {
+    const resumes = new Date(alertWindow.start + ENQUIRY_ALERTS.windowMs);
+    afterResponse(async () => {
+      await post(
+        {
+          to: env.OFFICE_EMAIL!,
+          subject: "Enquiry alerts paused — unusually many enquiries",
+          text: [
+            `More than ${ENQUIRY_ALERTS.limit} enquiries have arrived in ${ENQUIRY_ALERTS.windowMs / 60_000} minutes.`,
+            "That is far more than customers send, and usually means someone is flooding the form.",
+            "",
+            `Alerts are paused until ${resumes.toISOString().slice(11, 16)} UTC. Every enquiry is still recorded:`,
+            adminLink("/enquiries"),
+          ].join("\n"),
+        },
+        { about: "enquiry_alerts_paused", reference: enquiry.reference },
+      );
+    });
+    return;
+  }
+
   afterResponse(async () => {
     const journey = enquiry.journey;
     const text = [
@@ -173,7 +243,7 @@ export function enquiryRecorded(enquiry: Enquiry): void {
     await post(
       {
         to: env.OFFICE_EMAIL!,
-        subject: `${enquiry.reference} — enquiry from ${enquiry.contact.name}`,
+        subject: `${enquiry.reference} — enquiry from ${oneLine(enquiry.contact.name)}`,
         text,
         // Replying to the alert writes to the customer, where we have an address.
         ...(enquiry.contact.email ? { replyTo: enquiry.contact.email } : {}),

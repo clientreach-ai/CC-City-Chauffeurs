@@ -20,9 +20,18 @@ pnpm install --filter server... --frozen-lockfile
 echo "==> Building"
 pnpm --filter server... run build
 
+# The unit file is installed by hand, not here. Installing it from the
+# checkout as root on every deploy meant anything able to write to the
+# checkout — the service's own user — could hand itself a root unit. With the
+# install gone, the deploy user needs sudo for exactly one command:
+#
+#   dave ALL=(root) NOPASSWD: /usr/bin/systemctl restart cc-server
+#
+# When deploy/cc-server.service changes, install it once, by hand, as root:
+#
+#   install -m 644 deploy/cc-server.service /etc/systemd/system/cc-server.service
+#   systemctl daemon-reload && systemctl restart cc-server
 echo "==> Restarting cc-server"
-sudo -n install -m 644 deploy/cc-server.service /etc/systemd/system/cc-server.service
-sudo -n systemctl daemon-reload
 sudo -n systemctl restart cc-server
 
 echo "==> Health check"

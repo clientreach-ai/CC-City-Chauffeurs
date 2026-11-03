@@ -1,3 +1,4 @@
+import { env } from "@CC-City-Chauffeurs/env/server";
 import type { Context, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { every } from "hono/combine";
@@ -88,6 +89,29 @@ function clientIp(c: Context) {
   );
 }
 
+/**
+ * What one visitor is, for counting: an IPv4 address, or an IPv6 /64.
+ *
+ * A single IPv6 connection is routinely given a whole /64 — eighteen
+ * quintillion addresses — and can send each request from a different one.
+ * Counted address by address, every request would get a fresh allowance;
+ * counted by the /64, they share one, as one household's would.
+ */
+export function visitorOf(ip: string): string {
+  const address = ip.replace(/%.*$/, "").toLowerCase();
+  if (!address.includes(":")) return address;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(address);
+  if (mapped) return mapped[1]!;
+  const [head = "", tail] = address.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = tail === undefined ? left : [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right];
+  return `${groups
+    .slice(0, 4)
+    .map((group) => group.replace(/^0+(?=.)/, "") || "0")
+    .join(":")}::/64`;
+}
+
 type Limit = { limit: number; windowMs: number };
 
 /**
@@ -111,7 +135,7 @@ function rateLimiter(options: {
     const now = Date.now();
     if (windows.size > SWEEP_ABOVE) sweep(windows, now);
 
-    const key = clientIp(c);
+    const key = visitorOf(clientIp(c));
     // Swept and still full means a flood of distinct addresses. Refusing to
     // track more keeps memory bounded; they share one bucket until it drains.
     const tracked = windows.has(key) || windows.size < MAX_TRACKED ? key : "overflow";
@@ -149,6 +173,30 @@ const limiter = rateLimiter({
 });
 
 /**
+ * Only the website's own form — or something that is not a browser at all.
+ *
+ * Any page on the internet can make its visitors' browsers post to this API:
+ * a "simple" cross-site request (text/plain, no preflight) needs nobody's
+ * permission, and each one comes from a different visitor's address, so the
+ * per-address limit never sees a flood. The website's form sends JSON, which
+ * a browser will only send cross-origin after asking first — and the answer
+ * names only our own pages — so requiring JSON closes that door. The Origin
+ * check says the same thing directly. A request with no Origin is not a
+ * browser's, and is left to the rate limit.
+ */
+const fromOurPages: MiddlewareHandler = async (c, next) => {
+  if (!/^application\/json\b/i.test(c.req.header("content-type") ?? "")) {
+    return c.json({ error: "This form sends JSON." }, 415);
+  }
+  const origin = c.req.header("origin")?.replace(/\/+$/, "");
+  const crossSite = c.req.header("sec-fetch-site") === "cross-site";
+  if ((origin && !env.CORS_ORIGIN.includes(origin)) || (!origin && crossSite)) {
+    return c.json({ error: "Please send your enquiry from our website." }, 403);
+  }
+  await next();
+};
+
+/**
  * Everything a public write is wrapped in. Applied to the POSTs only: the
  * reads are cached pages of published content, and throttling those would
  * throttle the website itself.
@@ -159,6 +207,7 @@ export const publicWriteGuard = every(
     onError: (c) =>
       c.json({ error: "That message is longer than this form can take. Please shorten it." }, 413),
   }),
+  fromOurPages,
   limiter,
 );
 
@@ -185,9 +234,11 @@ export const webhookRateLimit = rateLimiter({
  * it. A flood guard, like the webhook's, and deliberately not a tight limit.
  *
  * The accept page is served by the admin and reaches the API through the
- * admin's own `/api` rewrite, so the address this sees is the admin host's,
- * not the invitee's: every invitee shares one counter. A tight limit here
- * would let one person exhaust it and lock every real invitee out. Nor does
+ * admin's own `/api` rewrite, so the address this sees is one of Vercel's,
+ * not the invitee's — shared by many people, and changing from request to
+ * request. A tight limit here would lock real invitees out at random without
+ * stopping anyone determined; the same is true of sign-in, which is why that
+ * is counted per account instead (`lib/sign-in-guard.ts`). Nor does
  * it need to be tight — a token is 256 random bits, so guessing is not the
  * threat, and a token that is not live is refused before the slow password
  * hash ever runs (see `acceptInvitation`), so trying costs a lookup. What is
@@ -202,6 +253,18 @@ export const invitationRateLimit = rateLimiter({
       429,
       { "Retry-After": String(retryAfter) },
     ),
+});
+
+/**
+ * better-auth's routes — sign in, sign out, change a password. None sends
+ * more than a few hundred bytes, and better-auth reads and parses whatever it
+ * is given in full before looking at it, with no session needed to send it.
+ * Without this, a handful of very large bodies to `/sign-in/email` is enough
+ * memory to have the process killed.
+ */
+export const authBodyLimit = bodyLimit({
+  maxSize: 16 * 1024,
+  onError: (c) => c.json({ code: "BODY_TOO_LARGE", message: "That request is larger than sign-in sends." }, 413),
 });
 
 /** A password and nothing else: a kilobyte is generous. */

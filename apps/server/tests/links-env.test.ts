@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { linkConfigProblems } from "@CC-City-Chauffeurs/env/links";
+import { adminOrigins, linkConfigProblems } from "@CC-City-Chauffeurs/env/links";
 
 describe("ADMIN_URL", () => {
   test("is refused in production while it points at this machine", () => {
@@ -20,5 +20,24 @@ describe("ADMIN_URL", () => {
     expect(linkConfigProblems({ NODE_ENV: "production", ADMIN_URL: "https://cc-city-chauffeurs-admin-ochre.vercel.app" })).toEqual([]);
     expect(linkConfigProblems({ NODE_ENV: "development", ADMIN_URL: "http://localhost:3002" })).toEqual([]);
     expect(linkConfigProblems({ NODE_ENV: "test", ADMIN_URL: "http://localhost:3002" })).toEqual([]);
+  });
+});
+
+describe("who may act as staff", () => {
+  const settings = {
+    ADMIN_URL: "https://dashboard.cccitychauffeurs.co.uk/",
+    CORS_ORIGIN: ["https://dashboard.cccitychauffeurs.co.uk", "https://www.cccitychauffeurs.co.uk"],
+  };
+
+  test("in production, the admin's own origin and nothing else — never the website's", () => {
+    expect(adminOrigins({ ...settings, NODE_ENV: "production" })).toEqual(["https://dashboard.cccitychauffeurs.co.uk"]);
+  });
+
+  test("anywhere else, every allowed origin too, so a local admin on another port works", () => {
+    expect(adminOrigins({ ADMIN_URL: "http://localhost:3002", CORS_ORIGIN: ["http://localhost:3001", "http://localhost:3012"], NODE_ENV: "development" })).toEqual([
+      "http://localhost:3002",
+      "http://localhost:3001",
+      "http://localhost:3012",
+    ]);
   });
 });
