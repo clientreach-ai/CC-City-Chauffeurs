@@ -372,9 +372,15 @@ export const bookingNotesSchema = z.object({ notes: z.string() });
 
 const publicEmail = capped(PUBLIC_FORM_LIMITS.email, "email address")
   .default("")
-  .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value), {
-    message: "That email address does not look complete.",
-  });
+  // The length first: zod runs a refine even when the cap above has already
+  // failed, and this pattern backtracks on a long run of dots — fifteen
+  // thousand characters of one held the API's only thread for a tenth of a
+  // second, per request, before anybody was refused.
+  .refine(
+    (value) =>
+      !value || (value.length <= PUBLIC_FORM_LIMITS.email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)),
+    { message: "That email address does not look complete." },
+  );
 
 const publicPhone = capped(PUBLIC_FORM_LIMITS.phone, "telephone number")
   .default("")

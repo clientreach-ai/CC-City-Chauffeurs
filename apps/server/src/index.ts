@@ -1,4 +1,5 @@
 import { auth } from "@CC-City-Chauffeurs/auth";
+import { adminOrigins } from "@CC-City-Chauffeurs/env/links";
 import { env } from "@CC-City-Chauffeurs/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -6,8 +7,11 @@ import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 
 import { errorResponse } from "./lib/errors";
+import { authBodyLimit } from "./lib/rate-limit";
+import { signInGuard } from "./lib/sign-in-guard";
 import { revalidateSite } from "./lib/revalidate";
 import { requireUser, sameSiteWrites, withSession, type Variables } from "./lib/session";
+import { MAX_BYTES } from "./lib/storage";
 import { resumeWhatsApp, whatsappChannel, whatsappMode } from "./lib/whatsapp";
 import { contentRoutes } from "./routes/content";
 import { fleetRoutes } from "./routes/fleet";
@@ -38,19 +42,38 @@ const app = new Hono<{ Variables: Variables }>();
 app.use(logger());
 // nosniff, frame-deny, a strict referrer policy and HSTS on every response.
 app.use(secureHeaders());
-const browserCors = cors({
+/**
+ * Two doors, two answers. What the website reads and posts needs no session,
+ * so its pages may call it but never with credentials. Everything that does
+ * need a session answers only the admin's own pages (`adminOrigins`) — never
+ * the website's, which will one day share the dashboard's site and its
+ * cookie.
+ */
+const publicCors = cors({
   origin: env.CORS_ORIGIN,
+  allowMethods: ["GET", "POST", "OPTIONS"],
+  allowHeaders: ["Content-Type"],
+  credentials: false,
+});
+const adminCors = cors({
+  origin: adminOrigins(env),
   allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 });
 // The WhatsApp webhook is called by the provider's servers, never by a page
 // in a browser, so no origin is ever allowed to call it with credentials.
-app.use("/*", (c, next) => (c.req.path.startsWith("/api/whatsapp/") ? next() : browserCors(c, next)));
+app.use("/*", (c, next) => {
+  if (c.req.path.startsWith("/api/whatsapp/")) return next();
+  return c.req.path.startsWith("/api/public/") ? publicCors(c, next) : adminCors(c, next);
+});
 
 /** One shape of error for every route — see `lib/errors.ts`. */
 app.onError((error, c) => errorResponse(error, c));
 
+app.use("/api/auth/*", authBodyLimit);
+// Wrong passwords counted per account — see lib/sign-in-guard.ts.
+app.use("/api/auth/sign-in/email", signInGuard);
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api/public", publicRoutes);
@@ -97,6 +120,18 @@ void resumeWhatsApp();
 
 export default {
   port: Number(process.env.PORT ?? 3000),
+  /**
+   * Where to listen. Unset, every interface — what a developer's machine
+   * wants. Production sets 127.0.0.1 in its unit, so the API is reachable
+   * only through the proxy in front of it, whatever the firewall says.
+   */
+  hostname: process.env.HOST || undefined,
+  /**
+   * The ceiling on any request, before a route sees it: the largest thing the
+   * API takes is a 25 MB photograph, plus room for its multipart envelope.
+   * Bun's own default is 128 MB, and every route below reads a body whole.
+   */
+  maxRequestBodySize: MAX_BYTES + 2 * 1024 * 1024,
   fetch: app.fetch,
 };
 

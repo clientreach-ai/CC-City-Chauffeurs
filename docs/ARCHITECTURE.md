@@ -42,12 +42,29 @@ calling the API directly.
 
 Hono, on Bun. Three surfaces:
 
-- **`/api/auth/*`** — sessions, from better-auth.
+- **`/api/auth/*`** — sessions, from better-auth. Wrong passwords are counted
+  per account, not per address (`lib/sign-in-guard.ts`): through the admin's
+  rewrite every request arrives from one of Vercel's addresses, so a
+  per-address limit never fills. Five in fifteen minutes lock that account's
+  sign-in until the oldest ages out.
 - **`/api/public/*`** — what the website reads. No session. Only published
   records leave here: a draft is indistinguishable from a record that does not
-  exist, so an unpublished vehicle cannot be read by guessing its slug.
+  exist, so an unpublished vehicle cannot be read by guessing its slug. The
+  enquiry form takes JSON only, from the website's own pages, and an IPv6 /64
+  counts as one visitor (`lib/rate-limit.ts`).
 - **`/api/admin/*`** — every route needs a session. Reads are open to any
   signed-in role; each write declares the capability it needs.
+
+Only the admin's own pages may act as staff. `CORS_ORIGIN` lists every page
+allowed to call the API, the website's included; in production, better-auth,
+the admin's write check and credentialed CORS trust `ADMIN_URL`'s origin
+alone (`adminOrigins` in `packages/env`), because once the website moves to
+cccitychauffeurs.co.uk it shares a site — and the session cookie — with the
+dashboard.
+
+On WhatsApp, an enquiry or booking belongs to the number written on it,
+compared in full — never to the customer record it is filed under, which is
+matched by an email address nobody has proved is theirs.
 
 Roles are real. `user.role` is read off the session, and `requires()` enforces
 it on every write. The admin hides what a role cannot do as a courtesy — the
@@ -113,8 +130,13 @@ changed.
 
 ```bash
 pnpm db:seed                # content only; enquiries and bookings untouched
-pnpm db:seed -- --samples   # also insert the sample operational records
+pnpm db:seed -- --samples   # clears enquiries, bookings and customers, then adds samples
 ```
+
+It refuses any database that is not on this machine (or a local container):
+pointed at production it would overwrite the client's edits and, with
+`--samples`, delete every real enquiry. To rewrite a remote development
+database on purpose, name its host: `SEED_DATABASE_HOST=<host> pnpm db:seed`.
 
 ## `apps/admin` — the admin
 

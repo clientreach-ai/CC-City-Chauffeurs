@@ -1,16 +1,21 @@
 import { createDb } from "@CC-City-Chauffeurs/db";
 import * as schema from "@CC-City-Chauffeurs/db/schema/auth";
+import { adminOrigins } from "@CC-City-Chauffeurs/env/links";
 import { env } from "@CC-City-Chauffeurs/env/server";
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 /**
  * What better-auth writes on the account row behind an email and password.
- * It finds a password login by `providerId` with `accountId` set to the
- * user's own id, qualified by `issuer` — "local:credential", not
- * "credential". A row written with anything else is one it never finds: the
- * sign-in answers "Invalid email or password" for a password that is
- * correct. Anything here that writes a password row uses this.
+ * It finds a password login by `providerId` "credential" with `accountId`
+ * set to the user's own id. A row written with anything else is one it never
+ * finds: the sign-in answers "Invalid email or password" for a password that
+ * is correct. Anything here that writes a password row uses this.
+ *
+ * `issuer` is what better-auth 1.7.0–1.7.2 also required. It no longer reads
+ * it, but production's column is NOT NULL until migration 0008 runs, so it is
+ * still written — harmless after, and safe whichever lands first.
  */
 export const CREDENTIAL = { providerId: "credential", issuer: "local:credential" } as const;
 
@@ -23,7 +28,8 @@ export function createAuth() {
 
       schema: schema,
     }),
-    trustedOrigins: env.CORS_ORIGIN,
+    // The admin's own pages only — never the website's (see `adminOrigins`).
+    trustedOrigins: adminOrigins(env),
     emailAndPassword: {
       enabled: true,
       /**
@@ -81,6 +87,23 @@ export function createAuth() {
       },
     },
     databaseHooks: {
+      user: {
+        update: {
+          /**
+           * Nobody renames themselves. A member's name is what the admin
+           * writes against every note and edit they make, so it is an
+           * admin's to set, from the Team page — which writes the table
+           * directly and never comes through here. better-auth's own
+           * `/update-user` would otherwise let anyone signed in call
+           * themselves "Sarah (Admin)" and write notes under it.
+           */
+          before: async (data) => {
+            if (data.name !== undefined || data.image !== undefined) {
+              throw new APIError("FORBIDDEN", { message: "Ask an admin to change your name — it is set on the Team page." });
+            }
+          },
+        },
+      },
       session: {
         create: {
           /**

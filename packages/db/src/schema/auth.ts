@@ -1,7 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import type { Role } from "@CC-City-Chauffeurs/core/permissions";
 import type { MemberStatus } from "@CC-City-Chauffeurs/core/team";
-import { pgTable, text, timestamp, boolean, check, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, check, index } from "drizzle-orm/pg-core";
 
 export const user = pgTable(
   "user",
@@ -61,7 +61,13 @@ export const account = pgTable(
   "account",
   {
     id: text("id").primaryKey(),
-    issuer: text("issuer").notNull(),
+    /**
+     * Left over from better-auth 1.7.0–1.7.2, which required it; from 1.7.3 an
+     * account is found by `providerId` and `accountId` alone. Optional since
+     * migration 0008, and still written by this codebase only so a row made
+     * before that migration runs satisfies the old NOT NULL.
+     */
+    issuer: text("issuer"),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     userId: text("user_id")
@@ -80,7 +86,6 @@ export const account = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("account_issuer_accountId_uidx").on(table.issuer, table.accountId),
     index("account_userId_idx").on(table.userId),
   ],
 );
