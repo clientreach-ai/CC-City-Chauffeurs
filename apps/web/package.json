@@ -21,7 +21,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",
-    "next": "^16.3.0",
+    "next": "^16.4.1",
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -37,7 +37,7 @@
     "@types/react-dom": "catalog:",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.4",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "tailwindcss": "catalog:",
     "typescript": "catalog:"
   }

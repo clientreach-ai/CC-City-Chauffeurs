@@ -312,8 +312,13 @@ export function createWhatsAppBackend(): Backend {
     },
 
     async matchCustomer(phone) {
+      // The office's own matching is by the last ten digits, which a number in
+      // another country can share; the name told to the assistant is only for
+      // the number itself.
       const customer = await operations.customerMatch(phone, "");
-      return customer ? { id: customer.id, name: customer.name } : null;
+      return customer && operations.isSendersNumber(customer.phone, phone)
+        ? { id: customer.id, name: customer.name }
+        : null;
     },
   };
 }

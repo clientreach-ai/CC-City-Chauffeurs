@@ -23,6 +23,8 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // No `X-Powered-By: Next.js`: it tells a scanner which advisories to try.
+  poweredByHeader: false,
   typedRoutes: true,
   reactCompiler: true,
 
