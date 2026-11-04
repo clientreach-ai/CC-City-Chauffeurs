@@ -16,7 +16,14 @@ import { z } from "zod";
 
 import type { ModelTool } from "../agent/model";
 import type { Catalogue } from "../conversation/journey";
-import { BackendValidationError, type Backend, type Conversation, type ConversationState } from "../ports";
+import {
+  BackendValidationError,
+  type Backend,
+  type ChangeAttempt,
+  type ConfirmedChange,
+  type Conversation,
+  type ConversationState,
+} from "../ports";
 
 export type ToolContext = {
   backend: Backend;
@@ -35,13 +42,19 @@ export type ToolContext = {
   /** Set when a record is created, so the channel can link the customer. */
   createdFor: { kind: "enquiry"; reference: string } | null;
   /**
-   * Enquiries this turn actually changed, as the backend confirmed them.
+   * What the backend confirmed this turn: the changes it made, the journey
+   * details it accepted for the draft, and enquiries it reported cancelled.
    *
-   * The reply check reads this and nothing else: "I have updated it" is a
-   * claim about the database, so it is allowed only where the database said
-   * yes. A tool that failed leaves nothing here.
+   * The reply check reads this, and what earlier turns confirmed: "I have
+   * updated it" is a claim about the database, so it is allowed only where
+   * the database said yes. A tool that failed leaves nothing here.
    */
-  changed: { kind: "updated" | "cancelled"; reference: string }[];
+  confirmed: ConfirmedChange[];
+  /**
+   * Every change asked of the backend this turn, made or not. One that is
+   * here and not in `confirmed` failed, and a reply may not claim it.
+   */
+  attempted: ChangeAttempt[];
 };
 
 export type ToolResult =
