@@ -4,11 +4,11 @@ import { useState } from "react";
 
 import { Button } from "@/components/admin/ui/button";
 import { Dialog } from "@/components/admin/ui/dialog";
-import { ChoiceCards, Field, NumberInput, TextArea } from "@/components/admin/ui/form";
+import { ChoiceCards, Field, FieldRow, NumberInput, TextArea, TextInput } from "@/components/admin/ui/form";
 import { notify } from "@/components/admin/ui/toast";
 import { formatMoney } from "@CC-City-Chauffeurs/core";
 import { errorMessage } from "@/lib/query";
-import { recordQuote, updateEnquiryStatus } from "@/lib/api/operations";
+import { recordQuote, updateEnquiryJourney, updateEnquiryStatus } from "@/lib/api/operations";
 import { lostReasons } from "@CC-City-Chauffeurs/core";
 import type { Enquiry, EnquiryStatus, LostReason } from "@CC-City-Chauffeurs/core";
 import { CmsValidationError, type FieldErrors } from "@CC-City-Chauffeurs/core";
@@ -86,6 +86,115 @@ function QuoteForm({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => void
         </Button>
         <Button type="submit" variant="primary" busy={saving}>
           Record quote
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Amending the journey, which the office could not do at all before.
+ *
+ * The only way to change a date was to write a note and hope whoever read it
+ * noticed. It is the same capability a customer reaches on WhatsApp, so a
+ * journey moved in either place is the same record and the same trail.
+ */
+export function JourneyDialog({ enquiry, onClose }: { enquiry: Enquiry | null; onClose: () => void }) {
+  return (
+    <Dialog
+      open={enquiry !== null}
+      onClose={onClose}
+      title="Amend the journey"
+      description="Changes the enquiry itself and leaves a line on its history. It sends nothing to the customer — tell them as you normally would."
+    >
+      {enquiry ? <JourneyForm key={enquiry.id} enquiry={enquiry} onClose={onClose} /> : null}
+    </Dialog>
+  );
+}
+
+/** The fields this form edits, so a refusal about anything else is shown rather than lost. */
+const JOURNEY_FIELDS = ["date", "time", "pickup", "dropoff", "passengers"] as const;
+
+function JourneyForm({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => void }) {
+  // What the form opened with. The enquiry prop refetches while the dialog is
+  // open, and a customer may move the date on WhatsApp in that time; judging
+  // "what the office touched" against the live record would send that new
+  // date back as the old one.
+  const [start] = useState(() => ({ ...enquiry.journey }));
+  const [date, setDate] = useState(start.date);
+  const [time, setTime] = useState(start.time);
+  const [pickup, setPickup] = useState(start.pickup);
+  const [dropoff, setDropoff] = useState(start.dropoff);
+  const [passengers, setPassengers] = useState<number | null>(start.passengers);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      // Only what the office actually touched, so a field left alone keeps
+      // whatever value it has now rather than being written back over.
+      const patch = {
+        ...(date === start.date ? {} : { date }),
+        ...(time === start.time ? {} : { time }),
+        ...(pickup === start.pickup ? {} : { pickup }),
+        ...(dropoff === start.dropoff ? {} : { dropoff }),
+        ...(passengers === start.passengers ? {} : { passengers }),
+      };
+      if (Object.keys(patch).length === 0) {
+        onClose();
+        return;
+      }
+      await updateEnquiryJourney(enquiry.id, patch);
+      notify.success("Journey amended", "The customer has not been told — let them know as usual.");
+      onClose();
+    } catch (error) {
+      if (error instanceof CmsValidationError) {
+        setErrors(error.fields);
+        // "This enquiry has already become a booking" is keyed to no field
+        // here, and would otherwise leave the dialog sitting there silently.
+        const elsewhere = Object.entries(error.fields)
+          .filter(([field]) => !(JOURNEY_FIELDS as readonly string[]).includes(field))
+          .map(([, message]) => message);
+        if (elsewhere.length) notify.error("Journey not amended", elsewhere.join(" "));
+      } else notify.error("Journey not amended", errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+      className="flex flex-col gap-5"
+    >
+      <FieldRow>
+        <Field label="Date" error={errors.date} description="Today or later.">
+          {(control) => <TextInput {...control} autoFocus type="date" value={date} onChange={(event) => setDate(event.target.value)} />}
+        </Field>
+        <Field label="Time" error={errors.time}>
+          {(control) => <TextInput {...control} type="time" value={time} onChange={(event) => setTime(event.target.value)} />}
+        </Field>
+      </FieldRow>
+      <Field label="Pick-up" error={errors.pickup}>
+        {(control) => <TextInput {...control} value={pickup} onChange={(event) => setPickup(event.target.value)} />}
+      </Field>
+      <Field label="Drop-off" error={errors.dropoff}>
+        {(control) => <TextInput {...control} value={dropoff} onChange={(event) => setDropoff(event.target.value)} />}
+      </Field>
+      <Field label="Passengers" error={errors.passengers}>
+        {(control) => <NumberInput {...control} min={1} max={50} value={passengers} onValueChange={setPassengers} />}
+      </Field>
+      <div className="flex justify-end gap-2 border-t border-hairline pt-4">
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" busy={saving}>
+          Save the journey
         </Button>
       </div>
     </form>
