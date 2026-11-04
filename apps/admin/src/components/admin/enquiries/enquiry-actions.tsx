@@ -112,12 +112,20 @@ export function JourneyDialog({ enquiry, onClose }: { enquiry: Enquiry | null; o
   );
 }
 
+/** The fields this form edits, so a refusal about anything else is shown rather than lost. */
+const JOURNEY_FIELDS = ["date", "time", "pickup", "dropoff", "passengers"] as const;
+
 function JourneyForm({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => void }) {
-  const [date, setDate] = useState(enquiry.journey.date);
-  const [time, setTime] = useState(enquiry.journey.time);
-  const [pickup, setPickup] = useState(enquiry.journey.pickup);
-  const [dropoff, setDropoff] = useState(enquiry.journey.dropoff);
-  const [passengers, setPassengers] = useState<number | null>(enquiry.journey.passengers);
+  // What the form opened with. The enquiry prop refetches while the dialog is
+  // open, and a customer may move the date on WhatsApp in that time; judging
+  // "what the office touched" against the live record would send that new
+  // date back as the old one.
+  const [start] = useState(() => ({ ...enquiry.journey }));
+  const [date, setDate] = useState(start.date);
+  const [time, setTime] = useState(start.time);
+  const [pickup, setPickup] = useState(start.pickup);
+  const [dropoff, setDropoff] = useState(start.dropoff);
+  const [passengers, setPassengers] = useState<number | null>(start.passengers);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
 
@@ -125,13 +133,13 @@ function JourneyForm({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => vo
     setSaving(true);
     try {
       // Only what the office actually touched, so a field left alone keeps
-      // the value it had rather than being written back over itself.
+      // whatever value it has now rather than being written back over.
       const patch = {
-        ...(date === enquiry.journey.date ? {} : { date }),
-        ...(time === enquiry.journey.time ? {} : { time }),
-        ...(pickup === enquiry.journey.pickup ? {} : { pickup }),
-        ...(dropoff === enquiry.journey.dropoff ? {} : { dropoff }),
-        ...(passengers === enquiry.journey.passengers ? {} : { passengers }),
+        ...(date === start.date ? {} : { date }),
+        ...(time === start.time ? {} : { time }),
+        ...(pickup === start.pickup ? {} : { pickup }),
+        ...(dropoff === start.dropoff ? {} : { dropoff }),
+        ...(passengers === start.passengers ? {} : { passengers }),
       };
       if (Object.keys(patch).length === 0) {
         onClose();
@@ -141,8 +149,15 @@ function JourneyForm({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => vo
       notify.success("Journey amended", "The customer has not been told — let them know as usual.");
       onClose();
     } catch (error) {
-      if (error instanceof CmsValidationError) setErrors(error.fields);
-      else notify.error("Journey not amended", errorMessage(error));
+      if (error instanceof CmsValidationError) {
+        setErrors(error.fields);
+        // "This enquiry has already become a booking" is keyed to no field
+        // here, and would otherwise leave the dialog sitting there silently.
+        const elsewhere = Object.entries(error.fields)
+          .filter(([field]) => !(JOURNEY_FIELDS as readonly string[]).includes(field))
+          .map(([, message]) => message);
+        if (elsewhere.length) notify.error("Journey not amended", elsewhere.join(" "));
+      } else notify.error("Journey not amended", errorMessage(error));
     } finally {
       setSaving(false);
     }

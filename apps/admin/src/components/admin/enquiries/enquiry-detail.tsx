@@ -112,6 +112,11 @@ export function EnquiryDetail({ id }: { id: string }) {
 
   /** Still the office's to move: won, lost and cancelled are finished. */
   const open = enquiry.status !== "won" && enquiry.status !== "lost" && enquiry.status !== "cancelled";
+  /**
+   * A reopened enquiry that already became a booking is open, but its journey
+   * now lives on the booking: the server refuses to amend or cancel it here.
+   */
+  const amendable = open && !enquiry.bookingId;
 
   const nextSteps = (
     <div className="flex flex-col gap-2">
@@ -127,7 +132,7 @@ export function EnquiryDetail({ id }: { id: string }) {
           {enquiry.quote ? "Update quote" : "Record quote"}
         </Button>
       ) : null}
-      {open ? (
+      {amendable ? (
         <Button className="w-full" disabled={!canEdit || working} onClick={() => setAmending(true)}>
           <CalendarClock aria-hidden />
           Amend the journey
@@ -147,10 +152,12 @@ export function EnquiryDetail({ id }: { id: string }) {
       ) : null}
       {/* Withdrawn by the customer, which is not business we failed to win. */}
       {open ? (
-        <Button variant="ghost" className="w-full" disabled={!canEdit || working} onClick={() => void run("cancelled")}>
-          <Ban aria-hidden />
-          Cancelled by the customer
-        </Button>
+        amendable ? (
+          <Button variant="ghost" className="w-full" disabled={!canEdit || working} onClick={() => void run("cancelled")}>
+            <Ban aria-hidden />
+            Cancelled by the customer
+          </Button>
+        ) : null
       ) : (
         <Button className="w-full" disabled={!canEdit || working} onClick={() => void run("contacted")}>
           <RotateCcw aria-hidden />
