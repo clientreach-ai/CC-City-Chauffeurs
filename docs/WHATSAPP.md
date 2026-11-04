@@ -107,14 +107,14 @@ What the server gained for WhatsApp, and why:
 
    | Claim | Allowed only when |
    |---|---|
-   | A price | That figure was in a tool result this turn. Any other, written as £, pounds, GBP or quid, replaces the reply with one that asks for the journey |
-   | A reference | The database issued it, this turn or earlier in the conversation |
-   | A change — updated, moved, rescheduled, cancelled | `update_my_enquiry` or `cancel_my_enquiry` returned it, or an enquiry was just recorded |
-   | Availability | Never. There is no tool that can establish it, so a sentence asserting it is replaced |
+   | A price | That figure was in a tool result this turn: a published rate, or a quote the office recorded on the customer's own enquiry. Any other, written as £, pounds, GBP or quid, replaces the reply with one that asks for the journey (or, if the journey is already in hand, says the team will come back with the figure) |
+   | A reference | The database issued it, or returned it as this number's own (listed, read or changed), this turn or earlier in the conversation |
+   | A change — updated, moved, rescheduled, cancelled | The backend confirmed that kind of change, to the enquiry the sentence names, this turn or earlier in the conversation; or, for a cancellation, read the enquiry back as cancelled. A sentence about the car is not backed by a change to the date, and a field this turn tried and failed to change is not backed by an earlier change to it. Details written into the journey still being taken down, and an enquiry just recorded, back an unnamed "I've changed the time" only when there is no other enquiry it could mean. Otherwise the reply is replaced with one that says the change was not made, **and the conversation is handed to a person**, because that reply promises one |
+   | Availability | Never. A sentence saying a car is available, free, unavailable, fully booked or held, for a day, a time or the customer's own journey, is taken out and an honest line added; the rest of the reply, including any reference, goes out. Describing the company ("we're available around the clock", "child seats are available") is not a claim, and nor is saying it cannot be checked. Mentioning the team does not excuse a claim |
 
-   A record made this turn must also be named, and nothing recorded may read
-   as a confirmed booking. A car the client has given no rate is "on
-   request", the same words the website prints.
+   A record made this turn must also be named, whatever else was taken out,
+   and nothing recorded may read as a confirmed booking. A car the client has
+   given no rate is "on request", the same words the website prints.
 7. **Commit.** The reply, the updated journey, the status and the run's
    record (model, tool calls, tokens, time) are written together.
 8. **Send.** Through Twilio, retried once if Twilio says it is worth it. The
@@ -140,8 +140,8 @@ The model has no SQL and no route to anything else.
 | `get_company_info` | Who the company is, where it is based, where it works, the telephone, WhatsApp and email, the website, the booking terms — read from the settings the admin edits, so the site and the assistant cannot disagree. No opening hours are published anywhere, and the result says to say the team can be reached at any hour rather than invent a timetable |
 | `record_journey_details` | Adds what the customer said to the journey being discussed: resolves "the S Class" to the real vehicle, checks a date exists and has not passed, a time is HH:MM, passengers are 1–50. Refused values come back with a reason; a refused value never overwrites a good one. `startNew` forgets the journey in hand, for a customer who has moved on to a different one |
 | `create_enquiry` | Records an enquiry from the recorded journey — takes **no arguments**, so what reaches the office is what was validated, not what the model wrote last. Every request is one of these, including "book me the S-Class on Friday" |
-| `get_my_enquiries` | Every enquiry this number made on WhatsApp, newest first, with the journey as the office holds it and whether it can still be changed. Called before changing anything, and instead of asking a customer for a reference they will not have kept |
-| `update_my_enquiry` | Moves the date, time, pick-up, drop-off, car, passengers, luggage, flight or note on one of this number's own WhatsApp enquiries. Only the fields given change |
+| `get_my_enquiries` | Every enquiry this number made, on WhatsApp or the website, newest first, with where it was made, the journey as the office holds it, and whether it can still be changed from WhatsApp (website ones cannot). Called before changing anything, and instead of asking a customer for a reference they will not have kept |
+| `update_my_enquiry` | Moves the date, time, pick-up, drop-off, car, service, passengers, luggage, flight or note on one of this number's own WhatsApp enquiries. Only the fields given change, and each is checked the way `record_journey_details` checks it: a service from the catalogue, a real date not passed, a time on the 24-hour clock |
 | `cancel_my_enquiry` | Withdraws one of this number's own WhatsApp enquiries |
 | `get_enquiry_status` | One enquiry in full: where it stands, the journey the office holds, any price recorded, and whether the customer may still change it. Works for a website enquiry too, because reading your own enquiry is not changing it. Another customer's reference answers exactly like one that does not exist |
 | `get_booking_status` | The same for a booking, and whether the office has actually confirmed it. Until it has, the assistant is told in the result itself not to call it booked |
@@ -189,7 +189,12 @@ The office reaches the same two capabilities the assistant does, through
 `PATCH /enquiries/:id/journey` and the status route, and the admin's enquiry
 screen now has "Amend the journey" and "Cancelled by the customer". Before
 this the only way to change a date was to write a note and hope somebody
-read it.
+read it. A cancellation the office records reads "Cancelled by the customer,
+recorded by the office" on the trail, and one made on WhatsApp "Cancelled by
+the customer on WhatsApp": it is always the customer who withdraws. The
+amend form sends only what the office changed since opening it, so a
+customer's reschedule made in the meantime is not written back over, and
+neither action is offered once the enquiry has become a booking.
 
 ### Handoff
 
@@ -411,7 +416,7 @@ conversations whose checks do not depend on wording:
 | cancel-ambiguous | Two enquiries and one instruction: it asks which, naming the journeys, and cancels nothing |
 | another | "A separate journey on the 12th" is a second enquiry that inherits neither the first one's time nor its pick-up |
 | website-enquiry | An enquiry taken on the website is untouched, no new one is made in its place, nothing is claimed, and a person is put on it |
-| wrong-reference | Somebody else's reference leaks nothing about their journey and is never reported as cancelled |
+| wrong-reference | A real enquiry belonging to another number leaks nothing about its journey, is never reported as cancelled, and is left exactly as it was |
 | update-refused | An enquiry the office has won does not move, and is never said to have moved |
 | company | Website, base, coverage and contact details are answered without handing over, and the unpublished hours are answered honestly |
 | my-enquiries | Both enquiries are named in terms the customer can choose between, without asking for a reference |

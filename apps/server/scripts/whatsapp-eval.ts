@@ -107,6 +107,9 @@ const customer = (...texts: string[]): Step[] => texts.map((text) => ({ who: "cu
 const operator = (text: string): Step => ({ who: "operator", text });
 const movesTo = (status: ConversationStatus): Step => ({ who: "office", status });
 
+/** What a scenario's setup made, for its steps and checks to refer to. */
+type Seeded = Record<string, string>;
+
 type Scenario = {
   key: string;
   /**
@@ -116,8 +119,9 @@ type Scenario = {
    * cannot be made by talking to the assistant, so a scenario that has to
    * start from one puts it there itself.
    */
-  setup?: (phone: string) => Promise<void>;
-  steps: Step[];
+  setup?: (phone: string) => Promise<Seeded | void>;
+  /** What the customer says; built from what `setup` seeded, when it needs that. */
+  steps: Step[] | ((seeded: Seeded) => Step[]);
   /** Deterministic checks. `turns` is the whole conversation, in order. */
   check: (turns: Turn[], conversationId: string) => Promise<Check[]> | Check[];
 };
@@ -653,16 +657,22 @@ const SCENARIOS: Scenario[] = [
     /** Somebody else's reference, which must read exactly as a missing one. */
     key: "wrong-reference",
     setup: async (phone) => {
-      // Theirs, so the number is known to us, and one that is not.
+      // Theirs, so the number is known to us, and one that is not. The
+      // stranger's number comes from the same pool as every scenario's, so no
+      // later scenario lands on it and inherits this enquiry.
       await seedEnquiry(phone, "whatsapp", { date: isoInDays(22) });
-      await seedEnquiry("+447700900888", "whatsapp", { date: isoInDays(23), pickup: "Somebody Else's Hotel" });
+      const theirs = await seedEnquiry(nextPhone(), "whatsapp", { date: isoInDays(23), pickup: "Somebody Else's Hotel" });
+      return { strangers: theirs.reference };
     },
-    steps: customer("What is happening with ENQ-1000? And can you cancel it?"),
-    check: (turns) => {
+    steps: ({ strangers }) => customer(`What is happening with ${strangers}? And can you cancel it?`),
+    check: async (turns) => {
       const reply = said(turns);
+      const strangers = turns[0]!.customer.match(/ENQ-\d+/)![0];
+      const theirs = await operations.getEnquiries().then((all) => all.find((item) => item.reference === strangers));
       return [
         check("leaks nothing about another customer's journey", !/somebody else's hotel/i.test(reply), reply),
         check("does not claim to have cancelled it", !/\b(?:cancelled|canceled)\b/i.test(reply) || /could ?n'?t|unable|cannot|can'?t|no enquiry|not find/i.test(reply), reply),
+        check("the stranger's enquiry is untouched", theirs?.status === "new", theirs?.status ?? "missing"),
       ];
     },
   },
@@ -839,9 +849,10 @@ async function run(scenario: Scenario, whatsapp: WhatsAppChannel, provider: Simu
     return conversationId;
   };
 
-  if (scenario.setup) await scenario.setup(phone);
+  const seeded = (scenario.setup ? await scenario.setup(phone) : undefined) ?? {};
+  const steps = typeof scenario.steps === "function" ? scenario.steps(seeded) : scenario.steps;
 
-  for (const [index, step] of scenario.steps.entries()) {
+  for (const [index, step] of steps.entries()) {
     const before = provider.sent.length;
     const heard = () => provider.sent.slice(before).map((message) => message.body).join("\n");
 

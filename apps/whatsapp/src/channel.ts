@@ -332,7 +332,8 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
       today: config.today(),
       handoff: null,
       createdFor: null,
-      changed: [],
+      confirmed: [],
+      attempted: [],
     };
 
     // The fleet is needed to name a recorded vehicle in the context; reading

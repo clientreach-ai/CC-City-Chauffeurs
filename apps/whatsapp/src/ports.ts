@@ -80,7 +80,37 @@ export type RecordedEnquiry = {
   dropoff?: string;
   /** The vehicle by name, as the customer would say it. */
   vehicle?: string;
+  /** The office's status label, once a tool has read it back: "Cancelled". */
+  status?: string;
 };
+
+/** A part of an enquiry's journey that can be changed after it is recorded. */
+export type JourneyField =
+  | "service"
+  | "vehicleId"
+  | "pickup"
+  | "dropoff"
+  | "date"
+  | "time"
+  | "passengers"
+  | "luggage"
+  | "flight"
+  | "message";
+
+/**
+ * Something the backend has said happened to an enquiry, which is what a
+ * reply saying "I've moved it to Friday" is held to.
+ */
+export type ConfirmedChange = {
+  kind: "updated" | "cancelled";
+  /** Absent for the journey still being taken down, which has no reference yet. */
+  reference?: string;
+  /** What moved, for an update. Absent means it could have been any of it. */
+  fields?: JourneyField[];
+};
+
+/** A change asked of the backend, whether or not it was made. */
+export type ChangeAttempt = { kind: "updated" | "cancelled"; reference: string; fields?: JourneyField[] };
 
 export type ConversationState = {
   /**
@@ -96,6 +126,18 @@ export type ConversationState = {
   references: string[];
   /** What each of those references actually was. */
   recorded?: RecordedEnquiry[];
+  /**
+   * References the backend has returned as this number's own: listed, read
+   * or changed. Not necessarily said to the customer yet, but theirs, so a
+   * reply may name them without it reading as a number the model made up.
+   */
+  seen?: string[];
+  /**
+   * Changes the backend confirmed in earlier turns: made here, or a
+   * cancellation read back from the office's record. "Yes, it's been moved
+   * to Friday" a message after it was moved is true, and is judged by this.
+   */
+  confirmed?: ConfirmedChange[];
   /**
    * Whether the customer has been told what is charged on top.
    *
@@ -294,7 +336,9 @@ export type EnquiryStatusSummary = {
   reference: string;
   /** The status label the admin uses — "New", "Quoted", "Won", "Cancelled". */
   status: string;
-  /** Whether the customer may still change it themselves. */
+  /** Where it was made, as the admin labels it: "WhatsApp", "Website". */
+  madeOn: string;
+  /** Whether the customer may still change it themselves, from WhatsApp. */
   changeable: boolean;
   /** Why not, in words that can be passed on, when they may not. */
   notChangeableBecause?: string;
@@ -408,12 +452,13 @@ export interface Backend {
    */
   findEnquiry(reference: string, phone: E164): Promise<EnquiryStatusSummary | null>;
   /**
-   * Every enquiry this number made on WhatsApp, newest first.
+   * Every enquiry this number made, on WhatsApp or the website, newest first.
    *
    * What makes a customer's "my enquiry" answerable: they never remember the
    * reference, and asking them for one is how an assistant admits it is a
-   * form. Website enquiries are not here, because they are not the
-   * customer's to change from this channel.
+   * form. A website enquiry is listed so it can be talked about, and comes
+   * back `changeable: false`, because it is not the customer's to change
+   * from this channel.
    */
   listMyEnquiries(phone: E164): Promise<EnquiryStatusSummary[]>;
   /**

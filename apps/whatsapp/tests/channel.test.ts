@@ -339,6 +339,105 @@ describe("a customer managing their own enquiries", () => {
     expect((await backend.listMyEnquiries(CUSTOMER))[0]!.status).toBe("New");
   });
 
+  /** One made in an earlier conversation: this one has never heard its reference. */
+  async function fromBefore() {
+    const { reference } = await backend.createEnquiry({
+      customer: { name: "Amelia Hughes", phone: CUSTOMER, email: "" },
+      journey: { service: "", vehicleId: "veh-ghost", pickup: "Claridge's", dropoff: "", date: "2027-06-19", time: "10:00", passengers: null, luggage: "", flight: "", notes: "" },
+      submissionId: "wa:earlier:enquiry",
+    });
+    return reference;
+  }
+
+  test("a change made in a new conversation is confirmed with its own reference", async () => {
+    const reference = await fromBefore();
+    const whatsapp = channel([
+      calls("update_my_enquiry", { reference, date: "2027-06-25" }),
+      says(`I've moved ${reference} to Friday the 25th.`),
+    ]);
+    await say(whatsapp, "m1", "can you move my Ghost to Friday the 25th?");
+
+    // The backend returned it as theirs, so it is not a number anybody made up.
+    expect(lastSent()).toBe(`I've moved ${reference} to Friday the 25th.`);
+  });
+
+  test("a change it could not make puts a person on it, as the reply promises", async () => {
+    const reference = await fromBefore();
+    backend.statuses.set(reference, "Won");
+    const whatsapp = channel([calls("update_my_enquiry", { reference, time: "18:00" }), says("I've moved it to 6pm.")]);
+    await say(whatsapp, "m1", "move it to 6pm");
+
+    expect(lastSent()).toContain("couldn't make that change");
+    expect(store.only().status).toBe("human_requested");
+    expect(store.only().handoff?.reason).toBe("cannot_help");
+  });
+
+  test("a change from the last message can still be talked about in the next", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("update_my_enquiry", { reference, date: "2027-06-25" }), says("I've moved it to Friday the 25th."));
+    await say(whatsapp, "m2", "can you move it to Friday the 25th?");
+    model.push(says("Yes, it's been moved to Friday the 25th."));
+    await say(whatsapp, "m3", "so it's Friday now?");
+
+    expect(lastSent()).toBe("Yes, it's been moved to Friday the 25th.");
+    expect(store.only().status).toBe("ai_active");
+  });
+
+  test("an amendment is checked the way a new journey's details are", async () => {
+    const { whatsapp, reference } = await existing();
+
+    model.push(calls("update_my_enquiry", { reference, service: "Weddings", time: "4pm" }), says("What time exactly?"));
+    await say(whatsapp, "m2", "make it the wedding package at 4pm");
+    const refused = resultOf();
+    expect(refused.ok).toBe(false);
+    expect(refused.error.code).toBe("refused");
+    expect(refused.error.message).toContain("24-hour clock");
+
+    model.push(calls("update_my_enquiry", { reference, service: "Weddings", time: "16:00" }), says("That's now the wedding package at 4pm."));
+    await say(whatsapp, "m3", "4pm please");
+    // The catalogue's slug, which the admin can name, not the words typed.
+    expect(resultOf().data.enquiry.journey).toMatchObject({ service: "weddings", time: "16:00" });
+  });
+
+  test("the conversation's own note of the journey follows the office's record", async () => {
+    const { whatsapp, reference } = await existing();
+    const recorded = () => store.only().state.recorded![0]!;
+
+    model.push(calls("update_my_enquiry", { reference, date: "2027-06-25", time: "16:00" }), says("Done, Friday the 25th at 4pm."));
+    await say(whatsapp, "m2", "move it to Friday the 25th at 4pm");
+    expect(recorded()).toMatchObject({ reference, date: "2027-06-25", time: "16:00" });
+
+    model.push(calls("cancel_my_enquiry", { reference }), says("That's cancelled for you."));
+    await say(whatsapp, "m3", "actually cancel it");
+    expect(recorded().status).toBe("Cancelled");
+
+    model.push(says("Anything else I can help with?"));
+    await say(whatsapp, "m4", "thanks");
+    expect(model.requests.at(-1)!.context).toContain("2027-06-25");
+    expect(model.requests.at(-1)!.context).toContain("Cancelled");
+  });
+
+  test("a website enquiry is listed, as the team's to change", async () => {
+    const reference = backend.websiteEnquiry("ENQ-9001", CUSTOMER);
+    const whatsapp = channel([calls("get_my_enquiries"), says(`You have ${reference} from the website, for Mayfair.`)]);
+    await say(whatsapp, "m1", "what's happening with my enquiry?");
+
+    const { enquiries } = resultOf().data;
+    expect(enquiries).toEqual([expect.objectContaining({ reference, madeOn: "Website", changeable: false })]);
+    expect(lastSent()).toContain(reference);
+  });
+
+  test("a quote the office recorded can be passed on", async () => {
+    const { whatsapp, reference } = await existing();
+    backend.quotes.set(reference, 450);
+
+    model.push(calls("get_enquiry_status", { reference }), says("The office has put £450 against it."));
+    await say(whatsapp, "m2", "what did you quote me?");
+
+    expect(lastSent()).toBe("The office has put £450 against it.");
+  });
+
   test("an enquiry the office has won is not the customer's to change", async () => {
     const { whatsapp, reference } = await existing();
     backend.statuses.set(reference, "Won");

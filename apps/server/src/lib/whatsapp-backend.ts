@@ -2,6 +2,7 @@ import {
   bookingStatuses,
   CmsValidationError,
   company,
+  enquirySources,
   enquiryStatuses,
   labelFor,
   type Enquiry,
@@ -108,16 +109,20 @@ const toSummary = (service: Service): ServiceSummary => ({
  * An enquiry as the assistant is allowed to see it.
  *
  * The journey, the note and any recorded quote, plus whether the customer
- * may still change it and why not — answered by the same rule the mutation
- * itself applies, so the assistant never offers a change the server is
- * about to refuse. The vehicle is a name rather than an id: the customer
- * asked for a Ghost, not for `veh-ghost`.
+ * may still change it and why not — answered by the same rules the
+ * mutations themselves apply (the source, then the status), so the
+ * assistant never offers a change the server is about to refuse. The
+ * vehicle is a name rather than an id: the customer asked for a Ghost, not
+ * for `veh-ghost`.
  */
 function toEnquirySummary(enquiry: Enquiry, vehicleName: (id: string | null) => string | null): EnquiryStatusSummary {
-  const blocked = operations.settledReason({ status: enquiry.status, bookingId: enquiry.bookingId });
+  const blocked =
+    operations.settledReason({ status: enquiry.status, bookingId: enquiry.bookingId }) ??
+    (enquiry.source === "whatsapp" ? null : "This enquiry was not made on WhatsApp, so the team has to make the change.");
   return {
     reference: enquiry.reference,
     status: labelFor(enquiryStatuses, enquiry.status),
+    madeOn: labelFor(enquirySources, enquiry.source),
     changeable: blocked === null,
     ...(blocked ? { notChangeableBecause: blocked } : {}),
     journey: {
@@ -239,8 +244,13 @@ export function createWhatsAppBackend(): Backend {
       return enquiry ? toEnquirySummary(enquiry, await vehicleNamer()) : null;
     },
 
+    /**
+     * Everything this number has asked for, wherever it asked. A customer who
+     * used the website form and then writes "what's happening with my
+     * enquiry?" is asking about that one, and will not have its reference.
+     */
     async listMyEnquiries(phone) {
-      const [enquiries, nameOf] = await Promise.all([operations.whatsappEnquiriesForPhone(phone), vehicleNamer()]);
+      const [enquiries, nameOf] = await Promise.all([operations.enquiriesForPhone(phone), vehicleNamer()]);
       return enquiries.map((enquiry) => toEnquirySummary(enquiry, nameOf));
     },
 
@@ -260,7 +270,7 @@ export function createWhatsAppBackend(): Backend {
       const enquiry = await operations.whatsappEnquiryForPhone(reference, phone);
       if (!enquiry) return null;
       return refusalsAsBackendErrors(async () =>
-        toEnquirySummary(await operations.cancelEnquiry(enquiry.id, "customer"), await vehicleNamer()),
+        toEnquirySummary(await operations.cancelEnquiry(enquiry.id, "whatsapp"), await vehicleNamer()),
       );
     },
 

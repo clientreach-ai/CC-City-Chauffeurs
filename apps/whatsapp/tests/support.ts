@@ -332,6 +332,8 @@ export class FakeBackend implements Backend {
    */
   sources = new Map<string, "whatsapp" | "website">();
   statuses = new Map<string, "New" | "Quoted" | "Won" | "Lost" | "Cancelled">();
+  /** A quote the office has recorded against an enquiry, in pounds. */
+  quotes = new Map<string, number>();
 
   /** An enquiry that came through the website on the same number. */
   websiteEnquiry(reference: string, phone: E164, journey: Partial<RequestJourney> = {}) {
@@ -348,6 +350,7 @@ export class FakeBackend implements Backend {
 
   private summary(item: Created): EnquiryStatusSummary {
     const status = this.statuses.get(item.reference) ?? "New";
+    const source = this.sources.get(item.reference) ?? "whatsapp";
     const blocked =
       status === "Won"
         ? "The office has already agreed this one, so they have to make the change."
@@ -355,10 +358,14 @@ export class FakeBackend implements Backend {
           ? "This enquiry has already been cancelled."
           : status === "Lost"
             ? "This enquiry was closed, so the office has to reopen it."
-            : null;
+            : source !== "whatsapp"
+              ? "This enquiry was not made on WhatsApp, so the team has to make the change."
+              : null;
+    const quote = this.quotes.get(item.reference);
     return {
       reference: item.reference,
       status,
+      madeOn: source === "whatsapp" ? "WhatsApp" : "Website",
       changeable: blocked === null,
       ...(blocked ? { notChangeableBecause: blocked } : {}),
       journey: {
@@ -373,7 +380,7 @@ export class FakeBackend implements Backend {
         flight: item.journey.flight,
       },
       note: item.journey.notes,
-      quote: null,
+      quote: quote === undefined ? null : { amount: quote, note: "" },
       createdAt: "2027-01-10T09:00:00.000Z",
       updatedAt: "2027-01-10T09:00:00.000Z",
     };
@@ -398,12 +405,10 @@ export class FakeBackend implements Backend {
     );
   }
 
+  /** Mine to read, whichever door it came through; marked for whether it is mine to change. */
   async listMyEnquiries(phone: E164) {
     return this.created
-      .filter(
-        (item) =>
-          item.kind === "enquiry" && item.customer.phone === phone && (this.sources.get(item.reference) ?? "whatsapp") === "whatsapp",
-      )
+      .filter((item) => item.kind === "enquiry" && item.customer.phone === phone)
       .reverse()
       .map((item) => this.summary(item));
   }
