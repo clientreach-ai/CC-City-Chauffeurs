@@ -19,11 +19,11 @@
  *   and a link straight to the record.
  */
 
-import type { Booking, Enquiry } from "@CC-City-Chauffeurs/core";
+import { INVITATION_DAYS, roles, roleWithArticle, type Booking, type Enquiry, type Role } from "@CC-City-Chauffeurs/core";
 import { env } from "@CC-City-Chauffeurs/env/server";
 
 import * as fleet from "../repositories/fleet";
-import { mailer, type Email } from "./mail";
+import { mailer, SilentMailer, type Email } from "./mail";
 
 /** One line of JSON per email, the same shape the WhatsApp channel logs. */
 function log(event: string, fields: Record<string, unknown>) {
@@ -33,16 +33,22 @@ function log(event: string, fields: Record<string, unknown>) {
 /**
  * Sends, and swallows everything. The caller has already done the part that
  * mattered; this is the part that can safely fail.
+ *
+ * Answers whether the email actually left: `false` when it failed, and also
+ * when mail is switched off — the silent mailer agrees to everything, but
+ * nobody received anything.
  */
-async function post(email: Email, about: Record<string, unknown>) {
+async function post(email: Email, about: Record<string, unknown>): Promise<boolean> {
   const post = mailer();
   try {
     const outcome = await post.send(email);
     if (outcome.ok) log("sent", { ...about, mailer: post.name, id: outcome.id });
     else log("failed", { ...about, mailer: post.name, code: outcome.code, detail: outcome.detail });
+    return outcome.ok && !(post instanceof SilentMailer);
   } catch (error) {
     // A mailer is not supposed to throw. If one does, it stops here.
     log("failed", { ...about, mailer: post.name, code: "threw", detail: error instanceof Error ? error.name : "unknown" });
+    return false;
   }
 }
 
@@ -136,8 +142,78 @@ export function conversationNeedsAPerson(waiting: {
  * The subject carries the reference and the name, because that is what the
  * office reads on a phone without opening anything.
  */
+/**
+ * How many enquiry alerts the office gets before they pause.
+ *
+ * The public form is open to anyone, and every enquiry it records sends the
+ * office an email. A flood of submissions — many addresses, each inside its
+ * own rate limit — would otherwise bury the office's inbox under hundreds of
+ * alerts and spend the month's sending allowance in an afternoon. Thirty in
+ * ten minutes is far beyond a real day for a chauffeur firm; past it the
+ * office gets one email saying alerts are paused, and nothing more until the
+ * window turns over. Nothing is lost by it: every enquiry is still recorded
+ * and waiting in the admin.
+ */
+export const ENQUIRY_ALERTS = { limit: 30, windowMs: 10 * 60_000 } as const;
+
+let alertWindow = { start: 0, count: 0 };
+
+/** The enquiries already alerted, so a retried submission — which returns the same one — is not alerted twice. */
+const alerted = new Set<string>();
+const ALERTED_REMEMBERED = 2_000;
+
+/** For tests: forget every alert counted and every enquiry alerted. */
+export function resetEnquiryAlerts() {
+  alertWindow = { start: 0, count: 0 };
+  alerted.clear();
+}
+
+function alertTurn(now: number): "send" | "pause" | "skip" {
+  if (now - alertWindow.start >= ENQUIRY_ALERTS.windowMs) alertWindow = { start: now, count: 0 };
+  alertWindow.count += 1;
+  if (alertWindow.count <= ENQUIRY_ALERTS.limit) return "send";
+  return alertWindow.count === ENQUIRY_ALERTS.limit + 1 ? "pause" : "skip";
+}
+
+/** A value that came from a form, made safe for a one-line header like a subject. */
+const oneLine = (value: string) => value.replace(/[\r\n\t\u0000-\u001f\u007f]+/g, " ").trim();
+
 export function enquiryRecorded(enquiry: Enquiry): void {
   if (!env.OFFICE_EMAIL) return;
+
+  if (alerted.has(enquiry.id)) {
+    log("skipped", { about: "enquiry", reference: enquiry.reference, reason: "already_alerted" });
+    return;
+  }
+  alerted.add(enquiry.id);
+  if (alerted.size > ALERTED_REMEMBERED) alerted.delete(alerted.values().next().value!);
+
+  const turn = alertTurn(Date.now());
+  if (turn === "skip") {
+    log("skipped", { about: "enquiry", reference: enquiry.reference, reason: "paused" });
+    return;
+  }
+  if (turn === "pause") {
+    const resumes = new Date(alertWindow.start + ENQUIRY_ALERTS.windowMs);
+    afterResponse(async () => {
+      await post(
+        {
+          to: env.OFFICE_EMAIL!,
+          subject: "Enquiry alerts paused — unusually many enquiries",
+          text: [
+            `More than ${ENQUIRY_ALERTS.limit} enquiries have arrived in ${ENQUIRY_ALERTS.windowMs / 60_000} minutes.`,
+            "That is far more than customers send, and usually means someone is flooding the form.",
+            "",
+            `Alerts are paused until ${resumes.toISOString().slice(11, 16)} UTC. Every enquiry is still recorded:`,
+            adminLink("/enquiries"),
+          ].join("\n"),
+        },
+        { about: "enquiry_alerts_paused", reference: enquiry.reference },
+      );
+    });
+    return;
+  }
+
   afterResponse(async () => {
     const journey = enquiry.journey;
     const text = [
@@ -167,7 +243,7 @@ export function enquiryRecorded(enquiry: Enquiry): void {
     await post(
       {
         to: env.OFFICE_EMAIL!,
-        subject: `${enquiry.reference} — enquiry from ${enquiry.contact.name}`,
+        subject: `${enquiry.reference} — enquiry from ${oneLine(enquiry.contact.name)}`,
         text,
         // Replying to the alert writes to the customer, where we have an address.
         ...(enquiry.contact.email ? { replyTo: enquiry.contact.email } : {}),
@@ -255,4 +331,48 @@ export function bookingConfirmed(booking: Booking, contact: { name: string; emai
       { about: "booking_confirmed", reference: booking.reference },
     );
   });
+}
+
+/**
+ * An invitation to the admin, sent to the person being invited.
+ *
+ * Unlike everything above, this one is awaited and answers whether it was
+ * sent, because the admin who sent it is still looking at the screen: told
+ * the email did not go, they copy the link and pass it on themselves. It
+ * still never throws — the invitation is already saved, and the link works
+ * however it reaches them.
+ *
+ * The link is the whole of the credential, so it appears in the email and
+ * nowhere else: not in the log line, not in the subject.
+ */
+export async function teamInvitation(invite: {
+  memberId: string;
+  name: string;
+  email: string;
+  role: Role;
+  invitedBy: string;
+  link: string;
+}): Promise<boolean> {
+  const role = roles.find((known) => known.value === invite.role);
+  const text = [
+    `Dear ${invite.name},`,
+    "",
+    `${invite.invitedBy} has invited you to the City Chauffeurs admin, as ${roleWithArticle(invite.role)}.`,
+    ...(role ? [`${role.label}: ${role.summary}`] : []),
+    "",
+    "Open this link to choose your password:",
+    "",
+    invite.link,
+    "",
+    `It works once and expires in ${INVITATION_DAYS} days. Once your password is chosen, sign in with ${invite.email}.`,
+    "",
+    "If you were not expecting this, you can ignore this email — nothing happens unless the link is opened.",
+    "",
+    "City Chauffeurs",
+  ].join("\n");
+
+  return post(
+    { to: invite.email, subject: "You're invited to the City Chauffeurs admin", text },
+    { about: "team_invitation", memberId: invite.memberId },
+  );
 }

@@ -35,6 +35,8 @@ beforeEach(async () => {
   await database.reset();
   post = new mail.MemoryMailer();
   mail.useMailer(post);
+  // The alert ceiling counts across the whole run; every test starts under it.
+  notifications.resetEnquiryAlerts();
 }, 30_000);
 
 afterEach(() => {
@@ -116,6 +118,42 @@ describe("an enquiry the office has not seen yet", () => {
     notifications.enquiryRecorded(await operations.createPublicEnquiry({ ...visitor, vehicleId: "veh-ghost" }));
 
     expect((await delivered())[0]!.text).toContain("Rolls-Royce Ghost");
+  });
+});
+
+describe("enquiry alerts, against a flood or a retry", () => {
+  test("a retried submission is the same enquiry, and is alerted once", async () => {
+    const first = await operations.createPublicEnquiry({ ...visitor, submissionId: "retry-me" });
+    notifications.enquiryRecorded(first);
+    const again = await operations.createPublicEnquiry({ ...visitor, submissionId: "retry-me" });
+    expect(again.id).toBe(first.id);
+    notifications.enquiryRecorded(again);
+
+    await delivered(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(post.sent).toHaveLength(1);
+  });
+
+  test("past the ceiling the office is told once that alerts are paused, then nothing", async () => {
+    const { limit } = notifications.ENQUIRY_ALERTS;
+    for (let index = 0; index < limit + 3; index++) {
+      notifications.enquiryRecorded(await operations.createPublicEnquiry(visitor));
+    }
+
+    const sent = await delivered(limit + 1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(sent).toHaveLength(limit + 1);
+    expect(sent.filter((email) => email.subject.startsWith("Enquiry alerts paused"))).toHaveLength(1);
+    expect(sent.at(-1)!.text).toContain("Every enquiry is still recorded");
+  });
+
+  test("a name with line breaks in it stays on one line in the subject", async () => {
+    notifications.enquiryRecorded(
+      await operations.createPublicEnquiry({ ...visitor, name: "Amelia\r\nBcc: someone@example.com" }),
+    );
+    const [alert] = await delivered();
+    expect(alert!.subject).not.toMatch(/[\r\n]/);
+    expect(alert!.subject).toContain("Amelia Bcc: someone@example.com");
   });
 });
 
@@ -245,7 +283,7 @@ describe("a customer waiting for a person", () => {
 
 describe("when the post cannot go out", () => {
   test("the enquiry is still recorded, and the failure is only a failure to tell", async () => {
-    post.failNext({ ok: false, code: "smtp_econnrefused", detail: "connect ECONNREFUSED" });
+    post.failNext({ ok: false, code: "resend_rate_limit_exceeded", detail: "Too many requests." });
 
     const enquiry = await operations.createPublicEnquiry(visitor);
     notifications.enquiryRecorded(enquiry);

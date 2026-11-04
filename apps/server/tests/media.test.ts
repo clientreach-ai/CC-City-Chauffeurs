@@ -7,7 +7,7 @@
  * lookup and the rewrite, none of which care where the bytes went.
  */
 
-import { afterAll, beforeAll, beforeEach, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { ImageRef } from "@CC-City-Chauffeurs/core";
 
 import { setTestEnvironment, startDatabase, type TestDatabase } from "./harness";
@@ -222,4 +222,67 @@ test("the library lists newest first", async () => {
     { ...base, id: "c", src: "https://x/c.jpg", filename: "c.jpg", createdAt: new Date("2026-02-01") },
   ]);
   expect((await media.getMedia()).map((asset) => asset.id)).toEqual(["b", "c", "a"]);
+});
+
+describe("what deleting a photograph may take from the bucket", () => {
+  const KEY = "test-site/uploads/shared.jpg";
+  const SRC = "https://files.example.test/test-site/uploads/shared.jpg";
+
+  async function record(id: string) {
+    await database.db.insert(schema.mediaAsset).values({
+      id,
+      src: SRC,
+      key: KEY,
+      width: 1600,
+      height: 1000,
+      alt: "",
+      filename: "shared.jpg",
+      origin: "local",
+      bytes: 1000,
+    });
+  }
+
+  test("a spare record goes without the file another record still shows", async () => {
+    await record("media-a");
+    await record("media-b");
+    bucket.objects.set(KEY, "image/jpeg");
+
+    await media.deleteMedia("media-b");
+    expect(bucket.deleted).toEqual([]);
+    await media.deleteMedia("media-a");
+    expect(bucket.deleted).toEqual([KEY]);
+  });
+
+  test("an address registered by hand gets the key its address implies, whatever key was sent", async () => {
+    const { Hono } = await import("hono");
+    const { mediaRoutes } = await import("../src/routes/media");
+    const { errorResponse } = await import("../src/lib/errors");
+    const app = new Hono<{ Variables: { user: unknown } }>()
+      .onError((error, c) => errorResponse(error, c))
+      .use(async (c, next) => {
+        c.set("user", { id: "editor-1", name: "E", email: "e@example.test", image: null, role: "editor" });
+        await next();
+      })
+      .route("/", mediaRoutes as never);
+
+    const post = (body: unknown) =>
+      app.request("/media", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const base = { width: 10, height: 10, filename: "x.jpg" };
+
+    const ours = (await (await post({ ...base, src: SRC, key: "other-site/everything.jpg" })).json()) as { id: string };
+    const theirs = (await (await post({ ...base, src: "https://elsewhere.test/x.jpg", key: "test-site/uploads/old.jpg" })).json()) as { id: string };
+
+    const keys = await database.client.query(`select id, key from media_asset where id in ($1, $2)`, [ours.id, theirs.id]);
+    expect(Object.fromEntries(keys.rows.map((row) => [(row as { id: string }).id, (row as { key: string | null }).key]))).toEqual({
+      [ours.id]: KEY,
+      [theirs.id]: null,
+    });
+  });
+
+  test("the bucket refuses to delete anything outside this site's prefix", () => {
+    expect(realStorage.isOurKey("test-site/uploads/old.jpg")).toBe(true);
+    expect(realStorage.isOurKey("another-site/their-photo.jpg")).toBe(false);
+    expect(realStorage.isOurKey("test-site-other/x.jpg")).toBe(false);
+    expect(realStorage.isOurKey("test-site/../another-site/x.jpg")).toBe(false);
+  });
 });

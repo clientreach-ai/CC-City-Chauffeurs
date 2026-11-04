@@ -42,12 +42,29 @@ calling the API directly.
 
 Hono, on Bun. Three surfaces:
 
-- **`/api/auth/*`** — sessions, from better-auth.
+- **`/api/auth/*`** — sessions, from better-auth. Wrong passwords are counted
+  per account, not per address (`lib/sign-in-guard.ts`): through the admin's
+  rewrite every request arrives from one of Vercel's addresses, so a
+  per-address limit never fills. Five in fifteen minutes lock that account's
+  sign-in until the oldest ages out.
 - **`/api/public/*`** — what the website reads. No session. Only published
   records leave here: a draft is indistinguishable from a record that does not
-  exist, so an unpublished vehicle cannot be read by guessing its slug.
+  exist, so an unpublished vehicle cannot be read by guessing its slug. The
+  enquiry form takes JSON only, from the website's own pages, and an IPv6 /64
+  counts as one visitor (`lib/rate-limit.ts`).
 - **`/api/admin/*`** — every route needs a session. Reads are open to any
   signed-in role; each write declares the capability it needs.
+
+Only the admin's own pages may act as staff. `CORS_ORIGIN` lists every page
+allowed to call the API, the website's included; in production, better-auth,
+the admin's write check and credentialed CORS trust `ADMIN_URL`'s origin
+alone (`adminOrigins` in `packages/env`), because once the website moves to
+cccitychauffeurs.co.uk it shares a site — and the session cookie — with the
+dashboard.
+
+On WhatsApp, an enquiry or booking belongs to the number written on it,
+compared in full — never to the customer record it is filed under, which is
+matched by an email address nobody has proved is theirs.
 
 Roles are real. `user.role` is read off the session, and `requires()` enforces
 it on every write. The admin hides what a role cannot do as a courtesy — the
@@ -55,6 +72,27 @@ server is what actually refuses.
 
 Repositories (`src/repositories/`) hold all the SQL and all the rules. Routes
 parse, authorise and hand off; they contain no logic of their own.
+
+### Email goes out through Resend, or not at all
+
+One provider behind one seam. `src/lib/mail/` holds the `Mailer` interface and
+the single adapter that knows Resend's API; `src/lib/notifications.ts` holds
+the four messages the system actually sends — the office hears about an
+enquiry, a booking request and a customer waiting on WhatsApp, and the
+customer hears once a person has confirmed their booking.
+
+`MAIL_PROVIDER` is `off` by default, which is what every test runs with and
+what a deployment given no mail settings does: a mailer that agrees and sends
+nothing. Set it to `resend` and the settings are checked together at boot
+(`packages/env/src/mail.ts`), because a key that is not a key fails on every
+send and leaves nothing behind but a log line.
+
+Nothing about the post is allowed to cost the client a record. Every
+notification is called after the thing it describes is written, runs after the
+response has gone, and cannot throw. A send that Resend refuses outright is
+reported and dropped; a rate limit or a server error is tried twice more; a
+request that got no answer at all is left alone, because Resend may have taken
+it and the office would rather hear once than twice.
 
 ### Errors keep their shape across the wire
 
@@ -92,8 +130,13 @@ changed.
 
 ```bash
 pnpm db:seed                # content only; enquiries and bookings untouched
-pnpm db:seed -- --samples   # also insert the sample operational records
+pnpm db:seed -- --samples   # clears enquiries, bookings and customers, then adds samples
 ```
+
+It refuses any database that is not on this machine (or a local container):
+pointed at production it would overwrite the client's edits and, with
+`--samples`, delete every real enquiry. To rewrite a remote development
+database on purpose, name its host: `SEED_DATABASE_HOST=<host> pnpm db:seed`.
 
 ## `apps/admin` — the admin
 
@@ -196,25 +239,52 @@ pnpm dev
 | Website | http://localhost:3001 |
 | Admin | http://localhost:3002 |
 
-### The first account
+### The first account, and everyone after
 
 Sign-up is closed. `emailAndPassword.disableSignUp` refuses
 `/api/auth/sign-up/email` outright, because the API answers to the internet and
 an account made there would arrive with the `editor` role and the run of the
-client's content. Accounts are made against the database instead:
+client's content.
+
+The first admin is made against the database:
 
 ```bash
 # Hash the password the way better-auth reads it back.
 bun --filter server run scripts/create-user.ts you@example.com 'a-long-password' 'Your Name' admin
 ```
 
-If that script has not been written yet, the two rows can be inserted by hand —
-a `user` row carrying the role, and an `account` row whose `password` holds
-better-auth's scrypt hash of the password. Copy the shape from the row that is
-already there; a hash written any other way will not verify.
+Re-running it for an existing email resets that password and role and makes
+the account `active` again — the way back in if every admin is locked out.
+
+Everyone else is invited from the admin's **Team** page (admins only, the
+`team.manage` capability). An invitation makes an `invited` account with no
+password and a single-use link to `ADMIN_URL/accept-invite#token=…`, valid for
+seven days. It is emailed when mail is on; either way the admin is shown the
+link once, to pass on by hand. Opening it lets the person choose their own
+password, which makes the account `active`. Only the SHA-256 of the token is
+stored. The token rides in the link's fragment and goes to the API in a
+request body, so it is in no request line and no access log. In production
+the API will not start while `ADMIN_URL` still points at localhost.
+
+- `invited` and `deactivated` accounts cannot hold a session: better-auth's
+  session hook refuses one, the database refuses to insert one (a trigger,
+  migration `0007`, so a sign-in racing a deactivation cannot slip through),
+  and the API treats any it finds as signed out.
+- Deactivating someone signs them out everywhere and withdraws their
+  invitation. Their row stays, so the name on what they wrote still means
+  someone; only an invitation nobody accepted is ever deleted.
+- There is always at least one active admin, and nobody can deactivate
+  themselves.
+- Anyone signed in changes their own password from **Your account**
+  (`/account`, linked under their name in the sidebar). It calls better-auth's
+  `/change-password` directly: the current password is required, the new one
+  is held to the same 12–128 characters as an invitation
+  (`minPasswordLength`/`maxPasswordLength` in `packages/auth`, matching
+  `PASSWORD_LENGTH` in core), and every other session is revoked while this
+  one is reissued.
 
 Roles: `editor` — drafts only, no publishing, no operations. `manager` adds
-operations and publishing. `admin` adds site settings.
+operations and publishing. `admin` adds site settings and the team.
 
 ## What is still not real
 

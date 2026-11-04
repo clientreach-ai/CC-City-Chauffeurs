@@ -5,6 +5,9 @@ name: Deploy server
 on:
   push:
     branches: [master]
+  # By hand, for a redeploy — of master only. The job below refuses any other
+  # branch: the script it pipes to the VPS comes from the branch chosen, so a
+  # branch nobody reviewed would otherwise run whatever it liked on the host.
   workflow_dispatch:
 
 permissions:
@@ -16,20 +19,32 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # Settings → Environments → production can require a reviewer before any
+    # deploy runs, and limit it to master; nothing here needs changing for it.
+    environment: production
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to the commit behind v4.4.0, not a tag a compromised upstream
+      # could move: this job holds the key to the production host.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The script is piped from this commit rather than read off the host, so a
       # deploy never depends on what the host already has checked out.
+      #
+      # The host's key is pinned rather than fetched at deploy time: a
+      # ssh-keyscan trusts whatever answers, which is exactly what a hijacked
+      # address would be. If the VPS is ever rebuilt, update the key here
+      # (ssh-keyscan -t ed25519 <host>, checked against the host itself).
       - name: Deploy over SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST_KEY: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH/ZQwpjRNxSg0NOLsOxC0DGRg2vSwEXVsK612WLPdcR
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" 'bash -s' < deploy/deploy.sh
+          printf '%s %s\n' "$VPS_HOST" "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" 'bash -s' < deploy/deploy.sh
