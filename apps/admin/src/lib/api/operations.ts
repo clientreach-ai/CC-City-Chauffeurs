@@ -14,7 +14,7 @@ import type {
   VehiclePricing,
   VehicleSpecs,
 } from "@CC-City-Chauffeurs/core";
-import type { BookingInput } from "@CC-City-Chauffeurs/core/schemas";
+import type { BookingInput, EnquiryJourneyPatch } from "@CC-City-Chauffeurs/core/schemas";
 
 import { api } from "./client";
 
@@ -40,6 +40,16 @@ export async function updateEnquiryStatus(
   options: { lostReason?: LostReason } = {},
 ) {
   return api.patch<Enquiry>(`/enquiries/${id}/status`, { status, ...options });
+}
+
+/**
+ * Amend the journey on an enquiry.
+ *
+ * The same capability a customer reaches on WhatsApp. Only the fields given
+ * change, so the office can move a date without retyping the journey.
+ */
+export async function updateEnquiryJourney(id: string, patch: EnquiryJourneyPatch) {
+  return api.patch<Enquiry>(`/enquiries/${id}/journey`, patch);
 }
 
 export async function recordQuote(id: string, quote: { amount: number | null; note: string }) {

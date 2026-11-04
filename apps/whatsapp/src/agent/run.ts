@@ -67,14 +67,29 @@ export async function runAgentTurn(input: {
    * not read as a confirmed booking.
    */
   const finish = (reply: string, extra: { errorCode?: string | null; iterations: number }): TurnOutcome => {
+    const { state } = context;
     const checked = checkReply(reply, {
       created: context.createdFor,
-      references: context.state.references,
+      // Given to the customer, or shown by the backend to be theirs.
+      references: [...state.references, ...(state.seen ?? [])],
       figures: [...figures],
+      confirmed: context.confirmed,
+      confirmedEarlier: state.confirmed ?? [],
+      attempted: context.attempted,
+      journeyInHand: Boolean(state.journey.date || state.journey.pickup),
     });
     // Said once, then remembered. Recorded from what actually went out, not
     // from what the tools offered: offering them is not telling anybody.
-    if (!context.state.termsSaid && SAYS_THE_TERMS.test(checked.text)) context.state.termsSaid = true;
+    if (!state.termsSaid && SAYS_THE_TERMS.test(checked.text)) state.termsSaid = true;
+    // The reply now promises a person, so one is fetched.
+    if (checked.handoff) context.handoff ??= checked.handoff;
+    // What the backend confirmed about an enquiry stays true next turn. The
+    // draft's own details do not need remembering: they are in the draft.
+    const lasting = context.confirmed.filter((change) => change.reference);
+    if (lasting.length) {
+      const seen = new Set((state.confirmed ?? []).map((change) => JSON.stringify(change)));
+      state.confirmed = [...(state.confirmed ?? []), ...lasting.filter((change) => !seen.has(JSON.stringify(change)))];
+    }
 
     return {
       reply: checked.text.length > MAX_REPLY ? `${checked.text.slice(0, MAX_REPLY - 1)}…` : checked.text,

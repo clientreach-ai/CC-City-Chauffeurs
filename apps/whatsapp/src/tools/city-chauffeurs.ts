@@ -24,7 +24,7 @@ import {
   resolveVehicle,
   toRequestJourney,
 } from "../conversation/journey";
-import type { FleetVehicle, JourneyDraft } from "../ports";
+import type { EnquiryStatusSummary, FleetVehicle, JourneyDraft, JourneyField, RecordedEnquiry } from "../ports";
 import { defineTool, failure, success, type Tool, type ToolContext } from "./tool";
 
 const nothing = z.object({}).strict();
@@ -230,6 +230,14 @@ export const recordJourneyDetails = defineTool({
     const from = startNew ? {} : context.state.journey;
     const { draft, refused, notes } = mergeJourney(from, said, catalogue);
     context.state.journey = draft;
+    // "I've changed the time to 4pm" about the journey being taken down is
+    // true once it is written down here. Only while a journey really is
+    // being taken down, though: with an enquiry already recorded and nothing
+    // else in the draft, "make it 4pm" meant that enquiry, and writing it
+    // here instead has changed nothing the office can see.
+    const underWay = startNew || Object.keys(from).length > 0 || !knowsAnEnquiry(context);
+    const accepted = draftFields(said).filter((field) => !refused.some((item) => draftFields({ [item.field]: true }).includes(field)));
+    if (underWay && accepted.length) context.confirmed.push({ kind: "updated", fields: accepted });
     return success({
       ...(startNew ? { startedAfresh: true } : {}),
       recorded: summarise(draft, catalogue.fleet),
@@ -238,12 +246,47 @@ export const recordJourneyDetails = defineTool({
       stillNeededForEnquiry: missingFor("enquiry", draft),
       stillNeededForBookingRequest: missingFor("booking", draft),
       worthAsking: helpfulToAsk(draft),
+      // Next to the data rather than only in the prompt, because this is the
+      // moment it is needed: a reply that lists what has been written down
+      // and asks nothing leaves the customer with nothing to do.
+      ...(helpfulToAsk(draft).length
+        ? { askForOneOfThese: helpfulToAsk(draft), askingNote: "End your reply by asking for one of these. Do not simply read back what you have." }
+        : {}),
       // Here as well as on the fleet, so they are in front of you at the one
       // moment that matters: reading the journey back before you record it.
       ...termsFor(context, catalogue.terms),
     });
   },
 });
+
+/** Whether this conversation knows of an enquiry the customer already has. */
+const knowsAnEnquiry = (context: ToolContext) =>
+  context.state.references.length > 0 || (context.state.seen?.length ?? 0) > 0 || (context.state.recorded?.length ?? 0) > 0;
+
+/** The journey fields a set of details touches, by the names a change is recorded under. */
+function draftFields(said: Record<string, unknown>): JourneyField[] {
+  const named: Record<string, JourneyField> = { vehicle: "vehicleId", notes: "message", note: "message" };
+  const fields = new Set<JourneyField>();
+  for (const [key, value] of Object.entries(said)) {
+    if (value === undefined) continue;
+    const field = named[key] ?? key;
+    if (JOURNEY_FIELDS.has(field as JourneyField)) fields.add(field as JourneyField);
+  }
+  return [...fields];
+}
+
+const JOURNEY_FIELDS = new Set<JourneyField>([
+  "service",
+  "vehicleId",
+  "pickup",
+  "dropoff",
+  "date",
+  "time",
+  "passengers",
+  "luggage",
+  "flight",
+  "message",
+]);
 
 /** Two requests from the same journey are one request. */
 function fingerprint(draft: JourneyDraft) {
@@ -310,6 +353,53 @@ async function createRecord(context: ToolContext, kind: "enquiry") {
   return success({ reference, journeyNowRecorded: true, draftCleared: true });
 }
 
+/** What a recorded enquiry now is, from the office's own record. */
+function recordedFrom(enquiry: EnquiryStatusSummary): RecordedEnquiry {
+  const { date, time, pickup, dropoff, vehicle } = enquiry.journey;
+  return {
+    reference: enquiry.reference,
+    ...(date ? { date } : {}),
+    ...(time ? { time } : {}),
+    ...(pickup ? { pickup } : {}),
+    ...(dropoff ? { dropoff } : {}),
+    ...(vehicle ? { vehicle } : {}),
+    status: enquiry.status,
+  };
+}
+
+/**
+ * What the backend has just said about this number's enquiries, kept where
+ * the rest of the conversation can see it.
+ *
+ * Each reference becomes one the reply may name: the backend has just shown
+ * it is this customer's own, so it is not a number anybody made up. A
+ * journey this conversation recorded is refreshed from the office's record,
+ * so the context never shows the 19th once it has moved to the 25th. And a
+ * cancellation, whoever made it, is a fact the reply may state.
+ */
+function noteEnquiries(context: ToolContext, enquiries: EnquiryStatusSummary[]) {
+  const seen = new Set(context.state.seen ?? []);
+  for (const enquiry of enquiries) {
+    seen.add(enquiry.reference);
+    if (enquiry.status.toLowerCase() === "cancelled") context.confirmed.push({ kind: "cancelled", reference: enquiry.reference });
+  }
+  context.state.seen = [...seen];
+
+  if (!context.state.recorded?.length) return;
+  const latest = new Map(enquiries.map((enquiry) => [enquiry.reference, enquiry]));
+  context.state.recorded = context.state.recorded.map((item) => {
+    const enquiry = latest.get(item.reference);
+    return enquiry ? recordedFrom(enquiry) : item;
+  });
+}
+
+/** A reference as the customer says it, which is not always how it is stored. */
+const enquiryReference = z
+  .string()
+  .min(3)
+  .max(20)
+  .describe("The enquiry reference, e.g. ENQ-1105. Take it from get_my_enquiries rather than asking the customer for it.");
+
 export const createEnquiry = defineTool({
   name: "create_enquiry",
   description:
@@ -321,13 +411,158 @@ export const createEnquiry = defineTool({
 export const getEnquiryStatus = defineTool({
   name: "get_enquiry_status",
   description:
-    "Where one of this customer's own enquiries stands, by its reference (ENQ-1234). Only enquiries made from this WhatsApp number can be found.",
-  input: z.object({ reference: z.string().min(3).max(20).describe("The enquiry reference, e.g. ENQ-1105.") }).strict(),
+    "One of this customer's own enquiries in full: where it stands, the journey as the office holds it, any price the office has recorded, and whether the customer may still change it. Works for an enquiry made on the website as well as on WhatsApp, because reading your own enquiry is not changing it. Read from here rather than from what was said earlier in the conversation.",
+  input: z.object({ reference: enquiryReference }).strict(),
   async run(context, input) {
     const found = await context.backend.findEnquiry(input.reference.trim().toUpperCase(), context.conversation.phone);
     // Another customer's reference answers exactly as one that does not exist.
     if (!found) return failure("not_found", "No enquiry with that reference was made from this number.");
+    noteEnquiries(context, [found]);
     return success(found);
+  },
+});
+
+export const getMyEnquiries = defineTool({
+  name: "get_my_enquiries",
+  description:
+    "Every enquiry this customer has made, on WhatsApp or on the website, newest first, with where it was made, the journey as the office holds it, and whether it can still be changed from here. Call it before changing or cancelling anything, and before asking the customer for a reference: they will not remember one. If more than one could be what they mean, ask which, naming the journeys rather than the references.",
+  input: nothing,
+  async run(context) {
+    const enquiries = await context.backend.listMyEnquiries(context.conversation.phone);
+    noteEnquiries(context, enquiries);
+    return success({
+      enquiries,
+      note:
+        enquiries.length === 0
+          ? "This number has no enquiries. If the customer made one under another number, ask for its reference and read it with get_enquiry_status."
+          : "Only the ones marked changeable are the customer's to change here. One made on the website is theirs to ask about, but the team changes or cancels it: hand over for that.",
+    });
+  },
+});
+
+export const updateMyEnquiry = defineTool({
+  name: "update_my_enquiry",
+  description:
+    "Change the journey on one of this customer's own WhatsApp enquiries: a new date or time, a different car, a different pickup. Only the fields you give are changed; everything else stays as it is. It can fail, and the reply must not say anything was changed unless it returned the change. Never call it on an enquiry from the website.",
+  input: z
+    .object({
+      reference: enquiryReference,
+      service: z.string().max(80).optional().describe("The service, by the name get_services lists."),
+      vehicle: z.string().max(80).optional().describe("The vehicle as the customer named it, resolved against the real fleet."),
+      pickup: z.string().max(160).optional(),
+      dropoff: z.string().max(160).optional(),
+      date: z.string().max(10).optional().describe("YYYY-MM-DD. Work out 'Friday' from today's date."),
+      time: z.string().max(10).optional().describe("HH:MM, 24-hour."),
+      passengers: z.number().int().min(1).max(50).optional(),
+      luggage: z.string().max(200).optional(),
+      flight: z.string().max(40).optional(),
+      note: z.string().max(2000).optional().describe("The customer's own note on the enquiry, replacing what is there."),
+    })
+    .strict(),
+  async run(context, input) {
+    const { reference: quoted, vehicle, ...said } = input;
+    const reference = quoted.trim().toUpperCase();
+    // Asked for, whatever happens next: a change that is refused below is
+    // one the reply must not claim.
+    context.attempted.push({ kind: "updated", reference, fields: draftFields(input) });
+    const catalogue = await context.catalogue();
+
+    // The same resolution a new journey gets: "the Ghost" has to become a car
+    // the client actually publishes, and an ambiguous name is a question for
+    // the customer rather than a guess.
+    let vehicleId: string | null | undefined;
+    if (vehicle !== undefined) {
+      const match = resolveVehicle(vehicle, catalogue.fleet);
+      if ("ambiguous" in match) {
+        return failure("ambiguous", `That could be: ${match.ambiguous.map((item) => item.name).join(", ")}. Ask which one.`);
+      }
+      if ("unknown" in match) {
+        return failure("not_found", `No published vehicle matches "${vehicle}". The fleet is: ${catalogue.fleet.map((item) => item.name).join(", ")}.`);
+      }
+      vehicleId = match.vehicle.id;
+    }
+
+    // Everything else is checked as a new journey's details are: a service
+    // the catalogue has, a date that exists and has not passed, a time on the
+    // 24-hour clock. The server only caps lengths, so "Wedding" and "4pm"
+    // would otherwise reach the office exactly as typed.
+    const { note, ...journey } = said;
+    const checked = mergeJourney({}, { ...journey, ...(note === undefined ? {} : { notes: note }) }, catalogue);
+    if (checked.refused.length) {
+      return failure("refused", checked.refused.map((item) => `${item.field}: ${item.reason}`).join(" "));
+    }
+    const { notes: message, ...clean } = checked.draft;
+
+    const patch = {
+      ...clean,
+      ...(vehicleId === undefined ? {} : { vehicleId }),
+      ...(message === undefined ? {} : { message }),
+    };
+    if (Object.keys(patch).length === 0) {
+      return failure("nothing_to_change", "Say what is changing. Ask the customer if you do not know yet.");
+    }
+
+    const updated = await context.backend.updateMyEnquiry(reference, context.conversation.phone, patch);
+    // Not theirs, not from WhatsApp, or not an enquiry at all: one answer for
+    // all three, so nothing can be learned by trying references.
+    if (!updated) {
+      return failure(
+        "not_found",
+        "No enquiry with that reference was made from this number on WhatsApp. If the customer made it on the website, the team has to change it: hand over.",
+      );
+    }
+
+    noteEnquiries(context, [updated]);
+    const changed = Object.keys(patch) as JourneyField[];
+    context.confirmed.push({ kind: "updated", reference: updated.reference, fields: changed });
+    return success({ enquiry: updated, changed, ...(checked.notes.length ? { notes: checked.notes } : {}) });
+  },
+});
+
+export const cancelMyEnquiry = defineTool({
+  name: "cancel_my_enquiry",
+  description:
+    "Cancel one of this customer's own WhatsApp enquiries. Call get_my_enquiries first and be certain which one they mean: if more than one could be it, ask. It can fail, and the reply must not say anything was cancelled unless it returned the cancellation. Never call it on an enquiry from the website.",
+  input: z.object({ reference: enquiryReference }).strict(),
+  async run(context, input) {
+    const reference = input.reference.trim().toUpperCase();
+    context.attempted.push({ kind: "cancelled", reference });
+    const cancelled = await context.backend.cancelMyEnquiry(reference, context.conversation.phone);
+    if (!cancelled) {
+      return failure(
+        "not_found",
+        "No enquiry with that reference was made from this number on WhatsApp. If the customer made it on the website, the team has to cancel it: hand over.",
+      );
+    }
+
+    noteEnquiries(context, [cancelled]);
+    context.confirmed.push({ kind: "cancelled", reference: cancelled.reference });
+    return success({ enquiry: cancelled });
+  },
+});
+
+export const getCompanyInfo = defineTool({
+  name: "get_company_info",
+  description:
+    "What City Chauffeurs publishes about itself: who the company is, where it is based, where it works, the telephone number, the WhatsApp number, the email address, the website, and the booking terms. Call it for any question about the company rather than handing the customer to a person. Everything here is the client's own published wording.",
+  input: nothing,
+  async run(context) {
+    const info = await context.backend.companyInfo();
+    const { registeredOffice, ...rest } = info;
+    return success({
+      ...rest,
+      // Companies House, printed in the website's footer because the law says
+      // so. Nobody visits it, and the client has published no visiting
+      // address, so it is renamed out of the way of "where are you based"
+      // rather than left looking like the answer to it.
+      registeredOfficeForLegalPurposesOnly: registeredOffice,
+      note: [
+        info.openingHours
+          ? "These are the published hours. Quote them as they are."
+          : "No opening hours are published. The team can be reached at any hour, so say the customer is welcome to message or ring whenever, and do not give a timetable of days or hours, because there is not one to give.",
+        "Asked where the company is, answer with the base and the coverage. Never give the registered office as a location: it is a filing address, not somewhere a customer goes, and no visiting address has been published.",
+      ].join(" "),
+    });
   },
 });
 
@@ -367,7 +602,11 @@ export const handoffToHuman = defineTool({
 
 /** In name order, so the tool list is byte-identical on every request and the prompt cache holds. */
 export const cityChauffeursTools: Tool[] = [
+  cancelMyEnquiry,
   createEnquiry,
+  getCompanyInfo,
+  getMyEnquiries,
+  updateMyEnquiry,
   getBookingStatus,
   getEnquiryStatus,
   getFleet,

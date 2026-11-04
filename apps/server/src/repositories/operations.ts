@@ -334,8 +334,12 @@ export async function updateEnquiryJourney(id: string, patch: EnquiryJourneyPatc
  * Its own status rather than Lost, so the office can see the difference
  * between business it did not win and business nobody competed for, and so
  * the conversion figure is not dragged down by a change of mind.
+ *
+ * It is always the customer who withdraws; `via` is only where it was
+ * recorded. The office records it when the customer rang or wrote to say so,
+ * and the trail says that rather than suggesting the office called it off.
  */
-export async function cancelEnquiry(id: string, by: "customer" | "office" = "office"): Promise<Enquiry> {
+export async function cancelEnquiry(id: string, via: "whatsapp" | "office" = "office"): Promise<Enquiry> {
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(schema.enquiry).where(eq(schema.enquiry.id, id)).limit(1);
     if (!current) throw new CmsNotFoundError("This enquiry");
@@ -352,7 +356,7 @@ export async function cancelEnquiry(id: string, by: "customer" | "office" = "off
       tx,
       { enquiryId: id },
       "status",
-      by === "customer" ? "Cancelled by the customer on WhatsApp" : "Cancelled by the office",
+      via === "whatsapp" ? "Cancelled by the customer on WhatsApp" : "Cancelled by the customer, recorded by the office",
     );
   });
 
@@ -914,29 +918,37 @@ export async function whatsappEnquiryForPhone(reference: string, phone: string):
 }
 
 /**
- * Every enquiry this number made on WhatsApp, newest first.
+ * Every enquiry this number made, newest first: on WhatsApp, or on the
+ * website with this number on the form.
  *
  * What makes "cancel the one for Saturday" answerable: the assistant can see
  * what the customer has, so it never has to ask them to find a reference,
  * and it can tell when a request matches more than one and has to ask which.
+ * Reading is fair wherever an enquiry came from, exactly as
+ * `enquiryForPhone` is; changing one still goes through
+ * `whatsappEnquiryForPhone`.
  *
  * Closed ones are included and labelled rather than hidden, because "what
  * happened to my enquiry?" about a cancelled one deserves an answer.
  */
-export async function whatsappEnquiriesForPhone(phone: string): Promise<Enquiry[]> {
+export async function enquiriesForPhone(phone: string, options: { source?: EnquirySource } = {}): Promise<Enquiry[]> {
   const digits = phone.replace(/\D/g, "");
   if (digits.length < 7) return [];
 
+  const tail = sql`${enquiryPhoneTail} = ${digits.slice(-10)}`;
   const rows = await db
     .select({ id: schema.enquiry.id, contact: schema.enquiry.contact })
     .from(schema.enquiry)
-    .where(and(eq(schema.enquiry.source, "whatsapp"), sql`${enquiryPhoneTail} = ${digits.slice(-10)}`))
+    .where(options.source ? and(eq(schema.enquiry.source, options.source), tail) : tail)
     .orderBy(desc(schema.enquiry.createdAt))
     .limit(60);
 
   const theirs = rows.filter((row) => isSendersNumber(row.contact?.phone, phone)).slice(0, 20);
   return Promise.all(theirs.map((row) => getEnquiry(row.id)));
 }
+
+/** Only the ones this number made on WhatsApp: the ones it may change from there. */
+export const whatsappEnquiriesForPhone = (phone: string) => enquiriesForPhone(phone, { source: "whatsapp" });
 
 /**
  * A booking, but only for the person it belongs to.

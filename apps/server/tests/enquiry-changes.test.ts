@@ -147,8 +147,8 @@ describe("an enquiry the office has already acted on", () => {
 
   test("cannot be cancelled twice", async () => {
     const before = await enquiry("whatsapp");
-    await operations.cancelEnquiry(before.id, "customer");
-    const failed = await operations.cancelEnquiry(before.id, "customer").catch((error: unknown) => error);
+    await operations.cancelEnquiry(before.id, "whatsapp");
+    const failed = await operations.cancelEnquiry(before.id, "whatsapp").catch((error: unknown) => error);
 
     expect(failed).toBeInstanceOf(Error);
   });
@@ -166,7 +166,7 @@ describe("an enquiry the office has already acted on", () => {
 describe("cancelling", () => {
   test("is its own status, with its own trail, and is not lost", async () => {
     const before = await enquiry("whatsapp");
-    const after = await operations.cancelEnquiry(before.id, "customer");
+    const after = await operations.cancelEnquiry(before.id, "whatsapp");
 
     expect(after.status).toBe("cancelled");
     expect(after.lostReason).toBeNull();
@@ -177,14 +177,14 @@ describe("cancelling", () => {
     expect(trail.text).toBe("Cancelled by the customer on WhatsApp");
   });
 
-  test("by the office says so instead", async () => {
+  test("recorded by the office still says the customer withdrew", async () => {
     const before = await enquiry("whatsapp");
     await operations.cancelEnquiry(before.id, "office");
 
     const trail = only(
       (await database.client.query(`select text from activity_entry where enquiry_id = '${before.id}' and kind = 'status'`)).rows,
     ) as { text: string };
-    expect(trail.text).toBe("Cancelled by the office");
+    expect(trail.text).toBe("Cancelled by the customer, recorded by the office");
   });
 
   test("through the status route lands in the same place", async () => {

@@ -271,7 +271,7 @@ describe("managing one's own enquiries", () => {
   const made = async (over: Partial<RequestJourney> = {}, submissionId = `wa:${Math.random()}:enquiry`) =>
     backend.createEnquiry({ customer: customer(), journey: journey(over), submissionId });
 
-  test("the list is this number's WhatsApp enquiries, with the journey as the office holds it", async () => {
+  test("the list is this number's enquiries, with the journey as the office holds it", async () => {
     const { reference } = await made();
     const mine = await backend.listMyEnquiries(AMELIA);
 
@@ -279,6 +279,7 @@ describe("managing one's own enquiries", () => {
     expect(mine[0]).toMatchObject({
       reference,
       status: "New",
+      madeOn: "WhatsApp",
       changeable: true,
       note: "Ribbons, please.",
       quote: null,
@@ -315,7 +316,7 @@ describe("managing one's own enquiries", () => {
     expect(await backend.cancelMyEnquiry(reference, AMELIA).catch(() => "refused")).toBe("refused");
   });
 
-  test("an enquiry from the website is readable but not changeable", async () => {
+  test("an enquiry from the website is listed and readable, but not changeable", async () => {
     const enquiry = await operations.createPublicEnquiry(
       {
         name: "Amelia Hughes",
@@ -338,10 +339,14 @@ describe("managing one's own enquiries", () => {
       { source: "website" },
     );
 
-    expect((await backend.findEnquiry(enquiry.reference, AMELIA))?.reference).toBe(enquiry.reference);
+    const read = await backend.findEnquiry(enquiry.reference, AMELIA);
+    expect(read).toMatchObject({ reference: enquiry.reference, madeOn: "Website", changeable: false });
+    expect(read!.notChangeableBecause).toContain("not made on WhatsApp");
     expect(await backend.updateMyEnquiry(enquiry.reference, AMELIA, { date: "2027-06-01" })).toBeNull();
     expect(await backend.cancelMyEnquiry(enquiry.reference, AMELIA)).toBeNull();
-    expect(await backend.listMyEnquiries(AMELIA)).toEqual([]);
+    // Listed, so "what's happening with my enquiry?" has an answer without a
+    // reference, and listed as the team's to change.
+    expect(await backend.listMyEnquiries(AMELIA)).toMatchObject([{ reference: enquiry.reference, madeOn: "Website", changeable: false }]);
   });
 
   test("somebody else's reference is null, exactly as one that does not exist", async () => {
