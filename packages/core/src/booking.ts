@@ -61,10 +61,33 @@ export function horizonDate(today: string, maxMonthsAhead: number): string {
   return new Date(Date.UTC(targetYear, targetMonth, safeDay)).toISOString().slice(0, 10);
 }
 
+/**
+ * The date this many days before the one given.
+ *
+ * Date-only arithmetic in UTC, where every day is the same length, so a
+ * clock change cannot move the answer. Noon is used as the anchor for the
+ * same reason.
+ */
+function daysBefore(date: string, days: number): string {
+  if (!days) return date;
+  const [year, month, day] = date.split("-").map(Number) as [number, number, number];
+  const anchor = Date.UTC(year, month - 1, day, 12) - days * 86_400_000;
+  return new Date(anchor).toISOString().slice(0, 10);
+}
+
 export type HorizonSettings = {
   /** Today in London, as "YYYY-MM-DD". */
   today: string;
   maxMonthsAhead?: number;
+  /**
+   * How many days before today are still acceptable. None, conversationally:
+   * an assistant asked for yesterday should ask again.
+   *
+   * The website's form allows one, deliberately — "today" for a visitor
+   * abroad can be yesterday here — and the server keeps that tolerance so
+   * the two layers cannot disagree about the same date.
+   */
+  graceDays?: number;
 };
 
 /**
@@ -76,12 +99,16 @@ export type HorizonSettings = {
  */
 export function journeyDateRefusal(value: string, settings: HorizonSettings): string | null {
   if (!isRealDate(value)) return "Give the date as YYYY-MM-DD, and a day that exists.";
-  if (value < settings.today) return `That date has passed — today is ${settings.today}.`;
+
+  const earliest = daysBefore(settings.today, settings.graceDays ?? 0);
+  if (value < earliest) return `That date has passed — today is ${settings.today}.`;
 
   const months = settings.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD;
   const last = horizonDate(settings.today, months);
   if (value > last) {
-    return `That is further ahead than we arrange journeys — we take them up to ${last}, about ${months} months out. Ask the customer for a date nearer the journey.`;
+    // Read by a visitor on the website as well as by the assistant, so it
+    // states the rule and leaves what to do about it to the caller.
+    return `That is further ahead than we arrange journeys. We take them up to ${last}, about ${months} months from today.`;
   }
   return null;
 }
