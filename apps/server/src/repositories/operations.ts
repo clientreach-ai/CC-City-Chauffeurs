@@ -3,9 +3,15 @@ import {
   bookingStatuses,
   CmsNotFoundError,
   enquiryStatuses,
+  DEFAULT_SERVED_COUNTRIES,
+  DEFAULT_SERVED_PLACES,
   formatMoney,
+  journeyDateRefusal,
   labelFor,
+  locationRefusal,
+  londonToday,
   lostReasons,
+  PROPOSED_MAX_MONTHS_AHEAD,
   todayISO,
   validator,
   type ActivityEntry,
@@ -17,6 +23,7 @@ import {
   type Enquiry,
   type EnquirySource,
   type EnquiryStatus,
+  type FieldErrors,
   type LostReason,
   type Note,
 } from "@CC-City-Chauffeurs/core";
@@ -26,6 +33,7 @@ import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
+import { getSettings } from "./content";
 import {
   enquiryJourneyPatchSchema,
   type BookingInput,
@@ -284,8 +292,68 @@ const FIELD_NAMES: Record<keyof EnquiryJourneyPatch, string> = {
  * Whoever is calling has already decided they are allowed to. This decides
  * whether the enquiry can take the change at all.
  */
-export async function updateEnquiryJourney(id: string, patch: EnquiryJourneyPatch): Promise<Enquiry> {
+/**
+ * The journey rules the settings own, applied wherever a customer's journey
+ * arrives: the website's form, the assistant on WhatsApp, and a customer
+ * amending what they already asked for.
+ *
+ * A static schema cannot do this. Where we drive and how far ahead we take
+ * work are figures the client edits in the admin, so the check has to happen
+ * where settings can be read — which is here, not in Zod.
+ *
+ * Deliberately not applied to anything the office does. `createBooking` and
+ * an amendment the office makes record what the business has actually
+ * agreed, and software telling the office it may not drive somewhere would
+ * be wrong about who decides.
+ */
+async function assertJourneyIsOneWeTake(journey: {
+  pickup?: string | undefined;
+  dropoff?: string | undefined;
+  date?: string | undefined;
+}) {
+  // A settings row that is missing entirely is a configuration fault, and a
+  // customer's enquiry must not be lost to one. The rule still applies, from
+  // the same defaults the seed would have written.
+  const settings = await getSettings().catch((error: unknown) => {
+    if (error instanceof CmsNotFoundError) return null;
+    throw error;
+  });
+
+  const errors: FieldErrors = {};
+  const coverage = {
+    serviceAreas: settings?.business.serviceAreas ?? [],
+    servedPlaces: settings?.business.servedPlaces ?? [...DEFAULT_SERVED_PLACES],
+    servedCountries: settings?.business.servedCountries ?? [...DEFAULT_SERVED_COUNTRIES],
+  };
+  for (const field of ["pickup", "dropoff"] as const) {
+    const said = journey[field];
+    if (!said) continue;
+    const refusal = locationRefusal(said, coverage);
+    if (refusal) errors[field] = refusal;
+  }
+
+  if (journey.date) {
+    const refusal = journeyDateRefusal(journey.date, {
+      today: londonToday(),
+      maxMonthsAhead: settings?.booking.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD,
+      // The same one day the website's own schema allows, because "today"
+      // for a visitor abroad can be yesterday here. Keeping the tolerance
+      // identical is what stops the two layers refusing different dates.
+      graceDays: 1,
+    });
+    if (refusal) errors.date = refusal;
+  }
+
+  assertValid(errors);
+}
+
+export async function updateEnquiryJourney(
+  id: string,
+  patch: EnquiryJourneyPatch,
+  { by = "office" }: { by?: "customer" | "office" } = {},
+): Promise<Enquiry> {
   const { message, ...clean } = enquiryJourneyPatchSchema.parse(patch);
+  if (by === "customer") await assertJourneyIsOneWeTake(clean);
 
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(schema.enquiry).where(eq(schema.enquiry.id, id)).limit(1);
@@ -633,6 +701,12 @@ export async function createPublicEnquiry(
   input: PublicEnquiryInput,
   { source = "website" }: { source?: EnquirySource } = {},
 ): Promise<Enquiry> {
+  // Every caller here is a customer: the website's form, or the assistant
+  // taking a journey down on WhatsApp. A journey we do not take is refused
+  // before a reference is ever issued, so there is no record for the office
+  // to find and no number to tell anybody.
+  await assertJourneyIsOneWeTake(input);
+
   const submissionId = submissionIdOf(input);
 
   const alreadyRecorded = async () => {

@@ -262,7 +262,12 @@ export function createWhatsAppBackend(): Backend {
       const enquiry = await operations.whatsappEnquiryForPhone(reference, phone);
       if (!enquiry) return null;
       return refusalsAsBackendErrors(async () =>
-        toEnquirySummary(await operations.updateEnquiryJourney(enquiry.id, patch), await vehicleNamer()),
+        // The customer is making this change, so the coverage and horizon
+        // rules apply to it exactly as they did when the enquiry was taken.
+        toEnquirySummary(
+          await operations.updateEnquiryJourney(enquiry.id, patch, { by: "customer" }),
+          await vehicleNamer(),
+        ),
       );
     },
 

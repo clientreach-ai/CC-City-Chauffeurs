@@ -1,6 +1,9 @@
 import {
   assertValid,
   CmsNotFoundError,
+  DEFAULT_SERVED_COUNTRIES,
+  DEFAULT_SERVED_PLACES,
+  PROPOSED_MAX_MONTHS_AHEAD,
   validateSection,
   validateSettings,
   type HomepageSection,
@@ -113,11 +116,25 @@ export async function reorderSections(ids: string[]): Promise<void> {
 
 type SettingsRow = typeof schema.siteSettings.$inferSelect;
 
+/**
+ * The settings, made whole.
+ *
+ * The row is one `jsonb` document per group, so a field added to the
+ * contract is simply absent from a document written before it existed —
+ * including the one in production, which nobody is going to reseed to pick
+ * up a coverage list. Reading is where that is settled, so every caller gets
+ * a complete record and no caller has to wonder.
+ */
 function toSettings(row: SettingsRow): SiteSettings {
   return {
-    business: row.business,
+    business: {
+      ...row.business,
+      serviceAreas: row.business.serviceAreas ?? [],
+      servedPlaces: row.business.servedPlaces ?? [...DEFAULT_SERVED_PLACES],
+      servedCountries: row.business.servedCountries ?? [...DEFAULT_SERVED_COUNTRIES],
+    },
     contact: row.contact,
-    booking: row.booking,
+    booking: { ...row.booking, maxMonthsAhead: row.booking.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD },
     social: row.social,
     seo: row.seo,
     footer: row.footer,
