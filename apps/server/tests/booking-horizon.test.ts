@@ -10,9 +10,12 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  clockTime,
   horizonDate,
   isRealDate,
   journeyDateRefusal,
+  journeyHasPassed,
+  londonClock,
   londonToday,
   PROPOSED_MAX_MONTHS_AHEAD,
 } from "@CC-City-Chauffeurs/core";
@@ -114,5 +117,81 @@ describe("today, in London", () => {
 
   test("reads as YYYY-MM-DD, so it compares with a journey date", () => {
     expect(londonToday()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("the clock, in London", () => {
+  test("is the London time, not the machine's", () => {
+    // Half past eleven at night, UTC. In summer that is already tomorrow
+    // here, and both the date and the clock have to agree about it.
+    expect(londonClock(new Date("2026-06-15T23:30:00Z"))).toBe("00:30");
+    expect(londonToday(new Date("2026-06-15T23:30:00Z"))).toBe("2026-06-16");
+    expect(londonClock(new Date("2026-01-15T23:30:00Z"))).toBe("23:30");
+  });
+
+  test("midnight reads as 00:00, not 24:00", () => {
+    // The whole point of `h23`. At "24:00" every journey on the new day
+    // would look as though its time had already gone by.
+    expect(londonClock(new Date("2026-01-15T00:00:00Z"))).toBe("00:00");
+    expect(londonClock(new Date("2026-01-15T00:05:00Z"))).toBe("00:05");
+  });
+});
+
+describe("a time somebody can act on", () => {
+  test("reads a 24-hour clock, padded so it compares", () => {
+    expect(clockTime("19:30")).toBe("19:30");
+    expect(clockTime("9:05")).toBe("09:05");
+    expect(clockTime("  07:15  ")).toBe("07:15");
+    expect(clockTime("00:00")).toBe("00:00");
+    expect(clockTime("23:59")).toBe("23:59");
+  });
+
+  test("refuses anything it would have to guess at", () => {
+    // What a customer on WhatsApp actually says, and what the assistant
+    // records verbatim. None of it is a clock reading.
+    for (const said of ["around 7", "7pm", "after the ceremony", "morning", "19:60", "24:00", "25:00", "", null, undefined]) {
+      expect(clockTime(said)).toBeNull();
+    }
+  });
+});
+
+describe("a journey that has been and gone", () => {
+  const now = new Date("2026-11-05T14:00:00Z"); // 14:00 in London, November
+
+  test("yesterday has passed, whatever the time says", () => {
+    expect(journeyHasPassed({ date: "2026-11-04", time: "23:30" }, now)).toBe(true);
+    expect(journeyHasPassed({ date: "2026-11-04", time: "" }, now)).toBe(true);
+  });
+
+  test("tomorrow has not", () => {
+    expect(journeyHasPassed({ date: "2026-11-06", time: "01:00" }, now)).toBe(false);
+  });
+
+  test("today turns on the stated time", () => {
+    expect(journeyHasPassed({ date: "2026-11-05", time: "13:59" }, now)).toBe(true);
+    expect(journeyHasPassed({ date: "2026-11-05", time: "14:00" }, now)).toBe(false);
+    expect(journeyHasPassed({ date: "2026-11-05", time: "18:00" }, now)).toBe(false);
+  });
+
+  test("today with no usable time lasts the whole day", () => {
+    // A pick-up "around 7" could be this evening. The office would rather
+    // see it one day too long than lose it one hour too early.
+    for (const said of ["", "around 7", "after the ceremony"]) {
+      expect(journeyHasPassed({ date: "2026-11-05", time: said }, now)).toBe(false);
+    }
+  });
+
+  test("a date nobody can read is never past", () => {
+    for (const said of ["", "tomorrow", "2026-02-31", "05/11/2026"]) {
+      expect(journeyHasPassed({ date: said, time: "09:00" }, now)).toBe(false);
+    }
+  });
+
+  test("judges the day in London, not in UTC", () => {
+    // 23:30 UTC in June is half past midnight here, so a journey timed for
+    // 23:00 on the 15th has gone even though UTC still says the 15th.
+    const summerNight = new Date("2026-06-15T23:30:00Z");
+    expect(journeyHasPassed({ date: "2026-06-15", time: "23:00" }, summerNight)).toBe(true);
+    expect(journeyHasPassed({ date: "2026-06-16", time: "23:00" }, summerNight)).toBe(false);
   });
 });

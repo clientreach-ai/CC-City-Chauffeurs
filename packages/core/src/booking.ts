@@ -112,3 +112,63 @@ export function journeyDateRefusal(value: string, settings: HorizonSettings): st
   }
   return null;
 }
+
+/**
+ * Now in London, as "HH:MM" on a 24-hour clock.
+ *
+ * `h23` rather than `hour12: false`, which renders midnight as "24:00" on
+ * some platforms and would make every journey on a given day look as though
+ * its time had already gone by.
+ */
+export function londonClock(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+}
+
+/**
+ * The pick-up time as a clock reading, or `null` when the field does not
+ * give one.
+ *
+ * The time on an enquiry is free text rather than a clock. The website's
+ * form sends "19:30", but a customer on WhatsApp says "around 7" or "after
+ * the ceremony" and the assistant records what they said. Only an
+ * unambiguous 24-hour reading is taken as a time; everything else means
+ * "sometime that day", which is the safe reading — it can make a journey
+ * look later than it is, never earlier.
+ */
+export function clockTime(value: string | null | undefined): string | null {
+  const match = /^\s*(\d{1,2}):([0-5]\d)\s*$/.exec(value ?? "");
+  if (!match) return null;
+  const hour = Number(match[1]);
+  if (hour > 23) return null;
+  return `${String(hour).padStart(2, "0")}:${match[2]}`;
+}
+
+/**
+ * Has this journey's moment already gone by in London?
+ *
+ * Used to decide that an enquiry nobody acted on is finished. It fails
+ * towards "not yet" at every turn: a date that is not a date, or a time
+ * nobody can read, leaves the journey ahead of us. Closing an enquiry early
+ * hides live business from the office, and nothing here is worth that.
+ */
+export function journeyHasPassed(
+  journey: { date: string; time?: string | null },
+  now: Date = new Date(),
+): boolean {
+  const date = (journey.date ?? "").trim();
+  if (!isRealDate(date)) return false;
+
+  const today = londonToday(now);
+  if (date < today) return true;
+  if (date > today) return false;
+
+  // Today: a stated time has to have gone by. Anything vaguer gets the whole
+  // day, and passes at midnight along with the date.
+  const at = clockTime(journey.time);
+  return at !== null && londonClock(now) > at;
+}
