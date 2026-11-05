@@ -135,7 +135,12 @@ describe("a price the customer is told", () => {
   });
 
   test("£1,200 reads as 1200, whichever way it is written", () => {
-    expect(checkReply("That would be £1,200 for the day.", { ...shown, figures: [1200] }).corrections).toEqual([]);
+    // The point is that the comma form is recognised as the figure the tools
+    // gave, so it is not dropped as invented. Stated bare it does also pick
+    // up the sentence saying it is a guide, which is the next test's job.
+    const checked = checkReply("That would be £1,200 for the day.", { ...shown, figures: [1200] });
+    expect(checked.corrections).not.toContain("invented_price_dropped");
+    expect(checked.text).toContain("£1,200");
   });
 
   test("a figure nothing gave it never reaches the customer", () => {
@@ -155,7 +160,9 @@ describe("a price the customer is told", () => {
   test("a car with no published rate is talked about without a number", () => {
     const reply = "The Revuelto is on request. Tell me the date and the team will come back with a figure.";
 
-    expect(checkReply(reply, shown)).toEqual({ text: reply, corrections: [] });
+    // Left exactly as written — and remembered as the honest "the team will
+    // confirm", so the conversation does not produce a figure for it later.
+    expect(checkReply(reply, shown)).toEqual({ text: reply, corrections: [], declinedToPrice: true });
   });
 
   test("a price written in words is caught the same way", () => {
@@ -169,7 +176,154 @@ describe("a price the customer is told", () => {
   test("a quote the office recorded on their own enquiry may be repeated", () => {
     const shown = figuresIn(JSON.stringify({ ok: true, data: { reference: "ENQ-1100", quote: { amount: 450, note: "" } } }));
     expect(shown).toEqual([450]);
-    expect(checkReply("The office has put £450 against it.", { ...nothingCreated, references: [], figures: shown }).corrections).toEqual([]);
+    // Passed as the office's own figure, which is what the caller does. It
+    // is an answer rather than a starting rate, so it is repeated exactly
+    // and never softened into "a guide".
+    const checked = checkReply("The office has put £450 against it.", {
+      ...nothingCreated,
+      references: [],
+      figures: shown,
+      quoted: shown,
+    });
+    expect(checked.corrections).toEqual([]);
+    expect(checked.text).toBe("The office has put £450 against it.");
+  });
+
+  test("a published rate stated bare is said to be a guide", () => {
+    const checked = checkReply("The Cullinan is £200 an hour.", { ...nothingCreated, references: [], figures: [200] });
+    expect(checked.text).toContain("£200");
+    expect(checked.text).toContain("a guide rather than a final figure");
+    expect(checked.corrections).toContain("guide_framing_added");
+  });
+
+  test("a rate already framed as a guide is left exactly as written", () => {
+    for (const reply of [
+      "The Cullinan is from £200 an hour as a guide.",
+      "Day rates start from £500.",
+      "It would be around £200 an hour.",
+    ]) {
+      const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [200, 500] });
+      expect(checked.corrections).not.toContain("guide_framing_added");
+      expect(checked.text).toBe(reply);
+    }
+  });
+
+  test("a discount the assistant has no authority to give never goes out", () => {
+    const checked = checkReply("I can do you a 10% off the price for that one.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+    });
+    expect(checked.text).not.toContain("10%");
+    expect(checked.text).toContain("pass that to the team");
+    expect(checked.corrections).toContain("discount_offer_dropped");
+  });
+
+  test("saying plainly that there is no discount is left alone", () => {
+    for (const reply of [
+      "I can't offer a discount myself, the team would have to.",
+      "That isn't something I can discount, I'm afraid.",
+    ]) {
+      const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [] });
+      expect(checked.corrections).not.toContain("discount_offer_dropped");
+      expect(checked.text).toBe(reply);
+    }
+  });
+
+  test("naming the office does not make a discount acceptable", () => {
+    const checked = checkReply("The team have agreed 10% off for you.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+    });
+    expect(checked.text).not.toContain("10%");
+    expect(checked.corrections).toContain("discount_offer_dropped");
+  });
+
+  test("a journey's 'from' does not frame a figure as a guide", () => {
+    // "From Heathrow" is about the journey, not the money. The figure is
+    // still stated bare, so it is still said to be a guide.
+    const checked = checkReply("From Heathrow to Gatwick the S-Class is £150.", {
+      ...nothingCreated,
+      references: [],
+      figures: [150],
+    });
+    expect(checked.text).toContain("£150");
+    expect(checked.corrections).toContain("guide_framing_added");
+  });
+
+  test("a framing word in another sentence frames nothing", () => {
+    const checked = checkReply("Day rates start at midday. The S-Class is £500.", {
+      ...nothingCreated,
+      references: [],
+      figures: [500],
+    });
+    expect(checked.corrections).toContain("guide_framing_added");
+  });
+
+  test("'from £' is a guide, however the sentence begins", () => {
+    for (const reply of ["Heathrow to Gatwick is from £150 in the S-Class.", "That one is from around £200 an hour."]) {
+      const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [150, 200] });
+      expect(checked.corrections).not.toContain("guide_framing_added");
+      expect(checked.text).toBe(reply);
+    }
+  });
+
+  test("a polite word does not make a discount honest", () => {
+    for (const reply of ["No problem, I can do 10% off for you.", "I'm afraid the best I can do is 10% off."]) {
+      const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [] });
+      expect(checked.text).not.toContain("10%");
+      expect(checked.corrections).toContain("discount_offer_dropped");
+    }
+  });
+
+  test("'no discount' is still the honest answer it reads as", () => {
+    const reply = "There's no discount I can offer, I'm afraid, but the team may be able to help.";
+    const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [] });
+    expect(checked.corrections).not.toContain("discount_offer_dropped");
+    expect(checked.text).toBe(reply);
+  });
+
+  test("replacing an invented price counts as declining to price", () => {
+    // The check's own substitute is the commonest way a customer is told
+    // nobody here can put a figure on it, so it has to be remembered as one.
+    const asked = checkReply("It is about £90 an hour.", { ...nothingCreated, references: [], figures: [] });
+    expect(asked.corrections).toContain("invented_price_dropped");
+    expect(asked.declinedToPrice).toBe(true);
+
+    const inHand = checkReply("It is about £90 an hour.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+      journeyInHand: true,
+    });
+    expect(inHand.declinedToPrice).toBe(true);
+  });
+
+  test("the model declining in its own words counts too, and a figure does not", () => {
+    const declined = checkReply("I can't put a price on that myself, the team will come back to you.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+    });
+    expect(declined.declinedToPrice).toBe(true);
+
+    const named = checkReply("The S-Class is from £500 a day as a guide.", {
+      ...nothingCreated,
+      references: [],
+      figures: [500],
+    });
+    expect(named.declinedToPrice).toBeUndefined();
+  });
+
+  test("only the sentence offering a discount goes, not the useful half", () => {
+    const checked = checkReply("The Ghost seats three. I could knock some off for you.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+    });
+    expect(checked.text).toContain("The Ghost seats three.");
+    expect(checked.text).toContain("pass that to the team");
   });
 
   test("a price taken out still leaves the reference of what was recorded", () => {

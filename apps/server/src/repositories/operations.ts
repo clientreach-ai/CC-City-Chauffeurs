@@ -3,29 +3,40 @@ import {
   bookingStatuses,
   CmsNotFoundError,
   enquiryStatuses,
+  DEFAULT_SERVED_COUNTRIES,
+  DEFAULT_SERVED_PLACES,
+  formatDate,
   formatMoney,
+  journeyDateRefusal,
+  journeyHasPassed,
   labelFor,
+  locationRefusal,
+  londonToday,
   lostReasons,
+  PROPOSED_MAX_MONTHS_AHEAD,
   todayISO,
   validator,
   type ActivityEntry,
   type Booking,
   type BookingStatus,
+  type Coverage,
   type Customer,
   type CustomerInput,
   type CustomerSummary,
   type Enquiry,
   type EnquirySource,
   type EnquiryStatus,
+  type FieldErrors,
   type LostReason,
   type Note,
 } from "@CC-City-Chauffeurs/core";
 import { db, schema } from "@CC-City-Chauffeurs/db";
 import { tryNormalisePhone } from "@CC-City-Chauffeurs/whatsapp/phone";
-import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
+import { getSettings } from "./content";
 import {
   enquiryJourneyPatchSchema,
   type BookingInput,
@@ -207,6 +218,13 @@ export async function updateEnquiryStatus(
   options: { lostReason?: LostReason } = {},
 ): Promise<Enquiry> {
   if (status === "cancelled") return cancelEnquiry(id, "office");
+  // Expiry is something that happened, not something anybody decides. The
+  // sweep in `expireDueEnquiries` is the only thing that sets it, so a
+  // request to set it by hand is refused rather than quietly accepted — an
+  // enquiry whose date is still ahead of us would otherwise read as finished.
+  if (status === "expired") {
+    assertValid({ status: "An enquiry expires on its own when its date passes. Mark it lost or cancelled instead." });
+  }
   if (status === "lost" && !options.lostReason) {
     assertValid({ lostReason: "Choose why the enquiry was lost." });
   }
@@ -246,13 +264,17 @@ export async function updateEnquiryStatus(
  * office has made with the customer, and a reschedule would have to move the
  * booking too. `cancelled` is finished. `lost` is finished, and quietly
  * reopening it by amendment would hide from the office that the customer
- * came back.
+ * came back. `expired` is the same: the journey it asked for has been and
+ * gone, so a customer wanting that trip after all is asking for a new one,
+ * and the office should hear about it rather than find the old record
+ * silently moved into next month.
  */
 export function settledReason(enquiry: { status: EnquiryStatus; bookingId: string | null }) {
   if (enquiry.bookingId) return "This enquiry has already become a booking, so the office has to make the change.";
   if (enquiry.status === "won") return "The office has already agreed this one, so they have to make the change.";
   if (enquiry.status === "cancelled") return "This enquiry has already been cancelled.";
   if (enquiry.status === "lost") return "This enquiry was closed, so the office has to reopen it.";
+  if (enquiry.status === "expired") return "The date on this enquiry has passed, so the team has to reopen it.";
   return null;
 }
 
@@ -274,6 +296,79 @@ const FIELD_NAMES: Record<keyof EnquiryJourneyPatch, string> = {
 };
 
 /**
+ * Where we drive and how far ahead, read once.
+ *
+ * Exported because the assistant needs the same answer: it refuses a journey
+ * mid-conversation and the server refuses it again when the enquiry is
+ * recorded, and two layers reading the settings separately is two places for
+ * them to drift apart.
+ *
+ * A settings row that is missing entirely is a configuration fault, and a
+ * customer's enquiry must not be lost to one — nor, worse, be waved through
+ * because the rule could not be read. The rule still applies, from the same
+ * defaults the seed would have written.
+ */
+export async function journeyRules(): Promise<{ coverage: Coverage; maxMonthsAhead: number }> {
+  const settings = await getSettings().catch((error: unknown) => {
+    if (error instanceof CmsNotFoundError) return null;
+    throw error;
+  });
+
+  return {
+    coverage: {
+      serviceAreas: settings?.business.serviceAreas ?? [],
+      servedPlaces: settings?.business.servedPlaces ?? [...DEFAULT_SERVED_PLACES],
+      servedCountries: settings?.business.servedCountries ?? [...DEFAULT_SERVED_COUNTRIES],
+    },
+    maxMonthsAhead: settings?.booking.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD,
+  };
+}
+
+/**
+ * The journey rules the settings own, applied wherever a customer's journey
+ * arrives: the website's form, the assistant on WhatsApp, and a customer
+ * amending what they already asked for.
+ *
+ * A static schema cannot do this. Where we drive and how far ahead we take
+ * work are figures the client edits in the admin, so the check has to happen
+ * where settings can be read — which is here, not in Zod.
+ *
+ * Deliberately not applied to anything the office does. `createBooking` and
+ * an amendment the office makes record what the business has actually
+ * agreed, and software telling the office it may not drive somewhere would
+ * be wrong about who decides.
+ */
+async function assertJourneyIsOneWeTake(journey: {
+  pickup?: string | undefined;
+  dropoff?: string | undefined;
+  date?: string | undefined;
+}) {
+  const { coverage, maxMonthsAhead } = await journeyRules();
+
+  const errors: FieldErrors = {};
+  for (const field of ["pickup", "dropoff"] as const) {
+    const said = journey[field];
+    if (!said) continue;
+    const refusal = locationRefusal(said, coverage);
+    if (refusal) errors[field] = refusal;
+  }
+
+  if (journey.date) {
+    const refusal = journeyDateRefusal(journey.date, {
+      today: londonToday(),
+      maxMonthsAhead,
+      // The same one day the website's own schema allows, because "today"
+      // for a visitor abroad can be yesterday here. Keeping the tolerance
+      // identical is what stops the two layers refusing different dates.
+      graceDays: 1,
+    });
+    if (refusal) errors.date = refusal;
+  }
+
+  assertValid(errors);
+}
+
+/**
  * Amend the journey on an enquiry.
  *
  * One capability, two doors: the office amending an enquiry in the admin and
@@ -284,8 +379,13 @@ const FIELD_NAMES: Record<keyof EnquiryJourneyPatch, string> = {
  * Whoever is calling has already decided they are allowed to. This decides
  * whether the enquiry can take the change at all.
  */
-export async function updateEnquiryJourney(id: string, patch: EnquiryJourneyPatch): Promise<Enquiry> {
+export async function updateEnquiryJourney(
+  id: string,
+  patch: EnquiryJourneyPatch,
+  { by = "office" }: { by?: "customer" | "office" } = {},
+): Promise<Enquiry> {
   const { message, ...clean } = enquiryJourneyPatchSchema.parse(patch);
+  if (by === "customer") await assertJourneyIsOneWeTake(clean);
 
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(schema.enquiry).where(eq(schema.enquiry.id, id)).limit(1);
@@ -361,6 +461,137 @@ export async function cancelEnquiry(id: string, via: "whatsapp" | "office" = "of
   });
 
   return getEnquiry(id);
+}
+
+/**
+ * Statuses an enquiry can expire out of.
+ *
+ * Everything still being worked, and nothing else. `won` is deliberately
+ * absent: a won enquiry whose date has passed with no booking behind it is a
+ * real problem somebody needs to see, and sweeping it into Expired would
+ * hide exactly the thing worth looking at. `lost`, `cancelled` and `expired`
+ * are already finished.
+ */
+const EXPIRABLE = ["new", "contacted", "quoted"] as const satisfies readonly EnquiryStatus[];
+
+/**
+ * The lock the sweep holds while it runs.
+ *
+ * An arbitrary number, the same one every time, so that two sweeps — the
+ * hourly timer and somebody running the script by hand — queue instead of
+ * working the same rows at once. Taken for the transaction, so it is
+ * released by the commit or the rollback and never by anything remembering
+ * to.
+ */
+const EXPIRY_LOCK = 48_201_911;
+
+export type ExpiredEnquiry = { id: string; reference: string; date: string; time: string };
+
+/**
+ * Closes the enquiries whose journey has been and gone.
+ *
+ * Nobody decided these; the date simply passed. Before this they sat in New
+ * or Quoted indefinitely, so the office's own list of live work filled with
+ * journeys that could no longer happen, and the conversion figure counted
+ * every one of them.
+ *
+ * Safe to run again, and again, which an hourly timer needs it to be:
+ *
+ *  - An enquiry already `expired` is not a candidate, so a second sweep over
+ *    the same rows finds nothing to do.
+ *  - No enquiry is closed twice in its life. The `expired` line on the trail
+ *    is the sweep's own record that it has been here, and a row carrying one
+ *    is never a candidate again. That is what makes the office's Reopen
+ *    button mean something: an enquiry somebody deliberately put back into
+ *    Contacted is theirs from then on, and the sweep does not quietly close
+ *    it again an hour later behind their back.
+ *  - The update repeats the whole eligibility test in its own `where`, so a
+ *    row the office moved to Won between the select and the write is left
+ *    alone rather than overwritten.
+ *  - The line is written only for a row the update actually changed —
+ *    `returning` decides that, not the select — so even a race cannot leave
+ *    a second one.
+ *
+ * The coarse filter is a query and the final judgement is `journeyHasPassed`
+ * in JavaScript: the London day and the London clock are decided in one
+ * place for the whole system, rather than depending on what timezone the
+ * database happens to be configured with.
+ *
+ * `dryRun` reports what it would close and writes nothing. It takes the same
+ * path to the same answer and stops short of the update, rather than being a
+ * second implementation that could come to disagree with this one.
+ */
+export async function expireDueEnquiries(
+  options: { now?: Date; dryRun?: boolean } = {},
+): Promise<{ checked: number; expired: ExpiredEnquiry[] }> {
+  const now = options.now ?? new Date();
+  const today = londonToday(now);
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${EXPIRY_LOCK})`);
+
+    // Everything that could be due: open, not yet a booking, and dated
+    // today or earlier. Today is included because a journey timed for this
+    // morning has already gone by this afternoon.
+    const candidates = await tx
+      .select({
+        id: schema.enquiry.id,
+        reference: schema.enquiry.reference,
+        journey: schema.enquiry.journey,
+      })
+      .from(schema.enquiry)
+      .where(
+        and(
+          inArray(schema.enquiry.status, [...EXPIRABLE]),
+          isNull(schema.enquiry.bookingId),
+          sql`${schema.enquiry.journey} ->> 'date' <> ''`,
+          sql`${schema.enquiry.journey} ->> 'date' <= ${today}`,
+          // Never twice in one enquiry's life — see above.
+          sql`not exists (
+            select 1 from ${schema.activityEntry}
+             where ${schema.activityEntry.enquiryId} = ${schema.enquiry.id}
+               and ${schema.activityEntry.kind} = 'expired'
+          )`,
+        ),
+      )
+      .orderBy(asc(schema.enquiry.createdAt));
+
+    const expired: ExpiredEnquiry[] = [];
+    for (const row of candidates) {
+      if (!journeyHasPassed(row.journey, now)) continue;
+
+      const due = { id: row.id, reference: row.reference, date: row.journey.date, time: row.journey.time };
+      if (options.dryRun) {
+        expired.push(due);
+        continue;
+      }
+
+      const [changed] = await tx
+        .update(schema.enquiry)
+        .set({ status: "expired", lostReason: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.enquiry.id, row.id),
+            inArray(schema.enquiry.status, [...EXPIRABLE]),
+            isNull(schema.enquiry.bookingId),
+          ),
+        )
+        .returning({ reference: schema.enquiry.reference });
+      if (!changed) continue;
+
+      // Its own kind, worded so the office can tell at a glance that nobody
+      // did this. "Status changed to Expired" would read like a decision.
+      await log(
+        tx,
+        { enquiryId: row.id },
+        "expired",
+        `Expired — the journey was for ${formatDate(row.journey.date)} and no booking was made`,
+      );
+      expired.push({ ...due, reference: changed.reference });
+    }
+
+    return { checked: candidates.length, expired };
+  });
 }
 
 /**
@@ -645,8 +876,17 @@ export async function createPublicEnquiry(
     return row ? getEnquiry(row.id) : null;
   };
 
+  // The same submission gets the same answer, whenever it arrives. A webhook
+  // redelivered after the date has passed, or after the client narrowed where
+  // we go, still names an enquiry that was taken, and is answered with it.
   const existing = await alreadyRecorded();
   if (existing) return existing;
+
+  // Every caller here is a customer: the website's form, or the assistant
+  // taking a journey down on WhatsApp. A journey we do not take is refused
+  // before a reference is ever issued, so there is no record for the office
+  // to find and no number to tell anybody.
+  await assertJourneyIsOneWeTake(input);
 
   const id = newId("enq");
   try {

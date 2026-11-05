@@ -36,6 +36,7 @@ const styles = {
     won: silver,
     lost: dashed,
     cancelled: dashed,
+    expired: dashed,
   } satisfies Record<EnquiryStatus, string>,
   booking: {
     pending: outline,

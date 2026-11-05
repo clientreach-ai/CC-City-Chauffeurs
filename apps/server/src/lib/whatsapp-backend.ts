@@ -262,7 +262,12 @@ export function createWhatsAppBackend(): Backend {
       const enquiry = await operations.whatsappEnquiryForPhone(reference, phone);
       if (!enquiry) return null;
       return refusalsAsBackendErrors(async () =>
-        toEnquirySummary(await operations.updateEnquiryJourney(enquiry.id, patch), await vehicleNamer()),
+        // The customer is making this change, so the coverage and horizon
+        // rules apply to it exactly as they did when the enquiry was taken.
+        toEnquirySummary(
+          await operations.updateEnquiryJourney(enquiry.id, patch, { by: "customer" }),
+          await vehicleNamer(),
+        ),
       );
     },
 
@@ -273,6 +278,19 @@ export function createWhatsAppBackend(): Backend {
         toEnquirySummary(await operations.cancelEnquiry(enquiry.id, "whatsapp"), await vehicleNamer()),
       );
     },
+
+    /**
+     * Where we drive and how far ahead we take work.
+     *
+     * Literally the same function the server calls before it records an
+     * enquiry, so the customer hears about a journey we cannot take while
+     * they are still typing rather than after a reference has been issued —
+     * and so the two answers cannot drift apart. Its own fallback is why
+     * this cannot throw: a missing settings row would otherwise take the
+     * whole tool catalogue down with it, and the assistant would stop being
+     * able to name a car.
+     */
+    journeyRules: operations.journeyRules,
 
     /** What the client publishes about itself, from the settings they edit. */
     async companyInfo() {

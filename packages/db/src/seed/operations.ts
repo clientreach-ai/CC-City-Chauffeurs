@@ -403,7 +403,11 @@ export function buildSampleOperations(now = new Date()) {
     };
   });
 
-  type BookingSpec = Omit<Booking, "reference" | "activity" | "createdAt" | "updatedAt" | "notes"> & {
+  // `origin` is left out because it is not stored: the repository derives it
+  // on the way out, from whether the booking came off an enquiry and whether
+  // its submission id came from WhatsApp. A seed cannot set it, and asking
+  // for it here only made the specs claim a field the insert would drop.
+  type BookingSpec = Omit<Booking, "reference" | "activity" | "createdAt" | "updatedAt" | "notes" | "origin"> & {
     notes?: string;
     created: Offset;
   };
@@ -523,6 +527,10 @@ export function buildSampleOperations(now = new Date()) {
 
   const bookings: Booking[] = bookingSpecs.map(({ created: offset, notes, ...spec }) => {
     const created = at(now, offset);
+    // Derived exactly as the repository derives it on the way out, so a
+    // seeded booking reads the same as a real one. None of these carries a
+    // WhatsApp submission id, so an enquiry behind it is the only question.
+    const origin: Booking["origin"] = spec.enquiryId ? "enquiry" : "office";
     // A journey starts and finishes on its own date; anything else changes
     // status the day after the booking was made.
     const onTheDay = new Date(`${spec.date}T${spec.time}:00`);
@@ -536,6 +544,7 @@ export function buildSampleOperations(now = new Date()) {
     if (spec.status !== "pending") activity.push(log(`${spec.id}-a1`, changed, "status", statusText[spec.status]));
     return {
       ...spec,
+      origin,
       reference: spec.id.toUpperCase(),
       notes: notes ?? "",
       activity,

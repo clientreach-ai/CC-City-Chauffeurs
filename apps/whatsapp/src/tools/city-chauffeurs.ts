@@ -339,6 +339,10 @@ async function createRecord(context: ToolContext, kind: "enquiry") {
       ...(draft.time ? { time: draft.time } : {}),
       ...(draft.pickup ? { pickup: draft.pickup } : {}),
       ...(draft.dropoff ? { dropoff: draft.dropoff } : {}),
+      // The draft is cleared below, so anything the customer may ask about
+      // afterwards has to survive here or be read back from the office.
+      ...(draft.passengers ? { passengers: draft.passengers } : {}),
+      ...(draft.service ? { service: draft.service } : {}),
       ...(() => {
         const vehicle = draft.vehicleId ? catalogue.fleet.find((item) => item.id === draft.vehicleId)?.name : undefined;
         return vehicle ? { vehicle } : {};
@@ -355,7 +359,7 @@ async function createRecord(context: ToolContext, kind: "enquiry") {
 
 /** What a recorded enquiry now is, from the office's own record. */
 function recordedFrom(enquiry: EnquiryStatusSummary): RecordedEnquiry {
-  const { date, time, pickup, dropoff, vehicle } = enquiry.journey;
+  const { date, time, pickup, dropoff, vehicle, passengers, service } = enquiry.journey;
   return {
     reference: enquiry.reference,
     ...(date ? { date } : {}),
@@ -363,6 +367,8 @@ function recordedFrom(enquiry: EnquiryStatusSummary): RecordedEnquiry {
     ...(pickup ? { pickup } : {}),
     ...(dropoff ? { dropoff } : {}),
     ...(vehicle ? { vehicle } : {}),
+    ...(passengers ? { passengers } : {}),
+    ...(service ? { service } : {}),
     status: enquiry.status,
   };
 }

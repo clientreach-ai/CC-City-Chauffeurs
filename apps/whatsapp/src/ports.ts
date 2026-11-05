@@ -18,6 +18,8 @@
 /** A telephone number in E.164 — `+447700900321`. Only `normalisePhone` makes one. */
 export type E164 = string & { readonly __brand: "E164" };
 
+import type { Coverage } from "@CC-City-Chauffeurs/core";
+
 // ---------------------------------------------------------------- conversation
 
 /**
@@ -80,6 +82,17 @@ export type RecordedEnquiry = {
   dropoff?: string;
   /** The vehicle by name, as the customer would say it. */
   vehicle?: string;
+  /**
+   * What was recorded about the journey besides where and when.
+   *
+   * Here because a customer asks about it. "How many of us did I say?" is a
+   * question about an enquiry that exists, and the conversation's own note of
+   * it used to hold only the date, the time and the places — so the honest
+   * answer was "I don't have that", about a figure the office was holding all
+   * along.
+   */
+  passengers?: number;
+  service?: string;
   /** The office's status label, once a tool has read it back: "Cancelled". */
   status?: string;
 };
@@ -146,6 +159,20 @@ export type ConversationState = {
    * faster than repeating a clause the customer has already read.
    */
   termsSaid?: boolean;
+  /**
+   * What the customer has already been told about price.
+   *
+   * A conversation contradicted itself: asked to guess a price it said it
+   * could not, and asked again a few messages later it gave the published
+   * day rate. Both answers were defensible on their own and the pair was
+   * not, because nothing remembered the first one.
+   *
+   * `figures` are the sums actually said, so the same question gets the same
+   * answer; `declined` records that the honest "the team will confirm it"
+   * has already been given, so giving a figure afterwards is a change of
+   * story the model should notice.
+   */
+  pricingSaid?: { figures: number[]; declined: boolean };
   /**
    * The last request recorded, and a fingerprint of the journey it was made
    * from. Asking again for the same journey returns the same reference
@@ -423,6 +450,20 @@ export type BookingStatusSummary = {
  * cannot confirm, price, cancel or change anything, because nothing here lets
  * it.
  */
+/**
+ * The two journey rules that are the client's to set rather than ours.
+ *
+ * Both come from the admin's settings, and both are enforced again by the
+ * server when an enquiry is recorded. The assistant holds a copy only so
+ * that a customer hears "we don't go there" while they are still typing,
+ * rather than after a reference has been issued.
+ */
+export type JourneyRules = {
+  coverage: Coverage;
+  /** How far ahead a journey may be asked for, in months. */
+  maxMonthsAhead: number;
+};
+
 export interface Backend {
   listFleet(): Promise<FleetVehicle[]>;
   listServices(): Promise<ServiceSummary[]>;
@@ -435,6 +476,16 @@ export interface Backend {
   listBookingTerms(): Promise<string[]>;
   /** Everything the website's enquiry form offers, including what has no page. */
   listEnquiryOptions(): Promise<EnquiryOption[]>;
+  /**
+   * Where we drive and how far ahead we take work, from the settings the
+   * client edits.
+   *
+   * The assistant asks so it can refuse a journey in conversation, where a
+   * refusal is a question the customer can answer. The server refuses the
+   * same journey again when the enquiry is recorded, and that one is the
+   * rule: this is only how the customer hears about it first.
+   */
+  journeyRules(): Promise<JourneyRules>;
   getService(slug: string): Promise<ServiceDetail | null>;
   /**
    * `submissionId` is derived from the triggering WhatsApp message, so a
