@@ -159,6 +159,20 @@ describe("a journey we do not take", () => {
     const fields = await refusedFields(enquiry({ pickup: "Mars", dropoff: "El Salvador", date: "2089-01-08" }));
     expect(fields.sort()).toEqual(["date", "dropoff", "pickup"]);
   });
+
+  test("a submission already recorded is answered with its record, whatever the rules say now", async () => {
+    // A webhook redelivered after the date has passed, or after the client
+    // narrowed where we go, still names an enquiry that was taken. The same
+    // submission gets the same answer, so it is looked up before it is judged.
+    const first = await operations.createPublicEnquiry(enquiry({ submissionId: "wamid.repeat-1" }));
+
+    const again = await operations.createPublicEnquiry(
+      enquiry({ submissionId: "wamid.repeat-1", dropoff: "El Salvador", date: "2089-01-08" }),
+    );
+
+    expect(again.id).toBe(first.id);
+    expect(await operations.getEnquiries()).toHaveLength(1);
+  });
 });
 
 describe("the office is not held to it", () => {

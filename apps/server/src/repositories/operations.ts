@@ -864,12 +864,6 @@ export async function createPublicEnquiry(
   input: PublicEnquiryInput,
   { source = "website" }: { source?: EnquirySource } = {},
 ): Promise<Enquiry> {
-  // Every caller here is a customer: the website's form, or the assistant
-  // taking a journey down on WhatsApp. A journey we do not take is refused
-  // before a reference is ever issued, so there is no record for the office
-  // to find and no number to tell anybody.
-  await assertJourneyIsOneWeTake(input);
-
   const submissionId = submissionIdOf(input);
 
   const alreadyRecorded = async () => {
@@ -882,8 +876,17 @@ export async function createPublicEnquiry(
     return row ? getEnquiry(row.id) : null;
   };
 
+  // The same submission gets the same answer, whenever it arrives. A webhook
+  // redelivered after the date has passed, or after the client narrowed where
+  // we go, still names an enquiry that was taken, and is answered with it.
   const existing = await alreadyRecorded();
   if (existing) return existing;
+
+  // Every caller here is a customer: the website's form, or the assistant
+  // taking a journey down on WhatsApp. A journey we do not take is refused
+  // before a reference is ever issued, so there is no record for the office
+  // to find and no number to tell anybody.
+  await assertJourneyIsOneWeTake(input);
 
   const id = newId("enq");
   try {
