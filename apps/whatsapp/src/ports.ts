@@ -18,6 +18,8 @@
 /** A telephone number in E.164 — `+447700900321`. Only `normalisePhone` makes one. */
 export type E164 = string & { readonly __brand: "E164" };
 
+import type { Coverage } from "@CC-City-Chauffeurs/core";
+
 // ---------------------------------------------------------------- conversation
 
 /**
@@ -423,6 +425,20 @@ export type BookingStatusSummary = {
  * cannot confirm, price, cancel or change anything, because nothing here lets
  * it.
  */
+/**
+ * The two journey rules that are the client's to set rather than ours.
+ *
+ * Both come from the admin's settings, and both are enforced again by the
+ * server when an enquiry is recorded. The assistant holds a copy only so
+ * that a customer hears "we don't go there" while they are still typing,
+ * rather than after a reference has been issued.
+ */
+export type JourneyRules = {
+  coverage: Coverage;
+  /** How far ahead a journey may be asked for, in months. */
+  maxMonthsAhead: number;
+};
+
 export interface Backend {
   listFleet(): Promise<FleetVehicle[]>;
   listServices(): Promise<ServiceSummary[]>;
@@ -435,6 +451,16 @@ export interface Backend {
   listBookingTerms(): Promise<string[]>;
   /** Everything the website's enquiry form offers, including what has no page. */
   listEnquiryOptions(): Promise<EnquiryOption[]>;
+  /**
+   * Where we drive and how far ahead we take work, from the settings the
+   * client edits.
+   *
+   * The assistant asks so it can refuse a journey in conversation, where a
+   * refusal is a question the customer can answer. The server refuses the
+   * same journey again when the enquiry is recorded, and that one is the
+   * rule: this is only how the customer hears about it first.
+   */
+  journeyRules(): Promise<JourneyRules>;
   getService(slug: string): Promise<ServiceDetail | null>;
   /**
    * `submissionId` is derived from the triggering WhatsApp message, so a

@@ -279,6 +279,26 @@ export function createWhatsAppBackend(): Backend {
       );
     },
 
+    /**
+     * Where we drive and how far ahead we take work.
+     *
+     * The same settings the server itself checks against when the enquiry is
+     * recorded, handed to the assistant so the customer hears about a
+     * journey we cannot take while they are still typing rather than after a
+     * reference has been issued.
+     */
+    async journeyRules() {
+      const settings = await content.getSettings();
+      return {
+        coverage: {
+          serviceAreas: settings.business.serviceAreas,
+          servedPlaces: settings.business.servedPlaces,
+          servedCountries: settings.business.servedCountries,
+        },
+        maxMonthsAhead: settings.booking.maxMonthsAhead,
+      };
+    },
+
     /** What the client publishes about itself, from the settings they edit. */
     async companyInfo() {
       const settings = await content.getSettings();

@@ -20,6 +20,8 @@
  *   and hands the conversation to a person.
  */
 
+import { londonToday } from "@CC-City-Chauffeurs/core";
+
 import type { ChannelAnnouncements, ChannelDependencies, ChannelLogger, IngestResult, WhatsAppChannel } from "./channel-types";
 import { escalationFor, FALLBACK_REPLY, HANDOFF_REPLY, TOO_MANY_REPLY, UNSUPPORTED_REPLY, URGENT_REPLY } from "./agent/guardrails";
 import type { ModelMessage } from "./agent/model";
@@ -47,10 +49,15 @@ const HOUR_MS = 60 * 60 * 1000;
 
 const silent: ChannelLogger = { info() {}, warn() {}, error() {} };
 
-/** Today in London, as "YYYY-MM-DD" — the date the business and its customers mean. */
-export function londonToday() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
-}
+/**
+ * Today in London, as "YYYY-MM-DD" — the date the business and its customers
+ * mean.
+ *
+ * Passed on rather than written twice. The server needs the same answer to
+ * judge a date on the website's form, so the one implementation lives in the
+ * shared contract beside the rest of the date rule.
+ */
+export { londonToday };
 
 /** Only the last four digits ever reach a log line. */
 const masked = (phone: string) => `…${phone.slice(-4)}`;
@@ -318,6 +325,7 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
         terms: await backend.listBookingTerms(),
         options: await backend.listEnquiryOptions(),
         today: config.today(),
+        rules: await backend.journeyRules(),
       };
       return catalogue;
     };

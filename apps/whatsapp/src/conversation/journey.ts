@@ -13,9 +13,16 @@
  * else, so the record the office reads is the record that was validated.
  */
 
-import { PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core";
+import { classifyLocation, journeyDateRefusal, PUBLIC_FORM_LIMITS } from "@CC-City-Chauffeurs/core";
 
-import type { EnquiryOption, FleetVehicle, JourneyDraft, RequestJourney, ServiceSummary } from "../ports";
+import type {
+  EnquiryOption,
+  FleetVehicle,
+  JourneyDraft,
+  JourneyRules,
+  RequestJourney,
+  ServiceSummary,
+} from "../ports";
 
 export type JourneyInput = {
   service?: string;
@@ -47,19 +54,18 @@ export type Catalogue = {
   options: EnquiryOption[];
   /** "YYYY-MM-DD", as the business sees today. */
   today: string;
+  /** Where we drive and how far ahead we take work, from the client's settings. */
+  rules: JourneyRules;
 };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const TIME = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
+/** Where a place the customer named is judged, and what each answer means here. */
+const PLACE_FIELDS = ["pickup", "dropoff"] as const;
+
 /** Letters and digits only, lower case — "S-Class", "s class" and "SClass" all become "sclass". */
 const squash = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-function isRealDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
 
 /**
  * Which vehicle the customer meant, or why it cannot be said.
@@ -169,13 +175,16 @@ export function mergeJourney(
   }
 
   if (input.date !== undefined) {
-    if (!isRealDate(input.date)) {
-      refused.push({ field: "date", reason: "Give the date as YYYY-MM-DD, and a day that exists." });
-    } else if (input.date < catalogue.today) {
-      refused.push({ field: "date", reason: `That date has passed — today is ${catalogue.today}.` });
-    } else {
-      next.date = input.date;
-    }
+    // One rule, shared with the server: a day that exists, not one that has
+    // gone, and not one so far off that it is a mistyped year. No grace
+    // here — an assistant told "yesterday" should ask again rather than
+    // quietly take it.
+    const refusal = journeyDateRefusal(input.date, {
+      today: catalogue.today,
+      maxMonthsAhead: catalogue.rules.maxMonthsAhead,
+    });
+    if (refusal) refused.push({ field: "date", reason: refusal });
+    else next.date = input.date;
   }
 
   if (input.time !== undefined) {
@@ -204,6 +213,35 @@ export function mergeJourney(
     else refused.push({ field: "email", reason: "That email address does not look complete." });
   }
 
+  /**
+   * A pick-up or a destination, judged against where we actually drive.
+   *
+   * Three answers, and the middle one is why this is not a simple refusal.
+   * Somewhere we cover is recorded. A country we do not cover is refused,
+   * named, and never written down — which is what stops an enquiry to El
+   * Salvador reaching the office. Anywhere unrecognised is recorded and
+   * flagged: a customer in a village nobody listed must not be turned away,
+   * but the assistant is told to confirm whereabouts it is, because the
+   * server will refuse it if the answer turns out to be abroad.
+   */
+  const weDoNotGoThere = new Set<string>();
+  for (const field of PLACE_FIELDS) {
+    const said = input[field];
+    if (typeof said !== "string" || !said.trim()) continue;
+    const verdict = classifyLocation(said, catalogue.rules.coverage);
+    if (verdict.outcome === "outside") {
+      refused.push({
+        field,
+        reason: `We do not cover ${verdict.named}. We drive in London, across the UK and in Europe. Tell the customer that plainly and ask whether there is a UK or European ${field === "pickup" ? "pick-up" : "destination"} instead.`,
+      });
+      weDoNotGoThere.add(field);
+    } else if (verdict.outcome === "unclear") {
+      notes.push(
+        `"${said.trim()}" is not a place we have listed. It is recorded, but check whereabouts it is before recording the enquiry: if it is outside the UK and Europe we cannot take it.`,
+      );
+    }
+  }
+
   const text: [keyof JourneyInput & keyof JourneyDraft, number][] = [
     ["pickup", PUBLIC_FORM_LIMITS.pickup],
     ["dropoff", PUBLIC_FORM_LIMITS.dropoff],
@@ -213,6 +251,9 @@ export function mergeJourney(
     ["name", PUBLIC_FORM_LIMITS.name],
   ];
   for (const [field, limit] of text) {
+    // A place we do not drive to was refused above and is never written
+    // down, so a good value already held is not replaced by it either.
+    if (weDoNotGoThere.has(field)) continue;
     const value = input[field];
     if (typeof value !== "string") continue;
     const clean = capped(value, limit);

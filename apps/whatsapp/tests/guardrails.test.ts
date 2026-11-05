@@ -8,6 +8,8 @@
 
 import { describe, expect, test } from "bun:test";
 
+import { DEFAULT_SERVED_COUNTRIES } from "@CC-City-Chauffeurs/core";
+
 import { escalationFor } from "../src/agent/guardrails";
 import { resolveVehicle, mergeJourney } from "../src/conversation/journey";
 import { FLEET, SERVICES } from "./support";
@@ -76,7 +78,21 @@ describe("naming a vehicle", () => {
 });
 
 describe("the draft", () => {
-  const catalogue = { fleet: FLEET, services: SERVICES, terms: [], options: [{ value: "supercar-hire", label: "Supercar hire (self-drive)" }], today: "2027-01-10" };
+  const catalogue = {
+    fleet: FLEET,
+    services: SERVICES,
+    terms: [],
+    options: [{ value: "supercar-hire", label: "Supercar hire (self-drive)" }],
+    today: "2027-01-10",
+    rules: {
+      coverage: {
+        serviceAreas: ["Mayfair"],
+        servedPlaces: ["Heathrow", "London", "Manchester"],
+        servedCountries: [...DEFAULT_SERVED_COUNTRIES],
+      },
+      maxMonthsAhead: 12,
+    },
+  };
 
   test("a refused value never replaces a good one", () => {
     const first = mergeJourney({}, { date: "2027-02-14" }, catalogue);
@@ -94,5 +110,76 @@ describe("the draft", () => {
   test("a time is normalised to HH:MM", () => {
     expect(mergeJourney({}, { time: "8:05" }, catalogue).draft.time).toBe("08:05");
     expect(mergeJourney({}, { time: "8pm" }, catalogue).refused[0]?.field).toBe("time");
+  });
+});
+
+describe("where the journey goes", () => {
+  const catalogue = {
+    fleet: FLEET,
+    services: SERVICES,
+    terms: [],
+    options: [],
+    today: "2027-01-10",
+    rules: {
+      coverage: {
+        serviceAreas: ["Mayfair", "Canary Wharf"],
+        servedPlaces: ["Heathrow", "London", "Manchester", "Essex"],
+        servedCountries: [...DEFAULT_SERVED_COUNTRIES],
+      },
+      maxMonthsAhead: 12,
+    },
+  };
+
+  test("somewhere we cover is recorded without comment", () => {
+    const result = mergeJourney({}, { pickup: "Heathrow", dropoff: "Mayfair" }, catalogue);
+    expect(result.draft.pickup).toBe("Heathrow");
+    expect(result.draft.dropoff).toBe("Mayfair");
+    expect(result.refused).toEqual([]);
+    expect(result.notes).toEqual([]);
+  });
+
+  test("the UK beyond the listed districts is recorded too", () => {
+    expect(mergeJourney({}, { dropoff: "Manchester" }, catalogue).draft.dropoff).toBe("Manchester");
+    expect(mergeJourney({}, { pickup: "Essex" }, catalogue).draft.pickup).toBe("Essex");
+  });
+
+  test("a country we do not cover is refused, and never written down", () => {
+    const result = mergeJourney({}, { pickup: "Essex", dropoff: "El Salvador" }, catalogue);
+    expect(result.draft.dropoff).toBeUndefined();
+    expect(result.draft.pickup).toBe("Essex");
+    const refusal = result.refused.find((item) => item.field === "dropoff");
+    expect(refusal?.reason).toContain("El Salvador");
+    expect(refusal?.reason).toContain("Europe");
+  });
+
+  test("a destination we do not cover does not overwrite one we do", () => {
+    const first = mergeJourney({}, { dropoff: "Mayfair" }, catalogue);
+    const second = mergeJourney(first.draft, { dropoff: "Mars" }, catalogue);
+    expect(second.draft.dropoff).toBe("Mayfair");
+    expect(second.refused[0]?.field).toBe("dropoff");
+  });
+
+  test("somewhere unrecognised is recorded, with a note to check where it is", () => {
+    const result = mergeJourney({}, { dropoff: "Saffron Walden" }, catalogue);
+    expect(result.draft.dropoff).toBe("Saffron Walden");
+    expect(result.refused).toEqual([]);
+    expect(result.notes.join(" ")).toContain("whereabouts");
+  });
+
+  test("a journey beyond the horizon is refused and the draft keeps no date", () => {
+    const result = mergeJourney({}, { date: "2089-01-08" }, catalogue);
+    expect(result.draft.date).toBeUndefined();
+    expect(result.refused[0]?.reason).toContain("further ahead");
+  });
+
+  test("the horizon comes from the settings, not from this package", () => {
+    const narrow = { ...catalogue, rules: { ...catalogue.rules, maxMonthsAhead: 1 } };
+    expect(mergeJourney({}, { date: "2027-06-01" }, narrow).refused[0]?.field).toBe("date");
+    expect(mergeJourney({}, { date: "2027-06-01" }, catalogue).draft.date).toBe("2027-06-01");
+  });
+
+  test("a date that has gone is still refused, with no grace in conversation", () => {
+    expect(mergeJourney({}, { date: "2027-01-09" }, catalogue).refused[0]?.field).toBe("date");
+    expect(mergeJourney({}, { date: "2027-01-10" }, catalogue).draft.date).toBe("2027-01-10");
   });
 });
