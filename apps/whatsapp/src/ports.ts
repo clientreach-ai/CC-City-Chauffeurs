@@ -160,6 +160,20 @@ export type ConversationState = {
    */
   termsSaid?: boolean;
   /**
+   * What the customer has already been told about price.
+   *
+   * A conversation contradicted itself: asked to guess a price it said it
+   * could not, and asked again a few messages later it gave the published
+   * day rate. Both answers were defensible on their own and the pair was
+   * not, because nothing remembered the first one.
+   *
+   * `figures` are the sums actually said, so the same question gets the same
+   * answer; `declined` records that the honest "the team will confirm it"
+   * has already been given, so giving a figure afterwards is a change of
+   * story the model should notice.
+   */
+  pricingSaid?: { figures: number[]; declined: boolean };
+  /**
    * The last request recorded, and a fingerprint of the journey it was made
    * from. Asking again for the same journey returns the same reference
    * instead of a second enquiry the office would have to spot as a duplicate.
