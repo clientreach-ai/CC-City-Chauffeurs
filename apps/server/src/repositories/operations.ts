@@ -215,6 +215,13 @@ export async function updateEnquiryStatus(
   options: { lostReason?: LostReason } = {},
 ): Promise<Enquiry> {
   if (status === "cancelled") return cancelEnquiry(id, "office");
+  // Expiry is something that happened, not something anybody decides. The
+  // sweep in `expireDueEnquiries` is the only thing that sets it, so a
+  // request to set it by hand is refused rather than quietly accepted — an
+  // enquiry whose date is still ahead of us would otherwise read as finished.
+  if (status === "expired") {
+    assertValid({ status: "An enquiry expires on its own when its date passes. Mark it lost or cancelled instead." });
+  }
   if (status === "lost" && !options.lostReason) {
     assertValid({ lostReason: "Choose why the enquiry was lost." });
   }
@@ -254,13 +261,17 @@ export async function updateEnquiryStatus(
  * office has made with the customer, and a reschedule would have to move the
  * booking too. `cancelled` is finished. `lost` is finished, and quietly
  * reopening it by amendment would hide from the office that the customer
- * came back.
+ * came back. `expired` is the same: the journey it asked for has been and
+ * gone, so a customer wanting that trip after all is asking for a new one,
+ * and the office should hear about it rather than find the old record
+ * silently moved into next month.
  */
 export function settledReason(enquiry: { status: EnquiryStatus; bookingId: string | null }) {
   if (enquiry.bookingId) return "This enquiry has already become a booking, so the office has to make the change.";
   if (enquiry.status === "won") return "The office has already agreed this one, so they have to make the change.";
   if (enquiry.status === "cancelled") return "This enquiry has already been cancelled.";
   if (enquiry.status === "lost") return "This enquiry was closed, so the office has to reopen it.";
+  if (enquiry.status === "expired") return "The date on this enquiry has passed, so the team has to reopen it.";
   return null;
 }
 

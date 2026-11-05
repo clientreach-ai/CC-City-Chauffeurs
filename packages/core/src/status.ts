@@ -37,6 +37,7 @@ export const enquiryStatuses: readonly { value: EnquiryStatus; label: string; no
   { value: "won", label: "Won", note: "Going ahead" },
   { value: "lost", label: "Lost", note: "Not going ahead" },
   { value: "cancelled", label: "Cancelled", note: "Withdrawn by the customer" },
+  { value: "expired", label: "Expired", note: "The journey date passed with no booking" },
 ];
 
 export const lostReasons: readonly { value: LostReason; label: string }[] = [

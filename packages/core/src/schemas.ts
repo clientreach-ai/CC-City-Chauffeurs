@@ -328,7 +328,15 @@ export const siteSettingsSchema = z.object({
 
 // ---------------------------------------------------------------- operations
 
-export const enquiryStatusSchema = z.enum(["new", "contacted", "quoted", "won", "lost", "cancelled"]);
+export const enquiryStatusSchema = z.enum([
+  "new",
+  "contacted",
+  "quoted",
+  "won",
+  "lost",
+  "cancelled",
+  "expired",
+]);
 export const lostReasonSchema = z.enum(["price", "availability", "too-slow", "no-reply", "other"]);
 export const bookingStatusSchema = z.enum([
   "pending",

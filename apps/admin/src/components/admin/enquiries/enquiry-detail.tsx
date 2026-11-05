@@ -110,8 +110,17 @@ export function EnquiryDetail({ id }: { id: string }) {
     }
   };
 
-  /** Still the office's to move: won, lost and cancelled are finished. */
-  const open = enquiry.status !== "won" && enquiry.status !== "lost" && enquiry.status !== "cancelled";
+  /**
+   * Still the office's to move: won, lost, cancelled and expired are
+   * finished. An expired one offers Reopen like the rest — the office
+   * putting it back to Contacted is exactly how a customer who came back
+   * late gets picked up again.
+   */
+  const open =
+    enquiry.status !== "won" &&
+    enquiry.status !== "lost" &&
+    enquiry.status !== "cancelled" &&
+    enquiry.status !== "expired";
   /**
    * A reopened enquiry that already became a booking is open, but its journey
    * now lives on the booking: the server refuses to amend or cancel it here.

@@ -163,7 +163,12 @@ export async function getAnalytics(grain: Grain = "month"): Promise<Analytics> {
   // failed to convert, it simply has not been answered yet. A cancelled one
   // is in neither column: the customer withdrew, which is not business the
   // office failed to win, and counting it as lost would quietly drag the
-  // figure down every time somebody changed their mind.
+  // figure down every time somebody changed their mind. An expired one is in
+  // neither column either, and for a stronger reason — nobody decided
+  // anything, the date simply went by, and the sweep that closes those runs
+  // every hour. Counting them as losses would turn a tidying job into a
+  // falling conversion rate. They are still in `outcomes`, where the office
+  // can see how many there were.
   const won = byStatus("won");
   const decided = won + byStatus("lost");
 

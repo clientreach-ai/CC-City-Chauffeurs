@@ -414,7 +414,12 @@ export type SiteSettings = {
  * the conversion figure the office reads; a customer who changed their mind
  * before anybody quoted them is neither.
  */
-export type EnquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost" | "cancelled";
+/**
+ * `expired` is reached by the passing of time rather than by a decision:
+ * the journey date went by with nobody booking anything. It is not a loss —
+ * see `settledReason` and the conversion figure in `analytics.ts`.
+ */
+export type EnquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost" | "cancelled" | "expired";
 
 /** PRD §10.5 — a one-tap reason whenever an enquiry is lost. */
 export type LostReason = "price" | "availability" | "too-slow" | "no-reply" | "other";
