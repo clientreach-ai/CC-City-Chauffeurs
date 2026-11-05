@@ -355,6 +355,14 @@ export type SiteSettings = {
     base: string;
     coverage: string;
     serviceAreas: string[];
+    /**
+     * Towns, cities, counties and airports we cover, beyond the districts
+     * above. The districts are what the website prints; this is what the
+     * enquiry forms and the assistant judge a place against.
+     */
+    servedPlaces: string[];
+    /** Countries we cover. The client's own sentence is "UK & Europe". */
+    servedCountries: string[];
   };
   contact: {
     phoneDisplay: string;
@@ -368,7 +376,19 @@ export type SiteSettings = {
     /** Shown beside the contact details. Never a response-time promise. */
     responseNote: string;
   };
-  booking: { terms: string[] };
+  booking: {
+    terms: string[];
+    /**
+     * How far ahead a journey may be requested, in months.
+     *
+     * **Proposed, not confirmed.** The only booking window this business has
+     * ever published is "We ask for 48 hours' notice wherever possible",
+     * which is a minimum. Twelve months is our own proposal, put here rather
+     * than in code so it can be changed without a deploy — and it needs
+     * Faheem's approval before it governs real customers.
+     */
+    maxMonthsAhead: number;
+  };
   /** Only accounts that exist. Empty until the client confirms any. */
   social: { id: string; platform: SocialPlatform; url: string }[];
   seo: {

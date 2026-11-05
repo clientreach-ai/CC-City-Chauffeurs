@@ -14,6 +14,8 @@ import {
   WHATSAPP_INTRO,
 } from "@/content/site";
 import { testimonials } from "@/content/testimonials";
+import { PROPOSED_MAX_MONTHS_AHEAD } from "@CC-City-Chauffeurs/core/booking";
+import { DEFAULT_SERVED_COUNTRIES, DEFAULT_SERVED_PLACES } from "@CC-City-Chauffeurs/core/coverage";
 import type {
   ContentSeed,
   HomepageSection,
@@ -379,6 +381,11 @@ export function buildContentSeed(): ContentSeed {
         base: site.base,
         coverage: site.coverage,
         serviceAreas: [...serviceAreas],
+        // Not website content: the site prints the six districts above, and
+        // these are what the enquiry forms and the assistant judge a place
+        // against. The client edits them in the admin from here on.
+        servedPlaces: [...DEFAULT_SERVED_PLACES],
+        servedCountries: [...DEFAULT_SERVED_COUNTRIES],
       },
       contact: {
         phoneDisplay: contact.phoneDisplay,
@@ -389,7 +396,7 @@ export function buildContentSeed(): ContentSeed {
         email: contact.email,
         responseNote: "",
       },
-      booking: { terms: [...bookingTerms] },
+      booking: { terms: [...bookingTerms], maxMonthsAhead: PROPOSED_MAX_MONTHS_AHEAD },
       social: [],
       seo: {
         siteUrl: site.url,
