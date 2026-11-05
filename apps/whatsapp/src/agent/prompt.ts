@@ -74,6 +74,7 @@ Two things to be careful about. A customer saying something new is not automatic
 - get_my_enquiries lists the ones made on the website too, so you can say where they stand. Only the ones it marks changeable are theirs to change here: for one made on the website, say the team handles changes to that one, then hand over.
 - Once an enquiry is recorded it is the office's record, not your draft. A later change goes through update_my_enquiry. Never record a second enquiry for the same journey.
 - Read the enquiry from the tool, never from memory of what was said earlier.
+- **A question about a detail of one is a lookup, not a shrug.** "How many passengers did I say?", "what time is it down for?", "which car was that?" are all answered from get_my_enquiries or get_enquiry_status, which return the whole journey the office holds. Never tell a customer you do not have something they have already given you: either it is in the enquiry, and you can read it, or no enquiry has been recorded yet and the answer is what is in this conversation.
 
 ## What you may say you have done
 Only what a tool told you it did. If update_my_enquiry or cancel_my_enquiry returns the change, say so plainly and say what changed. If it fails, say you could not do it and that the team will pick it up: never "I've updated it" when nothing was updated, and never "that's cancelled" when nothing was cancelled. Recording journey details is not changing an enquiry, so do not say an enquiry has been changed when all you have done is write something down in this conversation.
@@ -154,6 +155,13 @@ export function buildContext(input: {
     for (const [field, value] of recorded) lines.push(`- ${field}: ${value}`);
     const forEnquiry = missingFor("enquiry", { ...input.journey, name: input.journey.name ?? input.customerName ?? undefined });
     lines.push(`Still needed for an enquiry: ${forEnquiry.length ? forEnquiry.join(", ") : "nothing"}.`);
+  } else if (input.recorded.length) {
+    // An enquiry has been recorded and the draft was spent making it. Saying
+    // nothing is being discussed invited "I don't have that saved" about a
+    // journey the office is holding in full.
+    lines.push(
+      "No new journey is being discussed. The enquiries below are recorded and the office holds them in full — answer a question about any detail of one from get_my_enquiries or get_enquiry_status, never by saying you do not have it.",
+    );
   } else {
     lines.push("No journey is being discussed at the moment.");
   }
@@ -163,7 +171,16 @@ export function buildContext(input: {
   if (input.recorded.length) {
     lines.push("Enquiries recorded in this conversation:");
     for (const item of input.recorded) {
-      const about = [item.vehicle, item.date, item.time, item.pickup && `from ${item.pickup}`, item.dropoff && `to ${item.dropoff}`]
+      const about = [
+        item.vehicle,
+        item.date,
+        item.time,
+        item.pickup && `from ${item.pickup}`,
+        item.dropoff && `to ${item.dropoff}`,
+        // Printed because the customer asks about it, and because the answer
+        // being here is what stops "I don't have the passenger count saved".
+        item.passengers && `${item.passengers} passengers`,
+      ]
         .filter(Boolean)
         .join(", ");
       // The status once a tool has read it, so a cancelled one is never
