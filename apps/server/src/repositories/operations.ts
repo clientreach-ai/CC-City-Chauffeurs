@@ -5,8 +5,10 @@ import {
   enquiryStatuses,
   DEFAULT_SERVED_COUNTRIES,
   DEFAULT_SERVED_PLACES,
+  formatDate,
   formatMoney,
   journeyDateRefusal,
+  journeyHasPassed,
   labelFor,
   locationRefusal,
   londonToday,
@@ -29,7 +31,7 @@ import {
 } from "@CC-City-Chauffeurs/core";
 import { db, schema } from "@CC-City-Chauffeurs/db";
 import { tryNormalisePhone } from "@CC-City-Chauffeurs/whatsapp/phone";
-import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
@@ -440,6 +442,137 @@ export async function cancelEnquiry(id: string, via: "whatsapp" | "office" = "of
   });
 
   return getEnquiry(id);
+}
+
+/**
+ * Statuses an enquiry can expire out of.
+ *
+ * Everything still being worked, and nothing else. `won` is deliberately
+ * absent: a won enquiry whose date has passed with no booking behind it is a
+ * real problem somebody needs to see, and sweeping it into Expired would
+ * hide exactly the thing worth looking at. `lost`, `cancelled` and `expired`
+ * are already finished.
+ */
+const EXPIRABLE = ["new", "contacted", "quoted"] as const satisfies readonly EnquiryStatus[];
+
+/**
+ * The lock the sweep holds while it runs.
+ *
+ * An arbitrary number, the same one every time, so that two sweeps — the
+ * hourly timer and somebody running the script by hand — queue instead of
+ * working the same rows at once. Taken for the transaction, so it is
+ * released by the commit or the rollback and never by anything remembering
+ * to.
+ */
+const EXPIRY_LOCK = 48_201_911;
+
+export type ExpiredEnquiry = { id: string; reference: string; date: string; time: string };
+
+/**
+ * Closes the enquiries whose journey has been and gone.
+ *
+ * Nobody decided these; the date simply passed. Before this they sat in New
+ * or Quoted indefinitely, so the office's own list of live work filled with
+ * journeys that could no longer happen, and the conversion figure counted
+ * every one of them.
+ *
+ * Safe to run again, and again, which an hourly timer needs it to be:
+ *
+ *  - An enquiry already `expired` is not a candidate, so a second sweep over
+ *    the same rows finds nothing to do.
+ *  - No enquiry is closed twice in its life. The `expired` line on the trail
+ *    is the sweep's own record that it has been here, and a row carrying one
+ *    is never a candidate again. That is what makes the office's Reopen
+ *    button mean something: an enquiry somebody deliberately put back into
+ *    Contacted is theirs from then on, and the sweep does not quietly close
+ *    it again an hour later behind their back.
+ *  - The update repeats the whole eligibility test in its own `where`, so a
+ *    row the office moved to Won between the select and the write is left
+ *    alone rather than overwritten.
+ *  - The line is written only for a row the update actually changed —
+ *    `returning` decides that, not the select — so even a race cannot leave
+ *    a second one.
+ *
+ * The coarse filter is a query and the final judgement is `journeyHasPassed`
+ * in JavaScript: the London day and the London clock are decided in one
+ * place for the whole system, rather than depending on what timezone the
+ * database happens to be configured with.
+ *
+ * `dryRun` reports what it would close and writes nothing. It takes the same
+ * path to the same answer and stops short of the update, rather than being a
+ * second implementation that could come to disagree with this one.
+ */
+export async function expireDueEnquiries(
+  options: { now?: Date; dryRun?: boolean } = {},
+): Promise<{ checked: number; expired: ExpiredEnquiry[] }> {
+  const now = options.now ?? new Date();
+  const today = londonToday(now);
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${EXPIRY_LOCK})`);
+
+    // Everything that could be due: open, not yet a booking, and dated
+    // today or earlier. Today is included because a journey timed for this
+    // morning has already gone by this afternoon.
+    const candidates = await tx
+      .select({
+        id: schema.enquiry.id,
+        reference: schema.enquiry.reference,
+        journey: schema.enquiry.journey,
+      })
+      .from(schema.enquiry)
+      .where(
+        and(
+          inArray(schema.enquiry.status, [...EXPIRABLE]),
+          isNull(schema.enquiry.bookingId),
+          sql`${schema.enquiry.journey} ->> 'date' <> ''`,
+          sql`${schema.enquiry.journey} ->> 'date' <= ${today}`,
+          // Never twice in one enquiry's life — see above.
+          sql`not exists (
+            select 1 from ${schema.activityEntry}
+             where ${schema.activityEntry.enquiryId} = ${schema.enquiry.id}
+               and ${schema.activityEntry.kind} = 'expired'
+          )`,
+        ),
+      )
+      .orderBy(asc(schema.enquiry.createdAt));
+
+    const expired: ExpiredEnquiry[] = [];
+    for (const row of candidates) {
+      if (!journeyHasPassed(row.journey, now)) continue;
+
+      const due = { id: row.id, reference: row.reference, date: row.journey.date, time: row.journey.time };
+      if (options.dryRun) {
+        expired.push(due);
+        continue;
+      }
+
+      const [changed] = await tx
+        .update(schema.enquiry)
+        .set({ status: "expired", lostReason: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.enquiry.id, row.id),
+            inArray(schema.enquiry.status, [...EXPIRABLE]),
+            isNull(schema.enquiry.bookingId),
+          ),
+        )
+        .returning({ reference: schema.enquiry.reference });
+      if (!changed) continue;
+
+      // Its own kind, worded so the office can tell at a glance that nobody
+      // did this. "Status changed to Expired" would read like a decision.
+      await log(
+        tx,
+        { enquiryId: row.id },
+        "expired",
+        `Expired — the journey was for ${formatDate(row.journey.date)} and no booking was made`,
+      );
+      expired.push({ ...due, reference: changed.reference });
+    }
+
+    return { checked: candidates.length, expired };
+  });
 }
 
 /**

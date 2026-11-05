@@ -1,0 +1,56 @@
+# Closes the enquiries whose journey date has gone by. Started by
+# cc-expire-enquiries.timer, not enabled itself.
+#
+# NOT INSTALLED. Neither this nor the timer is on the VPS. See the install
+# notes at the bottom of deploy/deploy.sh — like cc-server.service, they go in
+# by hand, as root, once.
+[Unit]
+Description=City Chauffeurs — expire enquiries whose date has passed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=dave
+WorkingDirectory=/opt/cc-city-chauffeurs/apps/server
+# The script, not dist/index.mjs: that is the API, and starting it here would
+# open the WhatsApp channel and have a timer answering customers. Bun runs the
+# TypeScript directly, so this needs no build step of its own — the checkout
+# the deploy already made is enough.
+ExecStart=/home/dave/.bun/bin/bun run --env-file .env.production scripts/expire-enquiries.ts
+# The sweep is idempotent, so a failed run is picked up by the next hour
+# rather than retried here. A restart loop on a database that is down would
+# only fill the journal.
+Restart=no
+# Long enough for a cold Bun start and a slow Neon connection, short enough
+# that a hung run cannot still be holding the advisory lock an hour later
+# when the next one fires.
+TimeoutStartSec=300
+Environment=NODE_ENV=production
+
+# The same limits as the API, for the same reason: this reaches one database
+# and writes no files. Both differences from cc-server.service are deliberate
+# — there is no port to bind, and AF_UNIX is kept because the Postgres client
+# uses it for local sockets and DNS.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+MemoryMax=300M
+# Bun caches transpiled files under the home directory, which is read-only here.
+Environment=BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
