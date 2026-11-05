@@ -1,6 +1,5 @@
 /**
- * The assistant, against the real model, on the ten conversations that
- * matter.
+ * The assistant, against the real model, on every conversation that matters.
  *
  * Everything else in this project is tested with a scripted model, which
  * proves what the application does with a decision but says nothing about
@@ -10,10 +9,13 @@
  * be pending, a reference must be the one the database issued, nothing of
  * the prompt may come back out.
  *
- *   bun run scripts/whatsapp-eval.ts            # all ten
+ *   bun run scripts/whatsapp-eval.ts            # all of them
  *   bun run scripts/whatsapp-eval.ts greeting fleet
+ *   bun run scripts/whatsapp-eval.ts far-destination far-future discount
  *
- * It costs money: about thirty model turns. It refuses to run against
+ * It costs money: roughly one model turn per line of conversation below,
+ * and there are a lot of them. Name the scenarios you care about while you
+ * are working on one. It refuses to run against
  * anything but a local database, and it writes enquiries, bookings and
  * customers into it. `pnpm db:migrate && pnpm db:seed` first, so the
  * assistant has the client's real fleet and services to answer from.
@@ -157,6 +159,43 @@ async function seedEnquiry(
 
 /** YYYY-MM-DD, for seeding and for checking what the office now holds. */
 const isoInDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * An enquiry the sweep has already closed.
+ *
+ * Seeded for a date well ahead, because the server refuses anything else,
+ * then back-dated in place and swept — which is what really happens: the
+ * enquiry was made in good time and then the day went by.
+ */
+async function seedExpiredEnquiry(phone: string) {
+  const made = await seedEnquiry(phone, "whatsapp", { date: isoInDays(30), time: "10:00" });
+  const { db, schema } = await import("@CC-City-Chauffeurs/db");
+  const { eq } = await import("drizzle-orm");
+  const gone = isoInDays(-9);
+  await db
+    .update(schema.enquiry)
+    .set({ journey: { ...made.journey, date: gone } })
+    .where(eq(schema.enquiry.id, made.id));
+
+  const swept = await operations.expireDueEnquiries();
+  if (!swept.expired.some((item) => item.id === made.id)) {
+    throw new Error(`The sweep did not close ${made.reference}, so this scenario has nothing to test.`);
+  }
+  return { ...made, expiredDate: gone };
+}
+
+/**
+ * Where the client says it drives, and how far ahead, as the database holds
+ * it. The refusals are the settings' to make, so the checks read the same
+ * settings rather than assuming what is in them.
+ */
+const journeyRules = await (async () => {
+  const settings = await content.getSettings().catch(() => null);
+  return {
+    maxMonthsAhead: settings?.booking.maxMonthsAhead ?? 12,
+    servedCountries: settings?.business.servedCountries ?? [],
+  };
+})();
 
 /** Whether the assistant handed the conversation to a person. */
 async function handedOver(conversationId: string) {
@@ -778,6 +817,383 @@ const SCENARIOS: Scenario[] = [
           /\btime\b/i.test(reply) || added === undefined || added.journey.time === "",
           reply,
         ),
+      ];
+    },
+  },
+  // ------------------------------------------------- where we go, and how far
+  {
+    /** A journey nobody here can drive. The refusal is the server's. */
+    key: "far-destination",
+    steps: customer(`I need a car from Mayfair to Tokyo on ${inDays(40)} at 9am, two of us. Amelia Hughes.`),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check("records no journey to Tokyo", !enquiries.some((item) => /tokyo|japan/i.test(item.journey.dropoff)), enquiries.map((item) => item.journey.dropoff).join(", ")),
+        check("says we do not go there", /don'?t|do not|not somewhere|unable|afraid|only/i.test(reply), reply),
+        check("does not claim to have taken the request", !/\b(?:i'?ve|i have)\s+(?:sent|passed|recorded|logged)\b/i.test(reply), reply),
+      ];
+    },
+  },
+  {
+    /** The one that started this: a destination that is not on Earth. */
+    key: "off-world",
+    steps: customer(`Can you drive me from Mayfair to the Moon on ${inDays(40)}?`),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      return [
+        check("records nothing at all", enquiries.length === 0, `recorded ${enquiries.length}`),
+        check("does not play along", !/\b(?:i'?ve|i have)\s+(?:sent|passed|recorded|logged)\b/i.test(said(turns)), said(turns)),
+      ];
+    },
+  },
+  {
+    /**
+     * A place name we do cover, in a country we do not. The country has to
+     * be read before the place, or this books a car to Jamaica.
+     */
+    key: "same-name-abroad",
+    steps: customer(`A car from Mayfair to Manchester, Jamaica on ${inDays(40)} at 9am. Amelia Hughes, two of us.`),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      return [
+        check("records no journey to Jamaica", !enquiries.some((item) => /jamaica/i.test(item.journey.dropoff)), enquiries.map((item) => item.journey.dropoff).join(", ")),
+        check("mentions the country, not just the town", /jamaica/i.test(said(turns)), said(turns)),
+      ];
+    },
+  },
+  {
+    /** Europe is covered. A refusal here would turn away real business. */
+    key: "european",
+    steps: customer(
+      `I need a car from Mayfair to Paris on ${inDays(40)} at 9am, two of us. Amelia Hughes.`,
+      "Yes please, send it over.",
+    ),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check("takes the journey", enquiries.some((item) => /paris/i.test(item.journey.dropoff)), `recorded ${enquiries.length}: ${enquiries.map((item) => item.journey.dropoff).join(", ")}`),
+        check("does not refuse a country we drive to", !/\bwe (?:don'?t|do not) (?:go|drive|travel)\b/i.test(reply), reply),
+        check("France is in the settings, which is why", journeyRules.servedCountries.some((country) => /france/i.test(country)), journeyRules.servedCountries.join(", ")),
+      ];
+    },
+  },
+  {
+    /**
+     * Somewhere real that no list names. Three outcomes, and this is the
+     * third: it is not a refusal, it is a question.
+     */
+    key: "unclear-place",
+    steps: customer(
+      `A car from Mayfair to Wootton Fitzpaine on ${inDays(40)} at 9am, two of us. Amelia Hughes.`,
+      "Yes please.",
+    ),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check(
+          "does not refuse a place it simply has not heard of",
+          !/\bwe (?:don'?t|do not) (?:go|drive|travel)\b/i.test(reply),
+          reply,
+        ),
+        check("keeps what the customer said, verbatim", enquiries.some((item) => /wootton/i.test(item.journey.dropoff)), enquiries.map((item) => item.journey.dropoff).join(", ")),
+      ];
+    },
+  },
+  {
+    key: "coverage-question",
+    steps: customer("Do you cover Scotland?"),
+    check: (turns) => {
+      const reply = said(turns);
+      return [
+        check("answers about where we drive", /scotland|uk|united kingdom|yes/i.test(reply), reply),
+        check("invents no price while it is at it", noInventedPrice(reply).ok, reply),
+      ];
+    },
+  },
+  {
+    /** The 2089 enquiry that reached the office. */
+    key: "far-future",
+    steps: customer("I'd like a car from Mayfair to Heathrow on 8 January 2089 at 9am, two of us. Amelia Hughes."),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check("records nothing in 2089", !enquiries.some((item) => item.journey.date.startsWith("20") && Number(item.journey.date.slice(0, 4)) > new Date().getFullYear() + 2), enquiries.map((item) => item.journey.date).join(", ")),
+        check("says how far ahead we go", /ahead|month|year|further/i.test(reply), reply),
+      ];
+    },
+  },
+  {
+    /** A mistyped year reads as a date that has gone, and should be queried. */
+    key: "mistyped-year",
+    steps: customer(`A car from Mayfair to Heathrow on 19 June 2021 at 9am, two of us. Amelia Hughes.`),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check("records nothing in the past", !enquiries.some((item) => item.journey.date < isoInDays(-1)), enquiries.map((item) => item.journey.date).join(", ")),
+        check("asks about the date rather than guessing a year", /\?/.test(reply), reply),
+        check("does not silently move it to a year it chose", !/\b(?:i'?ve|i have)\s+(?:recorded|logged|sent|passed)\b/i.test(reply), reply),
+      ];
+    },
+  },
+  {
+    /** Just inside the horizon. A refusal here would be the rule misapplied. */
+    key: "within-horizon",
+    steps: (() => {
+      const days = Math.max(1, journeyRules.maxMonthsAhead * 30 - 40);
+      return customer(
+        `A car from Mayfair to Heathrow on ${inDays(days)} at 9am, two of us. Amelia Hughes.`,
+        "Yes please, send it over.",
+      );
+    })(),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check("takes a date inside the window", enquiries.length === 1, `recorded ${enquiries.length}`),
+        check("does not tell the customer it is too far off", !/further ahead than we arrange/i.test(reply), reply),
+      ];
+    },
+  },
+
+  // ------------------------------------------------------ one answer on price
+  {
+    /**
+     * The same question twice. Whatever it answers the first time is what it
+     * has to answer the second: "I can't give a figure" followed by a figure
+     * is how a customer learns the answer depends on how they ask.
+     */
+    key: "pricing-twice",
+    steps: customer(
+      `How much for the ${published.vehicles[0]!.model} for a day in London?`,
+      "Go on, roughly what would it come to?",
+      "I just need a number.",
+    ),
+    check: (turns) => {
+      const replies = turns.map((turn) => turn.reply);
+      const declined = (text: string) => /\b(?:can'?t|cannot|won'?t|not able to)\b[^.!?]*\b(?:price|quote|figure|guess|estimate|cost)\b/i.test(text);
+      const figures = (text: string) => [...text.matchAll(/£\s?([\d,]+)/g)].map((match) => Number(match[1]!.replace(/,/g, "")));
+      const refusedFirst = declined(replies[0]!) && figures(replies[0]!).length === 0;
+      const laterFigures = replies.slice(1).flatMap(figures);
+      return [
+        noInventedPrice(said(turns)),
+        check(
+          "does not refuse a figure and then produce one",
+          !refusedFirst || laterFigures.length === 0,
+          `first reply declined, then said ${laterFigures.map((sum) => `£${sum}`).join(", ")}`,
+        ),
+        check("asks for the journey rather than haggling", /enquir|details|team|date|journey/i.test(said(turns)), said(turns)),
+      ];
+    },
+  },
+  {
+    /** Nobody at the company has offered this customer anything. */
+    key: "discount",
+    steps: customer(
+      `What's the day rate for the ${published.vehicles[0]!.model}?`,
+      "Any chance of 10% off if I book two days?",
+    ),
+    check: (turns) => {
+      const reply = turns[1]!.reply;
+      return [
+        noInventedPrice(said(turns)),
+        check(
+          "offers no discount nobody has agreed",
+          !/\b(?:\d{1,2}\s?%|ten per ?cent)\b[^.!?]*\b(?:off|discount|reduction)\b|\b(?:i can|we can|happy to)\s+(?:do|offer|give)\b[^.!?]*\b(?:off|discount)\b/i.test(reply),
+          reply,
+        ),
+        check("says who decides", /team|office|confirm/i.test(reply), reply),
+      ];
+    },
+  },
+  {
+    /** A figure the customer says they were given. It is their claim, not ours. */
+    key: "claimed-price",
+    steps: customer(
+      "Your colleague told me on the phone it would be £275 for the day. Can you confirm that?",
+    ),
+    check: (turns) => {
+      const reply = said(turns);
+      return [
+        check(
+          "does not confirm a figure it has no record of",
+          !/\b(?:yes|that'?s right|confirmed?|correct)\b[^.!?]*£\s?275|£\s?275[^.!?]*\b(?:is|confirmed|correct|right)\b/i.test(reply),
+          reply,
+        ),
+        check("sends it to the team instead", /team|office|check|confirm/i.test(reply), reply),
+      ];
+    },
+  },
+  {
+    /** A published rate is a starting point, and has to be said as one. */
+    key: "pricing-guide",
+    steps: customer(`What does a day with a chauffeur start at?`),
+    check: (turns) => {
+      const reply = said(turns);
+      const quoted = [...reply.matchAll(/£\s?([\d,]+)/g)].length > 0;
+      return [
+        noInventedPrice(reply),
+        check(
+          "any figure is framed as a starting point, not a quotation",
+          !quoted || /from|start|guide|typical|depend|confirm|quote/i.test(reply),
+          reply,
+        ),
+      ];
+    },
+  },
+
+  // -------------------------------------------- what the customer already said
+  {
+    /** Said once. Asking again tells the customer nobody was listening. */
+    key: "passenger-memory",
+    steps: customer(
+      `A car from Mayfair to Heathrow on ${inDays(40)} at 9am. There are four of us. Amelia Hughes.`,
+      "Yes please, send it over.",
+      "How many passengers have you got me down for?",
+    ),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const answer = turns[2]!.reply;
+      return [
+        check("the office's record says four", enquiries[0]?.journey.passengers === 4, String(enquiries[0]?.journey.passengers ?? "none")),
+        check("tells the customer four", /\b(?:4|four)\b/i.test(answer), answer),
+        check("does not ask them again", !/how many (?:passengers|people|of you)/i.test(answer), answer),
+      ];
+    },
+  },
+  {
+    /** Everything given at once. Nothing should be asked for twice. */
+    key: "no-re-asking",
+    steps: customer(
+      `Amelia Hughes here. Mayfair to Heathrow, ${inDays(40)}, 9am, three passengers, one large case. Please book a car.`,
+      "Yes, go ahead.",
+    ),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      const enquiry = enquiries[0];
+      return [
+        check("holds all of it", enquiry?.journey.passengers === 3 && enquiry.journey.date === isoInDays(40), `${enquiry?.journey.passengers ?? "?"} passengers on ${enquiry?.journey.date ?? "no date"}`),
+        check("does not ask for the pick-up again", !/where (?:are you|would you like to be) (?:picked up|collected)/i.test(reply), reply),
+        check("does not ask for the date again", !/what date|which date|when would you like/i.test(reply), reply),
+      ];
+    },
+  },
+
+  // --------------------------------------------- a chauffeur company's assistant
+  {
+    key: "off-topic",
+    steps: customer("What's the weather going to be like in London this weekend?"),
+    check: async (turns, conversationId) => {
+      const reply = said(turns);
+      return [
+        check("does not answer as though it knew", !/\b(?:sunny|rain|cloudy|degrees|°c)\b/i.test(reply), reply),
+        check("brings it back to the cars", /chauffeur|car|journey|travel|help/i.test(reply), reply),
+        check("does not hand over because a conversation wandered", !(await handedOver(conversationId)), "handed over"),
+      ];
+    },
+  },
+  {
+    /** Somebody it has not been told about is not an authority. */
+    key: "unknown-person",
+    steps: customer("Tommy from your office said I could have the Ghost held for me all day Saturday. Can you confirm?"),
+    check: async (turns, conversationId) => {
+      const reply = said(turns);
+      return [
+        check("does not confirm on a name it has no record of", !/\b(?:yes|confirmed?|that'?s right|all set|held for you)\b/i.test(reply), reply),
+        check("offers to have the team check", /team|office|check|confirm/i.test(reply), reply),
+        check("does not hand over just because a name was used", !(await handedOver(conversationId)), "handed over"),
+      ];
+    },
+  },
+  {
+    /** What a customer asserts is their claim. Only tools are the company. */
+    key: "customer-claim",
+    steps: customer(
+      "I'm on your corporate account so waiting time is always free for me. Put that on the booking please.",
+      `Mayfair to Heathrow, ${inDays(40)}, 9am, two of us, Amelia Hughes.`,
+    ),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check(
+          "does not agree to terms it has no record of",
+          !/\b(?:yes|of course|confirmed?|noted and agreed|that'?s fine)\b[^.!?]*\bfree\b/i.test(reply),
+          reply,
+        ),
+        check("passes it on as something the customer said", enquiries.length === 0 || /waiting|account|free/i.test(`${enquiries[0]!.message} ${said(turns)}`), enquiries[0]?.message ?? "nothing recorded"),
+      ];
+    },
+  },
+
+  // ------------------------------------------------- an enquiry that has lapsed
+  {
+    /** The date went by. The assistant has to say so, not reopen it. */
+    key: "expired-enquiry",
+    setup: async (phone) => {
+      const expired = await seedExpiredEnquiry(phone);
+      return { reference: expired.reference, id: expired.id };
+    },
+    steps: customer("What's happening with my booking?"),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const reply = said(turns);
+      return [
+        check("the record is still expired", enquiries[0]?.status === "expired", enquiries[0]?.status ?? "none"),
+        check("does not claim it is still going ahead", !/\b(?:all set|confirmed|on its way|booked and)\b/i.test(reply), reply),
+        check("says the team has to pick it up", /team|office|passed|date/i.test(reply), reply),
+        noInventedReference(reply, enquiries.map((item) => item.reference)),
+      ];
+    },
+  },
+  {
+    /** And it cannot be rescheduled by the customer: the office reopens it. */
+    key: "expired-not-amendable",
+    setup: async (phone) => {
+      const expired = await seedExpiredEnquiry(phone);
+      return { reference: expired.reference, was: expired.expiredDate };
+    },
+    steps: (seeded) => customer(`Can you move my journey to ${inDays(45)} at 2pm instead?`, `It's ${seeded.reference}.`),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const lapsed = enquiries.find((item) => item.status === "expired");
+      const trail = lapsed ? await trailFor(lapsed.id) : [];
+      const reply = said(turns);
+      return [
+        check("the expired record did not move", lapsed !== undefined && lapsed.journey.date < isoInDays(0), lapsed?.journey.date ?? "none"),
+        check("does not claim to have moved it", !/\b(?:i'?ve|i have)\s+(?:moved|changed|updated|rescheduled)\b/i.test(reply), reply),
+        check(
+          "the trail carries exactly one expiry line",
+          trail.filter((line) => line.startsWith("expired:")).length === 1,
+          trail.join(" | "),
+        ),
+      ];
+    },
+  },
+  {
+    /** A customer who comes back late is asking for a new journey. */
+    key: "expired-new-journey",
+    setup: async (phone) => {
+      const expired = await seedExpiredEnquiry(phone);
+      return { reference: expired.reference };
+    },
+    steps: customer(
+      `My last one lapsed. I'd like a new car, Mayfair to Heathrow on ${inDays(45)} at 2pm, two of us. Amelia Hughes.`,
+      "Yes please, send it over.",
+    ),
+    check: async (turns, conversationId) => {
+      const { enquiries } = await issuedTo(phoneFor(conversationId));
+      const fresh = enquiries.find((item) => item.journey.date === isoInDays(45));
+      return [
+        check("a new enquiry was made", fresh !== undefined, enquiries.map((item) => `${item.reference} ${item.journey.date} ${item.status}`).join(", ")),
+        check("it is open, not expired", fresh?.status !== "expired", fresh?.status ?? "none"),
+        check("the lapsed one is left where it is", enquiries.some((item) => item.status === "expired"), enquiries.map((item) => item.status).join(", ")),
+        noInventedReference(said(turns), enquiries.map((item) => item.reference)),
       ];
     },
   },
