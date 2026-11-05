@@ -18,6 +18,13 @@
  * customer in Milton Keynes costs the job. Nothing here ever decides that a
  * place is outside because it failed to recognise it.
  *
+ * The two kinds of match are deliberately unequal. Somewhere we cover may be
+ * found anywhere in what the customer wrote, because a false positive there
+ * costs nothing. Somewhere we do not cover has to be named on its own — a
+ * whole part of the address, not a word inside one — because London is full
+ * of Canada Squares, Jamaica Roads, India Docks and Half Moon pubs, and a
+ * refusal that fires on those turns away the client's own neighbours.
+ *
  * The lists below are defaults for the settings the admin edits, not the
  * rule itself. The client can add a town, a county or a country without
  * anybody touching this file.
@@ -75,7 +82,7 @@ export const DEFAULT_SERVED_COUNTRIES = [
  */
 export const DEFAULT_SERVED_PLACES = [
   // London, and the ways people say it
-  "London", "Greater London", "Central London", "the City", "City of London", "Westminster", "Soho",
+  "London", "Greater London", "Central London", "City of London", "Westminster", "Soho",
   "Belgravia", "Marylebone", "Notting Hill", "Hampstead", "Islington", "Shoreditch", "Richmond",
   "Wimbledon", "Greenwich", "Camden", "Battersea", "Croydon", "Barnet", "Harrow", "Ealing",
   // The airports, by name and by code
@@ -191,24 +198,55 @@ const firstNamed = (said: string, candidates: readonly string[]) =>
   candidates.find((candidate) => names(said, candidate));
 
 /**
+ * The parts of an address, as a customer separates them.
+ *
+ * Commas and line breaks, and the two words that join a place to where it
+ * is: "Hotel in Nicosia, Cyprus" is three parts, the last of which is a
+ * country. Each part is squashed so "El Salvador" and "el-salvador" compare.
+ */
+const segments = (said: string) =>
+  said
+    .split(/[,;\n]|\s+in\s+|\s+to\s+/i)
+    .map(squash)
+    .filter(Boolean);
+
+/**
+ * Whether one of the names *is* a part of what the customer wrote, rather
+ * than appearing inside one.
+ *
+ * This is the stricter match, kept for the names that refuse. "Manchester,
+ * Jamaica" names Jamaica on its own and is refused; "Jamaica Road,
+ * Bermondsey" does not, and is left for the looser checks below to place —
+ * or to ask about. A country nobody wrote as a whole part of the address is
+ * a question, never a closed door.
+ */
+const namedAsSegment = (said: string, candidates: readonly string[]) => {
+  const parts = segments(said);
+  return candidates.find((candidate) => parts.includes(squash(candidate)));
+};
+
+/**
  * What a place a customer named is, as far as the client's own coverage can
  * say.
  *
  * Order matters. A country we do not cover is checked before anywhere we do,
  * because "Manchester, Jamaica" is a real place in Jamaica and the parish
- * name must not win. A country we *do* cover is checked next, so "Paris,
- * France" is answered without France needing to be in the places list.
+ * name must not win. But it only counts when it is named as a part of the
+ * address in its own right — "One Canada Square, Canary Wharf" is in Canary
+ * Wharf, not Canada, and falls through to the places we cover. A country we
+ * *do* cover is checked next, so "Paris, France" is answered without France
+ * needing to be in the places list.
  */
 export function classifyLocation(said: string, coverage: Coverage): LocationVerdict {
   const text = said.trim();
   if (!text) return { outcome: "unclear" };
 
-  const offWorld = firstNamed(text, NOT_ON_EARTH);
+  const offWorld = namedAsSegment(text, NOT_ON_EARTH);
   if (offWorld) return { outcome: "outside", named: offWorld };
 
   const served = new Set(coverage.servedCountries.map(squash));
   const foreign = WORLD_COUNTRIES.filter((country) => !served.has(squash(country)));
-  const outside = firstNamed(text, foreign);
+  const outside = namedAsSegment(text, foreign);
   if (outside) return { outcome: "outside", named: outside };
 
   const country = firstNamed(text, coverage.servedCountries);

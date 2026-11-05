@@ -170,7 +170,13 @@ place the customer named and returns one of three things, never a guess:
 `unclear` never refuses, and that is the whole design. The lists cannot name
 every hamlet in Britain, so a village nobody listed has to become business
 rather than a closed door. The country is read before the place, which is
-why "Manchester, Jamaica" is refused rather than booked to Lancashire.
+why "Manchester, Jamaica" is refused rather than booked to Lancashire — but a
+country refuses only when it is a whole part of the address, never a word
+inside one. "One Canada Square, Canary Wharf" is in Canary Wharf, "Jamaica
+Road" is in Bermondsey and "the Half Moon" is a pub, and all three are taken
+rather than refused as Canada, Jamaica and the Moon. A place we cover, by
+contrast, may be found anywhere in the text, because a false positive there
+costs nothing.
 
 Three settings feed it, all editable in the admin under Settings:
 `business.serviceAreas` (the six districts the website prints),

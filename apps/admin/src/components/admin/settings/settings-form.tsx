@@ -201,9 +201,10 @@ export function SettingsForm() {
                 />
                 <Notice>
                   A place on either list is accepted outright. A country that is <em>not</em> on the countries list is
-                  refused, and the customer is told which country. Anything else — a village nobody has listed, “the
-                  airport” — is neither: the assistant asks which, and the website’s form still accepts it. Adding a
-                  place here is how you stop that question being asked.
+                  refused when it is named on its own — “Manchester, Jamaica” — and the customer is told which country.
+                  A country’s name inside an address, like Canada Square or Jamaica Road, refuses nothing. Anything else
+                  — a village nobody has listed, “the airport” — is neither: the assistant asks which, and the website’s
+                  form still accepts it. Adding a place here is how you stop that question being asked.
                 </Notice>
               </FormSection>
 

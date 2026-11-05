@@ -128,3 +128,53 @@ describe("the client can change where we go without a deploy", () => {
     expect(classifyLocation("Paris, France", narrower).outcome).toBe("outside");
   });
 });
+
+describe("a country's name inside an address is not the country", () => {
+  // London is full of these, and the client's own district is the first one.
+  // A refusal has to be at least as careful as an acceptance: a country
+  // refuses only when it is a whole part of the address, never a word in one.
+  test("the client's own district is not Canada", () => {
+    expect(classifyLocation("One Canada Square, Canary Wharf", coverage)).toEqual({
+      outcome: "supported",
+      matched: "Canary Wharf",
+    });
+    expect(outcome("Canada Water station")).toBe("unclear");
+  });
+
+  test("streets, docks and squares named after countries are taken, not refused", () => {
+    for (const said of [
+      "Jamaica Road, Bermondsey SE16",
+      "East India Dock Road, E14",
+      "West India Quay",
+      "America Square, EC3",
+      "Cuba Street, E14",
+      "China Town, Gerrard Street",
+      "Georgia Avenue, Welling",
+    ]) {
+      expect(locationRefusal(said, coverage)).toBeNull();
+    }
+  });
+
+  test("pubs and buildings named after the sky are on this earth", () => {
+    for (const said of [
+      "The Sun Inn, Faversham",
+      "Half Moon pub, Herne Hill",
+      "Mercury House, Croydon",
+      "Parking space outside 12 Baker Street",
+    ]) {
+      expect(locationRefusal(said, coverage)).toBeNull();
+    }
+  });
+
+  test("a country named as its own part of the address still refuses", () => {
+    expect(classifyLocation("Hotel in Nicosia, Cyprus", coverage)).toEqual({ outcome: "outside", named: "Cyprus" });
+    expect(classifyLocation("a flight to Jamaica", coverage)).toEqual({ outcome: "outside", named: "Jamaica" });
+    expect(outcome("the Moon")).toBe("outside");
+  });
+
+  test("'the city' on its own is not London", () => {
+    // "City of London" is listed; "the city" is any city, and a customer
+    // writing it about Dubai should be asked, not told we cover it.
+    expect(outcome("take me to the city centre in Dubai")).toBe("unclear");
+  });
+});
