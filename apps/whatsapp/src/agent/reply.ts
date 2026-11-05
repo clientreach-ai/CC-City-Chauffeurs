@@ -96,6 +96,56 @@ const PRICE_ASK =
 
 const PRICE_IN_HAND = "Let me not guess at that. The City Chauffeurs team will come back to you with the figure.";
 
+/**
+ * A discount, which is not the assistant's to give.
+ *
+ * Nobody has authorised a reduction, there is no tool that could record one,
+ * and a customer told they have one will hold the company to it. Asking for
+ * one is perfectly reasonable, so the reply that replaces it passes the
+ * request on rather than refusing it flatly.
+ */
+const OFFERS_A_DISCOUNT =
+  /\b(?:discount|reduced rate|special price|do you a deal|cheaper for you|money off|percent off|%\s*off|knock(?:ed)?\s+(?:it|that|some)?\s*off|waive)\b/i;
+/**
+ * Only a negation counts as honest here.
+ *
+ * Deliberately narrower than the availability check, which also lets "the
+ * team will confirm" through. A discount is different: "the team have agreed
+ * ten percent off" mentions the office and is exactly the sentence that must
+ * not go out, so naming them cannot be what makes it acceptable.
+ */
+const HONEST_ABOUT_DISCOUNTS =
+  /\b(?:can'?t|cannot|can not|unable|not able|don'?t|do not|doesn'?t|isn'?t|won'?t|never|afraid|not something|no)\b/i;
+
+const DISCOUNT_TO_THE_TEAM =
+  "I can't set prices or discounts myself, I'm afraid. I'll pass that to the team and they'll come back to you on it.";
+
+/**
+ * Whether a sum of money went out framed as what it is.
+ *
+ * Every figure the client publishes is a starting rate, so a figure stated
+ * bare reads as a quotation the customer can hold us to. The words below are
+ * the ordinary ways of saying "about": one of them being present is enough,
+ * and a false negative only adds a sentence nobody minds.
+ */
+const FRAMED_AS_A_GUIDE = /\b(?:from|guide|indicative|starts?|starting|around|about|roughly|up to|in the region of)\b/i;
+
+const A_GUIDE_NOT_A_QUOTE =
+  "That is a guide rather than a final figure, and the team confirm it once they know the journey.";
+
+/**
+ * The figures that are the office's own, not the website's starting rates.
+ *
+ * A quote somebody in the office put against an enquiry *is* the answer, so
+ * calling it a guide would be the opposite of the truth. Only the published
+ * rates need saying out loud as "from".
+ */
+export function recordedQuotesIn(text: string): number[] {
+  return [...text.matchAll(/"quote":\s*\{\s*"amount":\s*(\d+(?:\.\d+)?)/g)]
+    .map((match) => Number(match[1]))
+    .filter((value) => !Number.isNaN(value));
+}
+
 const SAFE_FALLBACK =
   "Thank you, your request is with the City Chauffeurs team and someone will reply to you here shortly.";
 
@@ -275,6 +325,13 @@ export type ReplyCheck = {
    */
   figures?: number[];
   /**
+   * Of those figures, the ones the office itself recorded against an
+   * enquiry. They are answers rather than guides, so they are not framed as
+   * approximate — a customer told the office's own figure is "a guide" would
+   * reasonably ask what the point of the quote was.
+   */
+  quoted?: number[];
+  /**
    * What the backend confirmed this turn: changes it made, draft details it
    * accepted, and enquiries it reported cancelled. Left out means none, so
    * no claim of a change may go out.
@@ -422,6 +479,28 @@ export function checkReply(reply: string, check: ReplyCheck): CheckedReply {
   if (figuresIn(text).some((figure) => !published.has(figure))) {
     text = check.journeyInHand || check.created ? PRICE_IN_HAND : PRICE_ASK;
     corrections.push("invented_price_dropped");
+  }
+
+  // A discount nobody has agreed. Only the sentence offering one goes, so a
+  // reply that also answers the journey keeps the useful half.
+  const discount = withoutSentences(
+    text,
+    (sentence) => OFFERS_A_DISCOUNT.test(sentence) && !HONEST_ABOUT_DISCOUNTS.test(sentence),
+  );
+  if (discount.dropped) {
+    text = discount.text ? `${discount.text} ${DISCOUNT_TO_THE_TEAM}` : DISCOUNT_TO_THE_TEAM;
+    corrections.push("discount_offer_dropped");
+  }
+
+  // Every published figure is a starting rate. One stated bare reads as a
+  // quotation, so it is said plainly what it is rather than being removed —
+  // the figure itself is the customer's answer.
+  const said = figuresIn(text);
+  const officeQuoted = new Set(check.quoted ?? []);
+  const everyFigureIsTheOffices = said.length > 0 && said.every((figure) => officeQuoted.has(figure));
+  if (said.length && !everyFigureIsTheOffices && !FRAMED_AS_A_GUIDE.test(text) && !text.includes(A_GUIDE_NOT_A_QUOTE)) {
+    text = `${text} ${A_GUIDE_NOT_A_QUOTE}`;
+    corrections.push("guide_framing_added");
   }
 
   if (check.created && !text.toUpperCase().includes(check.created.reference.toUpperCase())) {

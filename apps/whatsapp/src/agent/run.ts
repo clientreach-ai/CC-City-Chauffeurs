@@ -14,7 +14,7 @@
 
 import type { ConversationState, ToolCallRecord, TurnUsage } from "../ports";
 import { FALLBACK_REPLY, HANDOFF_REPLY } from "./guardrails";
-import { checkReply, figuresIn } from "./reply";
+import { checkReply, figuresIn, recordedQuotesIn } from "./reply";
 import { ModelUnavailableError, type ChatModel, type ModelMessage, type ModelToolResult } from "./model";
 import { SYSTEM } from "./prompt";
 import { runTool, toModelTool, type Tool, type ToolContext } from "../tools/tool";
@@ -30,6 +30,29 @@ export const MAX_REPLY = 4096;
  * to mention, and the phrase it reaches for when it mentions them.
  */
 const SAYS_THE_TERMS = /charged on top|go on top|added on top|congestion|ulez|airport parking|additional stop|extra stop|48 hours/i;
+
+/**
+ * A reply that answered a price question by saying nobody here can.
+ *
+ * Kept beside the figures actually quoted so a conversation cannot tell a
+ * customer both things. Saying "I can't guess at that" and then naming the
+ * published day rate four messages later is how a customer learns the
+ * answers depend on how they ask.
+ */
+const DECLINED_TO_PRICE =
+  /\b(?:can'?t|cannot|can not|not able to|won'?t)\b[^.!?]*\b(?:price|quote|figure|guess|estimate|cost)\b|\bthe (?:team|office) (?:will|can) (?:come back|confirm)[^.!?]*\b(?:price|figure|quote|cost)\b/i;
+
+function rememberPricing(state: ConversationState, said: string) {
+  const figures = figuresIn(said);
+  const declined = DECLINED_TO_PRICE.test(said);
+  if (!figures.length && !declined) return;
+
+  const before = state.pricingSaid ?? { figures: [], declined: false };
+  state.pricingSaid = {
+    figures: [...new Set([...before.figures, ...figures])],
+    declined: before.declined || declined,
+  };
+}
 
 export type TurnOutcome = {
   reply: string;
@@ -59,6 +82,8 @@ export async function runAgentTurn(input: {
   const usage: TurnUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
   /** Every sum of money the tools have shown the model this turn. */
   const figures = new Set<number>();
+  /** Of those, the ones the office recorded itself, which are answers and not guides. */
+  const officeQuotes = new Set<number>();
 
   /**
    * Nothing reaches the customer without the checks in `reply.ts`: a
@@ -73,6 +98,7 @@ export async function runAgentTurn(input: {
       // Given to the customer, or shown by the backend to be theirs.
       references: [...state.references, ...(state.seen ?? [])],
       figures: [...figures],
+      quoted: [...officeQuotes],
       confirmed: context.confirmed,
       confirmedEarlier: state.confirmed ?? [],
       attempted: context.attempted,
@@ -81,6 +107,10 @@ export async function runAgentTurn(input: {
     // Said once, then remembered. Recorded from what actually went out, not
     // from what the tools offered: offering them is not telling anybody.
     if (!state.termsSaid && SAYS_THE_TERMS.test(checked.text)) state.termsSaid = true;
+    // What was said about price, so the next turn cannot contradict it. Read
+    // off what actually went out, after the checks: a figure the guards
+    // removed was never said to anybody.
+    rememberPricing(state, checked.text);
     // The reply now promises a person, so one is fetched.
     if (checked.handoff) context.handoff ??= checked.handoff;
     // What the backend confirmed about an enquiry stays true next turn. The
@@ -158,7 +188,10 @@ export async function runAgentTurn(input: {
       const content = JSON.stringify(result);
       // What the model was shown is what it may repeat. A figure that was
       // never in a tool result cannot have come from the client's records.
-      if (result.ok) for (const figure of figuresIn(content)) figures.add(figure);
+      if (result.ok) {
+        for (const figure of figuresIn(content)) figures.add(figure);
+        for (const figure of recordedQuotesIn(content)) officeQuotes.add(figure);
+      }
       results.push({ callId: call.id, content, isError: !result.ok });
     }
     messages.push({ role: "tool_results", results });

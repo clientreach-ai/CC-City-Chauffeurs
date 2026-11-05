@@ -362,6 +362,7 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
           references: context.state.references,
           recorded: context.state.recorded ?? [],
           fleet: catalogue?.fleet ?? null,
+          pricing: context.state.pricingSaid,
         }),
       maxIterations: config.maxIterations,
     });
