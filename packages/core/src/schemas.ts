@@ -285,6 +285,8 @@ export const siteSettingsSchema = z.object({
     base: z.string(),
     coverage: z.string(),
     serviceAreas: z.array(z.string()),
+    servedPlaces: z.array(z.string()),
+    servedCountries: z.array(z.string()),
   }),
   contact: z.object({
     phoneDisplay: z.string(),
@@ -295,7 +297,13 @@ export const siteSettingsSchema = z.object({
     email: z.string(),
     responseNote: z.string(),
   }),
-  booking: z.object({ terms: z.array(z.string()) }),
+  booking: z.object({
+    terms: z.array(z.string()),
+    // At least a month, because a horizon of nothing would refuse every
+    // journey; at most five years, because past that the figure is not a
+    // business rule, it is a typing mistake.
+    maxMonthsAhead: z.number().int().min(1).max(60),
+  }),
   social: z.array(
     z.object({
       id: z.string(),

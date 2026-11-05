@@ -181,6 +181,30 @@ export function SettingsForm() {
                   itemLabel="Area"
                   max={12}
                 />
+                <StringListEditor
+                  legend="Places we cover"
+                  description="Towns, cities, counties and airports. Not printed anywhere — this is what the enquiry forms and the WhatsApp assistant judge a pick-up or destination against."
+                  items={form.business.servedPlaces}
+                  onChange={(servedPlaces) => set("business", { servedPlaces })}
+                  addLabel="Add place"
+                  itemLabel="Place"
+                  max={400}
+                />
+                <StringListEditor
+                  legend="Countries we cover"
+                  description="The client’s own wording is “UK & Europe”. A journey to a country that is not on this list is refused."
+                  items={form.business.servedCountries}
+                  onChange={(servedCountries) => set("business", { servedCountries })}
+                  addLabel="Add country"
+                  itemLabel="Country"
+                  max={100}
+                />
+                <Notice>
+                  A place on either list is accepted outright. A country that is <em>not</em> on the countries list is
+                  refused, and the customer is told which country. Anything else — a village nobody has listed, “the
+                  airport” — is neither: the assistant asks which, and the website’s form still accepts it. Adding a
+                  place here is how you stop that question being asked.
+                </Notice>
               </FormSection>
 
               <FormSection
@@ -242,6 +266,28 @@ export function SettingsForm() {
                   multiline
                   max={6}
                 />
+                <Field
+                  label="How far ahead a journey may be booked, in months"
+                  error={errors["booking.maxMonthsAhead"]}
+                  description="A date beyond this is refused on the website’s form and by the WhatsApp assistant, which is what stops a journey being taken for 2089."
+                >
+                  {(control) => (
+                    <TextInput
+                      {...control}
+                      inputMode="numeric"
+                      value={String(form.booking.maxMonthsAhead)}
+                      onChange={(event) =>
+                        set("booking", { maxMonthsAhead: Number(event.target.value.replace(/[^\d]/g, "")) || 0 })
+                      }
+                    />
+                  )}
+                </Field>
+                <Notice>
+                  Twelve months is <strong>our proposal, not a confirmed company policy</strong>. The only booking
+                  window the business publishes is “48 hours’ notice wherever possible”, which is a minimum with nothing
+                  at the far end. Faheem needs to approve this figure before it governs real customers — it lives here
+                  rather than in code so that approval does not need a deployment.
+                </Notice>
               </FormSection>
 
               <FormSection

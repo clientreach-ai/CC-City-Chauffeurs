@@ -10,6 +10,7 @@ export * from "./types";
 export * from "./validation";
 export * from "./status";
 export * from "./coverage";
+export * from "./booking";
 export * from "./permissions";
 export * from "./format";
 export * from "./image";
