@@ -197,4 +197,26 @@ describe("when the settings are missing entirely", () => {
     expect(await refusedFields(enquiry({ dropoff: "El Salvador" }))).toEqual(["dropoff"]);
     expect(await refusedFields(enquiry({ dropoff: "Manchester" }))).toEqual([]);
   });
+
+  test("reading the rules answers rather than throwing", async () => {
+    // The assistant asks for these through the backend before it answers
+    // anything at all, and a throw here took the whole tool catalogue down
+    // with it — no fleet, no services, no company details, because the
+    // settings row had not been written yet.
+    const rules = await operations.journeyRules();
+
+    expect(rules.maxMonthsAhead).toBeGreaterThan(0);
+    expect(rules.coverage.servedCountries.length).toBeGreaterThan(0);
+    expect(rules.coverage.servedPlaces.length).toBeGreaterThan(0);
+  });
+
+  test("the assistant and the server read the same rules, from one function", async () => {
+    // Not "the same values" — the same call. Two readers of the settings is
+    // two places for the conversation and the record to disagree about
+    // where we drive.
+    const { createWhatsAppBackend } = await import("../src/lib/whatsapp-backend");
+    const backend = createWhatsAppBackend();
+
+    expect(await backend.journeyRules()).toEqual(await operations.journeyRules());
+  });
 });

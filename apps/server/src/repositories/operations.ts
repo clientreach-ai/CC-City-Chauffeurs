@@ -19,6 +19,7 @@ import {
   type ActivityEntry,
   type Booking,
   type BookingStatus,
+  type Coverage,
   type Customer,
   type CustomerInput,
   type CustomerSummary,
@@ -295,16 +296,34 @@ const FIELD_NAMES: Record<keyof EnquiryJourneyPatch, string> = {
 };
 
 /**
- * Amend the journey on an enquiry.
+ * Where we drive and how far ahead, read once.
  *
- * One capability, two doors: the office amending an enquiry in the admin and
- * a customer rescheduling their own on WhatsApp arrive here. Only the fields
- * in the patch move; everything else is left exactly as it was, because a
- * customer saying "make it Friday" has said nothing about their luggage.
+ * Exported because the assistant needs the same answer: it refuses a journey
+ * mid-conversation and the server refuses it again when the enquiry is
+ * recorded, and two layers reading the settings separately is two places for
+ * them to drift apart.
  *
- * Whoever is calling has already decided they are allowed to. This decides
- * whether the enquiry can take the change at all.
+ * A settings row that is missing entirely is a configuration fault, and a
+ * customer's enquiry must not be lost to one — nor, worse, be waved through
+ * because the rule could not be read. The rule still applies, from the same
+ * defaults the seed would have written.
  */
+export async function journeyRules(): Promise<{ coverage: Coverage; maxMonthsAhead: number }> {
+  const settings = await getSettings().catch((error: unknown) => {
+    if (error instanceof CmsNotFoundError) return null;
+    throw error;
+  });
+
+  return {
+    coverage: {
+      serviceAreas: settings?.business.serviceAreas ?? [],
+      servedPlaces: settings?.business.servedPlaces ?? [...DEFAULT_SERVED_PLACES],
+      servedCountries: settings?.business.servedCountries ?? [...DEFAULT_SERVED_COUNTRIES],
+    },
+    maxMonthsAhead: settings?.booking.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD,
+  };
+}
+
 /**
  * The journey rules the settings own, applied wherever a customer's journey
  * arrives: the website's form, the assistant on WhatsApp, and a customer
@@ -324,20 +343,9 @@ async function assertJourneyIsOneWeTake(journey: {
   dropoff?: string | undefined;
   date?: string | undefined;
 }) {
-  // A settings row that is missing entirely is a configuration fault, and a
-  // customer's enquiry must not be lost to one. The rule still applies, from
-  // the same defaults the seed would have written.
-  const settings = await getSettings().catch((error: unknown) => {
-    if (error instanceof CmsNotFoundError) return null;
-    throw error;
-  });
+  const { coverage, maxMonthsAhead } = await journeyRules();
 
   const errors: FieldErrors = {};
-  const coverage = {
-    serviceAreas: settings?.business.serviceAreas ?? [],
-    servedPlaces: settings?.business.servedPlaces ?? [...DEFAULT_SERVED_PLACES],
-    servedCountries: settings?.business.servedCountries ?? [...DEFAULT_SERVED_COUNTRIES],
-  };
   for (const field of ["pickup", "dropoff"] as const) {
     const said = journey[field];
     if (!said) continue;
@@ -348,7 +356,7 @@ async function assertJourneyIsOneWeTake(journey: {
   if (journey.date) {
     const refusal = journeyDateRefusal(journey.date, {
       today: londonToday(),
-      maxMonthsAhead: settings?.booking.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD,
+      maxMonthsAhead,
       // The same one day the website's own schema allows, because "today"
       // for a visitor abroad can be yesterday here. Keeping the tolerance
       // identical is what stops the two layers refusing different dates.
@@ -360,6 +368,17 @@ async function assertJourneyIsOneWeTake(journey: {
   assertValid(errors);
 }
 
+/**
+ * Amend the journey on an enquiry.
+ *
+ * One capability, two doors: the office amending an enquiry in the admin and
+ * a customer rescheduling their own on WhatsApp arrive here. Only the fields
+ * in the patch move; everything else is left exactly as it was, because a
+ * customer saying "make it Friday" has said nothing about their luggage.
+ *
+ * Whoever is calling has already decided they are allowed to. This decides
+ * whether the enquiry can take the change at all.
+ */
 export async function updateEnquiryJourney(
   id: string,
   patch: EnquiryJourneyPatch,

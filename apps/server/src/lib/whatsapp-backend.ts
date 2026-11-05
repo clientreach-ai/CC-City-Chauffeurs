@@ -282,22 +282,15 @@ export function createWhatsAppBackend(): Backend {
     /**
      * Where we drive and how far ahead we take work.
      *
-     * The same settings the server itself checks against when the enquiry is
-     * recorded, handed to the assistant so the customer hears about a
-     * journey we cannot take while they are still typing rather than after a
-     * reference has been issued.
+     * Literally the same function the server calls before it records an
+     * enquiry, so the customer hears about a journey we cannot take while
+     * they are still typing rather than after a reference has been issued —
+     * and so the two answers cannot drift apart. Its own fallback is why
+     * this cannot throw: a missing settings row would otherwise take the
+     * whole tool catalogue down with it, and the assistant would stop being
+     * able to name a car.
      */
-    async journeyRules() {
-      const settings = await content.getSettings();
-      return {
-        coverage: {
-          serviceAreas: settings.business.serviceAreas,
-          servedPlaces: settings.business.servedPlaces,
-          servedCountries: settings.business.servedCountries,
-        },
-        maxMonthsAhead: settings.booking.maxMonthsAhead,
-      };
-    },
+    journeyRules: operations.journeyRules,
 
     /** What the client publishes about itself, from the settings they edit. */
     async companyInfo() {
