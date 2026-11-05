@@ -1,0 +1,22 @@
+# Hourly. The sweep decides the London day and the London clock itself, so
+# this does not need a timezone and a clock change cannot move what it does.
+#
+# NOT INSTALLED. See the install notes at the bottom of deploy/deploy.sh.
+[Unit]
+Description=Hourly — expire City Chauffeurs enquiries whose date has passed
+
+[Timer]
+OnCalendar=hourly
+# A journey timed for this morning should be closed within the hour, not at
+# the top of the next one, so the first run comes shortly after boot too.
+OnBootSec=10min
+# Every machine with this timer would otherwise fire on the stroke of the
+# hour. One VPS, so this is for the journal's sake rather than the database's.
+RandomizedDelaySec=5min
+# A VPS that was off overnight runs the sweep it missed rather than skipping
+# it. Safe because the sweep is idempotent and closes nothing twice.
+Persistent=true
+Unit=cc-expire-enquiries.service
+
+[Install]
+WantedBy=timers.target

@@ -431,7 +431,12 @@ export type ReplyChannel = "whatsapp" | "phone" | "email";
 export type ActivityEntry = {
   id: string;
   at: ISODateTime;
-  kind: "created" | "status" | "note" | "quote" | "booking" | "edit";
+  /**
+   * `expired` is its own kind rather than a `status` line because nobody
+   * made it happen. It is also the sweep's own record that it has already
+   * closed this enquiry once, which is how reopening one sticks.
+   */
+  kind: "created" | "status" | "note" | "quote" | "booking" | "edit" | "expired";
   text: string;
 };
 

@@ -31,6 +31,25 @@ pnpm --filter server... run build
 #
 #   install -m 644 deploy/cc-server.service /etc/systemd/system/cc-server.service
 #   systemctl daemon-reload && systemctl restart cc-server
+#
+# The hourly enquiry sweep is a second pair of units, and is NOT INSTALLED on
+# the VPS yet. When it is wanted, by hand, as root — and see it do nothing
+# first, because it closes enquiries the office can still see:
+#
+#   cd /opt/cc-city-chauffeurs/apps/server
+#   sudo -u dave /home/dave/.bun/bin/bun run --env-file .env.production \
+#     scripts/expire-enquiries.ts --dry-run
+#
+#   install -m 644 deploy/cc-expire-enquiries.service /etc/systemd/system/
+#   install -m 644 deploy/cc-expire-enquiries.timer /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl start cc-expire-enquiries.service   # once, watching it
+#   journalctl -u cc-expire-enquiries -n 50 --no-pager
+#   systemctl enable --now cc-expire-enquiries.timer
+#
+# The timer is what makes it hourly; the service on its own runs once. Nothing
+# in this script touches either, so a deploy never turns the sweep on by
+# itself. `systemctl list-timers cc-expire-enquiries` says when it next runs.
 echo "==> Restarting cc-server"
 sudo -n systemctl restart cc-server
 
