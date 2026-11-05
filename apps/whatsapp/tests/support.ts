@@ -26,6 +26,8 @@ import {
   type ServiceSummary,
   type StoredMessage,
 } from "../src/ports";
+import { DEFAULT_SERVED_COUNTRIES } from "@CC-City-Chauffeurs/core";
+
 import { SimulatorProvider } from "../src/providers/simulator";
 
 export const OUR_NUMBER = "+442084433332" as E164;
@@ -276,6 +278,24 @@ export class FakeBackend implements Backend {
       "We ask for 48 hours' notice wherever possible.",
       "Bank holidays, Congestion Charge and ULEZ, airport parking and additional stops are charged on top of the journey.",
     ];
+  }
+  /**
+   * The client's own coverage, as the seed writes it.
+   *
+   * The real lists are long, so the tests carry the handful of places they
+   * actually name plus the real country list: that is enough to exercise all
+   * three outcomes without a test depending on whether Shrewsbury happens to
+   * be in the default list.
+   */
+  async journeyRules() {
+    return {
+      coverage: {
+        serviceAreas: ["Mayfair", "Knightsbridge", "Chelsea", "Kensington", "Fulham", "Canary Wharf"],
+        servedPlaces: ["London", "Heathrow", "Gatwick", "Essex", "Manchester", "Birmingham", "Oxford", "Windsor"],
+        servedCountries: [...DEFAULT_SERVED_COUNTRIES],
+      },
+      maxMonthsAhead: 12,
+    };
   }
   async listEnquiryOptions() {
     // As the client's own form offers them: the services under friendlier
