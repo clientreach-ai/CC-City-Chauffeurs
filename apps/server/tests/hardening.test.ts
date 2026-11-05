@@ -53,9 +53,18 @@ test("passengers are between 1 and 50", () => {
   expect(publicEnquirySchema.safeParse({ ...visitor, passengers: 4 }).success).toBe(true);
 });
 
+/**
+ * A month out, worked out from today rather than written down.
+ *
+ * A fixed date in a test is a date that eventually falls outside whatever
+ * the booking horizon is, and then the test fails for a reason that has
+ * nothing to do with what it is checking.
+ */
+const soon = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+
 test("a car the fleet does not have is dropped from an enquiry, which still converts", async () => {
   const enquiry = await operations.createPublicEnquiry(
-    publicEnquirySchema.parse({ ...visitor, vehicleId: "no-such-car", date: "2030-06-01" }),
+    publicEnquirySchema.parse({ ...visitor, vehicleId: "no-such-car", date: soon }),
   );
   expect(enquiry.journey.vehicleId).toBeNull();
 

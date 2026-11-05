@@ -98,6 +98,34 @@ describe("a conversation", () => {
     expect(lastSent()).not.toContain("90");
   });
 
+  // One answer about price for the whole conversation. What was said is
+  // remembered from what actually went out, and the next turn is told.
+  test("a figure given once is in front of the model next time", async () => {
+    const whatsapp = channel([calls("get_fleet"), says("The Cullinan is from £200 an hour as a guide.")]);
+    await say(whatsapp, "m1", "How much is the Cullinan?");
+
+    expect(store.only().state.pricingSaid).toEqual({ figures: [200], declined: false });
+
+    const second = channel([says("Of course.")]);
+    await say(second, "m2", "Remind me of that rate?");
+    expect(JSON.stringify(model.requests[0])).toContain("Already quoted in this conversation, as a guide: £200");
+  });
+
+  test("the check's own refusal to price is remembered as one", async () => {
+    // The commonest decline a customer hears is the one the check writes
+    // when it drops an invented figure. Forgetting it is how the published
+    // rate turned up four messages later as a change of story.
+    const whatsapp = channel([says("It is about £90 an hour.")]);
+    await say(whatsapp, "m1", "How much for an hour?");
+
+    expect(lastSent()).not.toContain("90");
+    expect(store.only().state.pricingSaid).toEqual({ figures: [], declined: true });
+
+    const second = channel([says("Of course.")]);
+    await say(second, "m2", "Go on, roughly?");
+    expect(JSON.stringify(model.requests[0])).toContain("already told this customer you cannot put a figure on it");
+  });
+
   // "From £150 an hour" is not the whole cost, so what goes on top travels
   // with the rate rather than waiting to surprise anybody.
   test("what is charged on top travels with the fleet and the journey", async () => {

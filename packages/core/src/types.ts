@@ -355,6 +355,14 @@ export type SiteSettings = {
     base: string;
     coverage: string;
     serviceAreas: string[];
+    /**
+     * Towns, cities, counties and airports we cover, beyond the districts
+     * above. The districts are what the website prints; this is what the
+     * enquiry forms and the assistant judge a place against.
+     */
+    servedPlaces: string[];
+    /** Countries we cover. The client's own sentence is "UK & Europe". */
+    servedCountries: string[];
   };
   contact: {
     phoneDisplay: string;
@@ -368,7 +376,19 @@ export type SiteSettings = {
     /** Shown beside the contact details. Never a response-time promise. */
     responseNote: string;
   };
-  booking: { terms: string[] };
+  booking: {
+    terms: string[];
+    /**
+     * How far ahead a journey may be requested, in months.
+     *
+     * **Proposed, not confirmed.** The only booking window this business has
+     * ever published is "We ask for 48 hours' notice wherever possible",
+     * which is a minimum. Twelve months is our own proposal, put here rather
+     * than in code so it can be changed without a deploy — and it needs
+     * Faheem's approval before it governs real customers.
+     */
+    maxMonthsAhead: number;
+  };
   /** Only accounts that exist. Empty until the client confirms any. */
   social: { id: string; platform: SocialPlatform; url: string }[];
   seo: {
@@ -394,7 +414,12 @@ export type SiteSettings = {
  * the conversion figure the office reads; a customer who changed their mind
  * before anybody quoted them is neither.
  */
-export type EnquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost" | "cancelled";
+/**
+ * `expired` is reached by the passing of time rather than by a decision:
+ * the journey date went by with nobody booking anything. It is not a loss —
+ * see `settledReason` and the conversion figure in `analytics.ts`.
+ */
+export type EnquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost" | "cancelled" | "expired";
 
 /** PRD §10.5 — a one-tap reason whenever an enquiry is lost. */
 export type LostReason = "price" | "availability" | "too-slow" | "no-reply" | "other";
@@ -406,7 +431,12 @@ export type ReplyChannel = "whatsapp" | "phone" | "email";
 export type ActivityEntry = {
   id: string;
   at: ISODateTime;
-  kind: "created" | "status" | "note" | "quote" | "booking" | "edit";
+  /**
+   * `expired` is its own kind rather than a `status` line because nobody
+   * made it happen. It is also the sweep's own record that it has already
+   * closed this enquiry once, which is how reopening one sticks.
+   */
+  kind: "created" | "status" | "note" | "quote" | "booking" | "edit" | "expired";
   text: string;
 };
 
