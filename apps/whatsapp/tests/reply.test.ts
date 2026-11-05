@@ -160,7 +160,9 @@ describe("a price the customer is told", () => {
   test("a car with no published rate is talked about without a number", () => {
     const reply = "The Revuelto is on request. Tell me the date and the team will come back with a figure.";
 
-    expect(checkReply(reply, shown)).toEqual({ text: reply, corrections: [] });
+    // Left exactly as written — and remembered as the honest "the team will
+    // confirm", so the conversation does not produce a figure for it later.
+    expect(checkReply(reply, shown)).toEqual({ text: reply, corrections: [], declinedToPrice: true });
   });
 
   test("a price written in words is caught the same way", () => {
@@ -236,6 +238,82 @@ describe("a price the customer is told", () => {
     });
     expect(checked.text).not.toContain("10%");
     expect(checked.corrections).toContain("discount_offer_dropped");
+  });
+
+  test("a journey's 'from' does not frame a figure as a guide", () => {
+    // "From Heathrow" is about the journey, not the money. The figure is
+    // still stated bare, so it is still said to be a guide.
+    const checked = checkReply("From Heathrow to Gatwick the S-Class is £150.", {
+      ...nothingCreated,
+      references: [],
+      figures: [150],
+    });
+    expect(checked.text).toContain("£150");
+    expect(checked.corrections).toContain("guide_framing_added");
+  });
+
+  test("a framing word in another sentence frames nothing", () => {
+    const checked = checkReply("Day rates start at midday. The S-Class is £500.", {
+      ...nothingCreated,
+      references: [],
+      figures: [500],
+    });
+    expect(checked.corrections).toContain("guide_framing_added");
+  });
+
+  test("'from £' is a guide, however the sentence begins", () => {
+    for (const reply of ["Heathrow to Gatwick is from £150 in the S-Class.", "That one is from around £200 an hour."]) {
+      const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [150, 200] });
+      expect(checked.corrections).not.toContain("guide_framing_added");
+      expect(checked.text).toBe(reply);
+    }
+  });
+
+  test("a polite word does not make a discount honest", () => {
+    for (const reply of ["No problem, I can do 10% off for you.", "I'm afraid the best I can do is 10% off."]) {
+      const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [] });
+      expect(checked.text).not.toContain("10%");
+      expect(checked.corrections).toContain("discount_offer_dropped");
+    }
+  });
+
+  test("'no discount' is still the honest answer it reads as", () => {
+    const reply = "There's no discount I can offer, I'm afraid, but the team may be able to help.";
+    const checked = checkReply(reply, { ...nothingCreated, references: [], figures: [] });
+    expect(checked.corrections).not.toContain("discount_offer_dropped");
+    expect(checked.text).toBe(reply);
+  });
+
+  test("replacing an invented price counts as declining to price", () => {
+    // The check's own substitute is the commonest way a customer is told
+    // nobody here can put a figure on it, so it has to be remembered as one.
+    const asked = checkReply("It is about £90 an hour.", { ...nothingCreated, references: [], figures: [] });
+    expect(asked.corrections).toContain("invented_price_dropped");
+    expect(asked.declinedToPrice).toBe(true);
+
+    const inHand = checkReply("It is about £90 an hour.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+      journeyInHand: true,
+    });
+    expect(inHand.declinedToPrice).toBe(true);
+  });
+
+  test("the model declining in its own words counts too, and a figure does not", () => {
+    const declined = checkReply("I can't put a price on that myself, the team will come back to you.", {
+      ...nothingCreated,
+      references: [],
+      figures: [],
+    });
+    expect(declined.declinedToPrice).toBe(true);
+
+    const named = checkReply("The S-Class is from £500 a day as a guide.", {
+      ...nothingCreated,
+      references: [],
+      figures: [500],
+    });
+    expect(named.declinedToPrice).toBeUndefined();
   });
 
   test("only the sentence offering a discount goes, not the useful half", () => {

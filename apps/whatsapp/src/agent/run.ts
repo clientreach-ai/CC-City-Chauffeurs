@@ -14,7 +14,7 @@
 
 import type { ConversationState, ToolCallRecord, TurnUsage } from "../ports";
 import { FALLBACK_REPLY, HANDOFF_REPLY } from "./guardrails";
-import { checkReply, figuresIn, recordedQuotesIn } from "./reply";
+import { checkReply, figuresIn, recordedQuotesIn, type CheckedReply } from "./reply";
 import { ModelUnavailableError, type ChatModel, type ModelMessage, type ModelToolResult } from "./model";
 import { SYSTEM } from "./prompt";
 import { runTool, toModelTool, type Tool, type ToolContext } from "../tools/tool";
@@ -32,19 +32,18 @@ export const MAX_REPLY = 4096;
 const SAYS_THE_TERMS = /charged on top|go on top|added on top|congestion|ulez|airport parking|additional stop|extra stop|48 hours/i;
 
 /**
- * A reply that answered a price question by saying nobody here can.
+ * What this turn told the customer about price, kept for the next one.
  *
- * Kept beside the figures actually quoted so a conversation cannot tell a
- * customer both things. Saying "I can't guess at that" and then naming the
- * published day rate four messages later is how a customer learns the
- * answers depend on how they ask.
+ * The figures actually said, and whether the reply declined to give one, so
+ * a conversation cannot tell a customer both things. Saying "I can't guess at
+ * that" and then naming the published day rate four messages later is how a
+ * customer learns the answers depend on how they ask. The check decides
+ * whether a reply declined — including when the check itself replaced an
+ * invented price with that answer — so this does not read the text twice.
  */
-const DECLINED_TO_PRICE =
-  /\b(?:can'?t|cannot|can not|not able to|won'?t)\b[^.!?]*\b(?:price|quote|figure|guess|estimate|cost)\b|\bthe (?:team|office) (?:will|can) (?:come back|confirm)[^.!?]*\b(?:price|figure|quote|cost)\b/i;
-
-function rememberPricing(state: ConversationState, said: string) {
-  const figures = figuresIn(said);
-  const declined = DECLINED_TO_PRICE.test(said);
+function rememberPricing(state: ConversationState, checked: CheckedReply) {
+  const figures = figuresIn(checked.text);
+  const declined = checked.declinedToPrice === true;
   if (!figures.length && !declined) return;
 
   const before = state.pricingSaid ?? { figures: [], declined: false };
@@ -110,7 +109,7 @@ export async function runAgentTurn(input: {
     // What was said about price, so the next turn cannot contradict it. Read
     // off what actually went out, after the checks: a figure the guards
     // removed was never said to anybody.
-    rememberPricing(state, checked.text);
+    rememberPricing(state, checked);
     // The reply now promises a person, so one is fetched.
     if (checked.handoff) context.handoff ??= checked.handoff;
     // What the backend confirmed about an enquiry stays true next turn. The
