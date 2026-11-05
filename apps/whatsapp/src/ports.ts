@@ -82,6 +82,17 @@ export type RecordedEnquiry = {
   dropoff?: string;
   /** The vehicle by name, as the customer would say it. */
   vehicle?: string;
+  /**
+   * What was recorded about the journey besides where and when.
+   *
+   * Here because a customer asks about it. "How many of us did I say?" is a
+   * question about an enquiry that exists, and the conversation's own note of
+   * it used to hold only the date, the time and the places — so the honest
+   * answer was "I don't have that", about a figure the office was holding all
+   * along.
+   */
+  passengers?: number;
+  service?: string;
   /** The office's status label, once a tool has read it back: "Cancelled". */
   status?: string;
 };
