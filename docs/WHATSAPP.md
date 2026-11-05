@@ -151,6 +151,57 @@ There is no tool to make a booking, confirm one, check whether a car is free,
 or quote a price. The prompt tells the model not to promise those things; the
 missing tools are why it cannot.
 
+### Where we go, and how far ahead
+
+Two questions the assistant used to answer by itself, and got wrong in both
+directions: it took a journey to a city nobody here drives to, and it took
+one in 2089. Neither is the model's to judge now. Both rules live in the
+settings the client edits, and the server applies them.
+
+**Where we go.** `classifyLocation` (`packages/core/src/coverage.ts`) reads a
+place the customer named and returns one of three things, never a guess:
+
+| Outcome | What happens |
+|---|---|
+| `supported` | It is a place or a country the settings name. The journey is taken |
+| `outside` | It names a country we do not drive to, or somewhere not on Earth. Refused, naming the country, so the next message can be the right one |
+| `unclear` | Nothing in the lists matches. **Taken**, recorded exactly as the customer wrote it, with a note asking the office to check the whereabouts |
+
+`unclear` never refuses, and that is the whole design. The lists cannot name
+every hamlet in Britain, so a village nobody listed has to become business
+rather than a closed door. The country is read before the place, which is
+why "Manchester, Jamaica" is refused rather than booked to Lancashire.
+
+Three settings feed it, all editable in the admin under Settings:
+`business.serviceAreas` (the six districts the website prints),
+`business.servedPlaces` (about 150 UK towns, cities and airports) and
+`business.servedCountries` (the UK nations and Europe). There is no
+geocoding service and no third-party dataset: a journey is judged against
+what the client says it covers, and nothing else.
+
+**How far ahead.** `journeyDateRefusal` (`packages/core/src/booking.ts`)
+refuses a date that is not a date, one that has passed, and one beyond
+`booking.maxMonthsAhead` — twelve months by default.
+
+> **Twelve months is our proposal, not company policy.** The only booking
+> window City Chauffeurs publishes is "We ask for 48 hours' notice wherever
+> possible" — a minimum, with nothing at the far end. Twelve months is long
+> enough for a wedding booked a year out and short enough that a mistyped
+> year is caught, but it needs Faheem's approval before it governs real
+> customers. It is a setting precisely so that approval does not need a
+> deploy.
+
+Both rules are enforced at every door a customer's journey arrives through,
+in `assertJourneyIsOneWeTake` (`apps/server/src/repositories/operations.ts`):
+the website's form, the assistant on WhatsApp, and a customer amending an
+enquiry they already made. The website returns them as field errors on the
+pick-up, drop-off or date, exactly like any other validation failure. The
+assistant is refused mid-conversation and tells the customer why.
+
+The office is not held to the location rule when it types an enquiry itself:
+somebody on the telephone who knows the company is taking a car to Zürich
+should be able to write it down. The date rule applies to the office too.
+
 ### What a customer may change, and what they may not
 
 An enquiry is the customer's to manage. A booking is not, and neither is an
@@ -171,19 +222,89 @@ requires `source = whatsapp`. Every mutation goes through the second. The
 model never holds a row id: it passes a reference, and the number comes from
 the conversation, which came from the webhook.
 
-Won, lost, cancelled, and anything already turned into a booking refuse
-every change, from the admin as well as from here. A reference that is not
+Won, lost, cancelled, expired, and anything already turned into a booking
+refuse every change, from the admin as well as from here. A reference that is not
 yours and one that never existed both answer `null`, so nothing can be
 learned by working through them.
 
 ### The lifecycle
 
-`new → contacted → quoted → won → booking`, with `lost` and `cancelled` as
-the two ways it ends early. `cancelled` is the customer withdrawing and is
-deliberately not `lost`: lost is business the office tried for and did not
-win, it is half of the conversion figure on the dashboard, and a change of
-mind is neither. No migration was needed for it, because the status column
-is text with a TypeScript union behind it.
+`new → contacted → quoted → won → booking`, with `lost`, `cancelled` and
+`expired` as the three ways it ends early. None of the last three is a loss,
+and for different reasons.
+
+`cancelled` is the customer withdrawing. Lost is business the office tried
+for and did not win, it is half of the conversion figure on the dashboard,
+and a change of mind is neither.
+
+`expired` is the journey date going by with nobody booking anything. Before
+it existed, an enquiry for a journey last March sat in Quoted indefinitely:
+in the office's list of live work, on the dashboard pipeline, and counted
+against the conversion figure every time anybody looked at it. Nobody had
+decided anything about it.
+
+No migration was needed for either, because the status column is text with a
+TypeScript union behind it.
+
+#### The sweep
+
+`expireDueEnquiries` closes them, and everything about it is shaped by its
+being an unattended hourly job:
+
+- Candidates are open (`new`, `contacted`, `quoted`), not already a booking,
+  and dated today or earlier — today included, because a pick-up timed for
+  this morning has gone by this afternoon.
+- `won` is deliberately not expirable. A won enquiry whose date has passed
+  with nothing booked is a real problem somebody needs to see, and tidying it
+  into Expired would hide the one record worth looking at.
+- **No enquiry is closed twice in its life.** The `expired` line on the
+  activity trail is the sweep's own record that it has been there, and a row
+  carrying one is never a candidate again. That is what makes the office's
+  Reopen button mean something: the date is still in the past, so every other
+  rule would close the enquiry again within the hour. Somebody put it back
+  deliberately, so it is theirs, and they can amend it to whatever new date
+  the customer has given them.
+- The office cannot set `expired` by hand, and the sweep is the only thing
+  that sets it. Expiry is something that happened, not somebody's decision,
+  and an enquiry whose date is still ahead of us must never read as over.
+- `pg_advisory_xact_lock` so the timer and somebody running the script by
+  hand queue rather than work the same rows at once. The update repeats the
+  whole eligibility test in its own `where`, so a row the office moved to Won
+  mid-sweep is left alone, and the trail line is written only for a row the
+  update actually changed.
+- London, not UTC, and not Postgres's idea of either. The coarse filter is a
+  query; the final judgement is `journeyHasPassed` in JavaScript, so the day
+  and the clock are decided in one place for the whole system.
+- The time on an enquiry is free text — the website's form sends `19:30`, a
+  customer on WhatsApp says "around 7" — so an unreadable time means
+  "sometime that day" and the enquiry lasts until midnight. Every unreadable
+  field errs the same way: the journey is still ahead of us. Closing one
+  early hides live business, and nothing is worth that.
+
+The activity line reads *"Expired — the journey was for 4 Nov 2026 and no
+booking was made"*, and its kind is `expired` rather than `status`: "Status
+changed to Expired" would read like somebody's decision.
+
+#### Running it
+
+```bash
+cd apps/server
+bun run scripts/expire-enquiries.ts --dry-run   # what it would close
+bun run scripts/expire-enquiries.ts             # close it
+```
+
+The script imports the repository and nothing else. Importing `src/index.ts`
+would start the API, open the WhatsApp channel and leave a cron job
+answering customers.
+
+> **The timer is not installed.** `deploy/cc-expire-enquiries.service` and
+> `.timer` are in the repository and on no machine. Nothing in `deploy.sh`
+> touches them, so deploying this does not turn the sweep on. The install is
+> written out at the bottom of `deploy/deploy.sh`: dry-run it first, start the
+> service once by hand and read the journal, then `systemctl enable --now` the
+> timer. It is hourly, `Persistent=true` so a VPS that was off overnight runs
+> the sweep it missed, and safe either way because the sweep closes nothing
+> twice.
 
 The office reaches the same two capabilities the assistant does, through
 `PATCH /enquiries/:id/journey` and the status route, and the admin's enquiry
@@ -391,8 +512,10 @@ and bookings made here appear in a locally running admin like any other.
 
 Every test above uses a scripted model: they prove what the application does
 with a decision, not what a real model decides. `scripts/whatsapp-eval.ts` is
-the other half — real OpenAI, real tools, real repositories, and twenty-five
-conversations whose checks do not depend on wording:
+the other half — real OpenAI, real tools, real repositories, and forty-six
+conversations whose checks do not depend on wording. Every fix that came out
+of testing on the sandbox number has one here, and every check is made
+against the database and the activity trail rather than against wording:
 
 | | What is proved |
 |---|---|
@@ -421,6 +544,27 @@ conversations whose checks do not depend on wording:
 | company | Website, base, coverage and contact details are answered without handing over, and the unpublished hours are answered honestly |
 | my-enquiries | Both enquiries are named in terms the customer can choose between, without asking for a reference |
 | context | A second journey mentioned in passing has its time asked for, never inherited |
+| far-destination | A journey to Tokyo is refused with nothing recorded, and nothing claimed to have been sent |
+| off-world | The Moon records nothing at all |
+| same-name-abroad | "Manchester, Jamaica" is refused by its country, naming the country |
+| european | Paris is taken — Europe is covered, and a refusal there would turn away real business |
+| unclear-place | A village no list names is recorded verbatim rather than refused |
+| coverage-question | "Do you cover Scotland?" is answered without inventing a price alongside it |
+| far-future | 2089 is refused, and the window is explained |
+| mistyped-year | A year that reads as past is queried, never silently moved to one the assistant chose |
+| within-horizon | A date just inside the window is taken — the check that catches the rule applied too eagerly |
+| pricing-twice | Asked three times: whatever it answered first is what it answers again. "I can't give a figure" then a figure is how a customer learns the answer depends on how they ask |
+| discount | No discount nobody has agreed, and it says who decides |
+| claimed-price | A figure the customer says a colleague gave them is their claim, not our record |
+| pricing-guide | A published rate is said as a starting point, not a quotation |
+| passenger-memory | Four passengers, asked back, answered four — and not asked again |
+| no-re-asking | Everything given in one message, and nothing asked for twice |
+| off-topic | The weather is redirected, not answered, and does not hand over |
+| unknown-person | A name it has no record of confirms nothing, and does not hand over |
+| customer-claim | A customer's own account terms are not adopted as company facts |
+| expired-enquiry | A lapsed enquiry is not reported as going ahead; the team has to pick it up |
+| expired-not-amendable | The customer cannot reschedule it, nothing moves, and the trail carries exactly one expiry line |
+| expired-new-journey | Coming back late makes a new enquiry and leaves the lapsed one where it is |
 
 ```bash
 cd apps/server
@@ -429,10 +573,10 @@ OPENAI_API_KEY=sk-… \
 bun run scripts/whatsapp-eval.ts            # or: … whatsapp-eval.ts pricing injection
 ```
 
-It costs about seventy model turns — roughly 70,000 input tokens and 3,000
-output tokens on `gpt-5.4-mini`, most of the input served from the prompt
-cache — refuses any database that is not on this machine, and exits non-zero
-if a check fails. Each scenario writes from a telephone number of its own,
+It costs roughly one model turn per line of conversation, and there are a
+lot of them now, so name the scenarios you are working on rather than
+running the lot every time. It refuses any database that is not on this
+machine, and exits non-zero if a check fails. Each scenario writes from a telephone number of its own,
 taken from Ofcom's drama range, so no run ever continues another run's
 conversation. Run it before going live and
 after changing the model, the prompt or the tools. The key comes from the
@@ -507,6 +651,18 @@ The simulator records replies instead of sending them; read them with
   at and not an answer.
 - **No voice, and no proactive messaging.** Both are deliberately out of
   scope for this release, not merely unbuilt.
+- **The twelve-month booking window is a proposal.** It governs the website's
+  form and the assistant today because something had to, but the client has
+  never published a far limit. It needs Faheem's approval, and it is a
+  setting so that approval does not need a deploy.
+- **Where we go is a list, not a map.** About 150 UK places, the UK nations
+  and Europe, in the settings. There is no geocoding, so anywhere unlisted is
+  `unclear` and becomes an enquiry with a note for the office rather than a
+  refusal. That is the right way round, but it does mean the office still
+  reads the odd journey the assistant could not place.
+- **The expiry timer is not installed.** The sweep, the script and the units
+  are built and tested; nothing runs them on a schedule yet. Until the timer
+  is enabled, enquiries expire only when somebody runs the script.
 - **A quote the office records reaches nobody.** `get_enquiry_status` will
   show the customer a figure the office has put against their enquiry, but
   nothing sends it: somebody still has to tell them.
