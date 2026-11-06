@@ -14,7 +14,7 @@ import {
   WHATSAPP_INTRO,
 } from "@/content/site";
 import { testimonials } from "@/content/testimonials";
-import { MAX_MONTHS_AHEAD } from "@CC-City-Chauffeurs/core/booking";
+import { DEFAULT_MAX_MONTHS_AHEAD } from "@CC-City-Chauffeurs/core/booking";
 import { DEFAULT_SERVED_COUNTRIES, DEFAULT_SERVED_PLACES } from "@CC-City-Chauffeurs/core/coverage";
 import type {
   ContentSeed,
@@ -396,7 +396,7 @@ export function buildContentSeed(): ContentSeed {
         email: contact.email,
         responseNote: "",
       },
-      booking: { terms: [...bookingTerms], maxMonthsAhead: MAX_MONTHS_AHEAD },
+      booking: { terms: [...bookingTerms], maxMonthsAhead: DEFAULT_MAX_MONTHS_AHEAD },
       social: [],
       seo: {
         siteUrl: site.url,

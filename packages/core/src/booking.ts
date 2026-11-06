@@ -23,7 +23,7 @@
  * It remains a setting as well as a default, so the office can move it
  * without a deploy.
  */
-export const MAX_MONTHS_AHEAD = 12;
+export const DEFAULT_MAX_MONTHS_AHEAD = 12;
 
 /** Today in London, as "YYYY-MM-DD" — the date the business and its customers mean. */
 export function londonToday(now: Date = new Date()): string {
@@ -103,7 +103,7 @@ export function journeyDateRefusal(value: string, settings: HorizonSettings): st
   const earliest = daysBefore(settings.today, settings.graceDays ?? 0);
   if (value < earliest) return `That date has passed — today is ${settings.today}.`;
 
-  const months = settings.maxMonthsAhead ?? MAX_MONTHS_AHEAD;
+  const months = settings.maxMonthsAhead ?? DEFAULT_MAX_MONTHS_AHEAD;
   const last = horizonDate(settings.today, months);
   if (value > last) {
     // Read by a visitor on the website as well as by the assistant, so it
