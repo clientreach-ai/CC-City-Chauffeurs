@@ -658,6 +658,15 @@ describe("a person", () => {
     expect(store.messages.filter((message) => message.direction === "inbound")).toHaveLength(2);
   });
 
+  test("is brought in for a complaint, without an \"Of course\" that sounds like agreeing to it", async () => {
+    const whatsapp = channel([says("this must never be said")]);
+    await say(whatsapp, "m1", "I want a refund, this was unacceptable");
+
+    expect(model.requests).toHaveLength(0);
+    expect(lastSent()).toBe(HANDED_TO_TEAM_REPLY);
+    expect(store.only().handoff?.reason).toBe("complaint");
+  });
+
   test("is also brought in when the model decides it cannot help", async () => {
     const whatsapp = channel([
       calls("handoff_to_human", { reason: "existing_booking", summary: "Wants to change tomorrow's pickup time." }),
