@@ -284,10 +284,9 @@ export function SettingsForm() {
                   )}
                 </Field>
                 <Notice>
-                  Twelve months is <strong>our proposal, not a confirmed company policy</strong>. The only booking
-                  window the business publishes is “48 hours’ notice wherever possible”, which is a minimum with nothing
-                  at the far end. Faheem needs to approve this figure before it governs real customers — it lives here
-                  rather than in code so that approval does not need a deployment.
+                  Twelve months is the <strong>agreed window</strong>. The figure the business publishes alongside it
+                  — “48 hours’ notice wherever possible” — is the near end; this is the far one. It lives here rather
+                  than in code, so changing it is a save on this screen and not a deployment.
                 </Notice>
               </FormSection>
 

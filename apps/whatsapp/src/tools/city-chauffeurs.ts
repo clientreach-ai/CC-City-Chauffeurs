@@ -593,11 +593,11 @@ export const getBookingStatus = defineTool({
 export const handoffToHuman = defineTool({
   name: "handoff_to_human",
   description:
-    "Hand the conversation to a person in the City Chauffeurs office. Use it when the customer asks for a person, has a complaint, an urgent or safety matter, a question about an existing booking you cannot answer, or anything else you cannot help with. After it, tell the customer a member of the team will reply here, and say nothing more.",
+    "Hand the conversation to a person in the City Chauffeurs office. Use it when the customer asks for a person, has a complaint, an urgent or safety matter, a question about an existing booking you cannot answer, or anything else you cannot help with. After it, say nothing more: the customer is told a member of the team will reply here.",
   input: z
     .object({
       reason: z.enum(["customer_asked", "complaint", "urgent", "existing_booking", "cannot_help", "other"]),
-      summary: z.string().min(1).max(500).describe("One or two sentences for the person taking over: what the customer needs."),
+      summary: z.string().min(1).max(500).describe("One or two sentences for the person taking over: what the customer needs, and what you found if you looked anything up."),
     })
     .strict(),
   async run(context, input) {

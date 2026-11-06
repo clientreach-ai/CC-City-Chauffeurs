@@ -57,8 +57,26 @@ export function escalationFor(text: string): Escalation | null {
   return null;
 }
 
+/**
+ * Said when the customer asked for a person. "Of course" answers the request
+ * they actually made, which is the only time it is the right word.
+ */
 export const HANDOFF_REPLY =
   "Of course. I've asked someone from the team to pick this up, they'll reply to you here shortly.";
+
+/**
+ * Said for every other handover: a complaint, anything only the office can
+ * settle, and whatever the model hands over itself, because a handover from
+ * the model may be answering a question rather than a request for a person.
+ *
+ * It must not open with "Of course". Asked "Tommy said I could have the Ghost
+ * held for me, can you confirm?", "Of course" reads as "yes, confirmed", and
+ * the company has agreed to something nobody agreed to. The customer gets the
+ * same promise either way — a person is coming — without the word that sounds
+ * like a yes.
+ */
+export const HANDED_TO_TEAM_REPLY =
+  "I've passed this to the team so a person can look at it properly, they'll reply to you here shortly.";
 
 export const URGENT_REPLY =
   "I've passed this to the team now so a person can help you. If anyone is hurt or in danger, please call 999 first.";

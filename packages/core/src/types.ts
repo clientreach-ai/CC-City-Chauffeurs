@@ -381,11 +381,10 @@ export type SiteSettings = {
     /**
      * How far ahead a journey may be requested, in months.
      *
-     * **Proposed, not confirmed.** The only booking window this business has
-     * ever published is "We ask for 48 hours' notice wherever possible",
-     * which is a minimum. Twelve months is our own proposal, put here rather
-     * than in code so it can be changed without a deploy — and it needs
-     * Faheem's approval before it governs real customers.
+     * Twelve months is the client's window, approved by Faheem. What this
+     * business publishes alongside it, "We ask for 48 hours' notice wherever
+     * possible", is the near end; this is the far one. It is here rather than
+     * in code so it can be changed without a deploy.
      */
     maxMonthsAhead: number;
   };

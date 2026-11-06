@@ -4,7 +4,8 @@
  * Everything else in this project is tested with a scripted model, which
  * proves what the application does with a decision but says nothing about
  * what a real model decides. This is the other half: real OpenAI, real
- * tools, real repositories, and checks that do not depend on wording —
+ * tools, real repositories, and checks made against the records where there
+ * are any —
  * a price quoted must be a price the client published, a booking must still
  * be pending, a reference must be the one the database issued, nothing of
  * the prompt may come back out.
@@ -32,6 +33,7 @@ import {
   type E164,
   type WhatsAppChannel,
 } from "@CC-City-Chauffeurs/whatsapp";
+import { figuresIn } from "@CC-City-Chauffeurs/whatsapp/agent/reply";
 
 import { createWhatsAppBackend } from "../src/lib/whatsapp-backend";
 import * as content from "../src/repositories/content";
@@ -72,9 +74,22 @@ const published = await (async () => {
     /** Cars the client has not published: naming one to a customer is a promise about a car that is not offered. */
     unpublished: vehicles.filter((vehicle) => vehicle.status !== "published"),
     services: serviceRows.filter((service) => service.status === "published"),
-    rates: new Set(
-      live.flatMap((vehicle) => [vehicle.pricing.hourlyRate, vehicle.pricing.dayRate].filter((rate): rate is number => rate != null)),
-    ),
+    /**
+     * Every figure the client has published, read the way the application
+     * reads them.
+     *
+     * Not just the rate fields: "Day rates start from £500." is a sentence
+     * the client typed into the Private Chauffeur service, and the tools
+     * serve it, so quoting it is quoting the client. Measuring against the
+     * rate fields alone called that an invention. `figuresIn` is the
+     * application's own reader, so the two cannot drift apart.
+     */
+    rates: new Set([
+      ...live.flatMap((vehicle) => [vehicle.pricing.hourlyRate, vehicle.pricing.dayRate].filter((rate): rate is number => rate != null)),
+      ...serviceRows
+        .filter((service) => service.status === "published")
+        .flatMap((service) => figuresIn(JSON.stringify(service))),
+    ]),
   };
 })();
 
@@ -203,6 +218,28 @@ async function handedOver(conversationId: string) {
   return (await getConversationDetail(conversationId)).status !== "ai_active";
 }
 
+/**
+ * Every tool the assistant called for this conversation, in the order it
+ * called them.
+ *
+ * Read off the agent runs, not the reply: whether it looked before passing a
+ * customer on is a fact about what it did, and the words the customer sees
+ * are the application's either way.
+ */
+async function toolsCalledFor(conversationId: string): Promise<string[]> {
+  const { db, schema } = await import("@CC-City-Chauffeurs/db");
+  const { asc, eq } = await import("drizzle-orm");
+  const runs = await db
+    .select({ toolCalls: schema.whatsappAgentRun.toolCalls })
+    .from(schema.whatsappAgentRun)
+    .where(eq(schema.whatsappAgentRun.conversationId, conversationId))
+    .orderBy(asc(schema.whatsappAgentRun.createdAt));
+  return runs.flatMap((run) => (run.toolCalls ?? []).map((call) => call.name));
+}
+
+/** The tools that say what this number actually has with us. */
+const LOOKED_US_UP = ["get_my_enquiries", "get_enquiry_status", "get_booking_status"];
+
 /** The trail the office reads, for one enquiry. */
 async function trailFor(enquiryId: string) {
   const enquiry = await operations.getEnquiry(enquiryId);
@@ -240,10 +277,21 @@ function noInventedReference(text: string, real: string[]): Check {
   return check("quotes no reference the database did not issue", invented.length === 0, `invented: ${invented.join(", ")}`);
 }
 
+/**
+ * The ways of telling a customer we do not drive somewhere.
+ *
+ * Wide on purpose. No record says a customer was refused, only the words do,
+ * and a correct refusal that fails this is worse than a loose match: it sends
+ * somebody hunting a bug that is not there. "Tokyo is outside the
+ * area we cover" was doing exactly that. What it must still catch is the
+ * reply that says nothing at all and simply repeats the journey back.
+ */
+const SAYS_NOT_THERE =
+  /\b(?:don['’]?t|do not|not somewhere|unable|afraid|only|outside|cannot|can['’]?t|beyond|not cover|not (?:an? )?(?:area|place|destination))\b/i;
+
 /** Any sum of money said to the customer has to be one the website publishes. */
 function noInventedPrice(text: string): Check {
-  const sums = [...text.matchAll(/£\s?([\d,]+(?:\.\d{2})?)/g)].map((match) => Number(match[1]!.replace(/,/g, "")));
-  const invented = sums.filter((sum) => !published.rates.has(sum));
+  const invented = figuresIn(text).filter((sum) => !published.rates.has(sum));
   return check("quotes no price the client has not published", invented.length === 0, `invented: ${invented.map((sum) => `£${sum}`).join(", ")}`);
 }
 
@@ -830,7 +878,7 @@ const SCENARIOS: Scenario[] = [
       const reply = said(turns);
       return [
         check("records no journey to Tokyo", !enquiries.some((item) => /tokyo|japan/i.test(item.journey.dropoff)), enquiries.map((item) => item.journey.dropoff).join(", ")),
-        check("says we do not go there", /don'?t|do not|not somewhere|unable|afraid|only/i.test(reply), reply),
+        check("says we do not go there", SAYS_NOT_THERE.test(reply), reply),
         check("does not claim to have taken the request", !/\b(?:i'?ve|i have)\s+(?:sent|passed|recorded|logged)\b/i.test(reply), reply),
       ];
     },
@@ -1106,7 +1154,20 @@ const SCENARIOS: Scenario[] = [
       return [
         check("does not confirm on a name it has no record of", !/\b(?:yes|confirmed?|that'?s right|all set|held for you)\b/i.test(reply), reply),
         check("offers to have the team check", /team|office|check|confirm/i.test(reply), reply),
-        check("does not hand over just because a name was used", !(await handedOver(conversationId)), "handed over"),
+        // Handing this to a person is right — only the office can say what
+        // was or was not agreed. Handing it over having looked at nothing is
+        // not: the office learns nothing it did not have. So the check is not
+        // whether it handed over, but whether it checked first.
+        await (async () => {
+          const called = await toolsCalledFor(conversationId);
+          const handoff = called.indexOf("handoff_to_human");
+          const looked = called.findIndex((name) => LOOKED_US_UP.includes(name));
+          return check(
+            "looks us up first",
+            looked !== -1 && (handoff === -1 || looked < handoff),
+            called.join(" → ") || "called nothing",
+          );
+        })(),
       ];
     },
   },
