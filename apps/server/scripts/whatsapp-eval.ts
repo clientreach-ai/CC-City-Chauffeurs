@@ -4,7 +4,8 @@
  * Everything else in this project is tested with a scripted model, which
  * proves what the application does with a decision but says nothing about
  * what a real model decides. This is the other half: real OpenAI, real
- * tools, real repositories, and checks that do not depend on wording —
+ * tools, real repositories, and checks made against the records where there
+ * are any —
  * a price quoted must be a price the client published, a booking must still
  * be pending, a reference must be the one the database issued, nothing of
  * the prompt may come back out.
@@ -279,19 +280,18 @@ function noInventedReference(text: string, real: string[]): Check {
 /**
  * The ways of telling a customer we do not drive somewhere.
  *
- * Wide on purpose. This is the one check here that reads wording rather than
- * a record, and a correct refusal that fails it is worse than a loose match:
- * it sends somebody hunting a bug that is not there. "Tokyo is outside the
+ * Wide on purpose. No record says a customer was refused, only the words do,
+ * and a correct refusal that fails this is worse than a loose match: it sends
+ * somebody hunting a bug that is not there. "Tokyo is outside the
  * area we cover" was doing exactly that. What it must still catch is the
  * reply that says nothing at all and simply repeats the journey back.
  */
 const SAYS_NOT_THERE =
-  /\b(?:don'?t|do not|not somewhere|unable|afraid|only|outside|cannot|can'?t|beyond|not cover|not (?:an? )?(?:area|place|destination))\b/i;
+  /\b(?:don['’]?t|do not|not somewhere|unable|afraid|only|outside|cannot|can['’]?t|beyond|not cover|not (?:an? )?(?:area|place|destination))\b/i;
 
 /** Any sum of money said to the customer has to be one the website publishes. */
 function noInventedPrice(text: string): Check {
-  const sums = [...text.matchAll(/£\s?([\d,]+(?:\.\d{2})?)/g)].map((match) => Number(match[1]!.replace(/,/g, "")));
-  const invented = sums.filter((sum) => !published.rates.has(sum));
+  const invented = figuresIn(text).filter((sum) => !published.rates.has(sum));
   return check("quotes no price the client has not published", invented.length === 0, `invented: ${invented.map((sum) => `£${sum}`).join(", ")}`);
 }
 
@@ -1156,16 +1156,15 @@ const SCENARIOS: Scenario[] = [
         check("offers to have the team check", /team|office|check|confirm/i.test(reply), reply),
         // Handing this to a person is right — only the office can say what
         // was or was not agreed. Handing it over having looked at nothing is
-        // not: the office learns nothing it did not have, and the customer
-        // is told nothing. So the check is not whether it handed over, but
-        // whether it checked first.
+        // not: the office learns nothing it did not have. So the check is not
+        // whether it handed over, but whether it checked first.
         await (async () => {
           const called = await toolsCalledFor(conversationId);
           const handoff = called.indexOf("handoff_to_human");
           const looked = called.findIndex((name) => LOOKED_US_UP.includes(name));
           return check(
-            "looks us up before handing the customer on",
-            handoff === -1 || (looked !== -1 && looked < handoff),
+            "looks us up first",
+            looked !== -1 && (handoff === -1 || looked < handoff),
             called.join(" → ") || "called nothing",
           );
         })(),
