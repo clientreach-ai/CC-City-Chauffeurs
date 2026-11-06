@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 
 import { createWhatsAppChannel } from "../src/channel";
 import { calls, callsMany, fails, refuses, says, ScriptedModel, type ScriptStep } from "../src/agent/scripted";
-import { HANDOFF_REPLY, UNSUPPORTED_REPLY, FALLBACK_REPLY } from "../src/agent/guardrails";
+import { HANDED_TO_TEAM_REPLY, HANDOFF_REPLY, UNSUPPORTED_REPLY, FALLBACK_REPLY } from "../src/agent/guardrails";
 import { CUSTOMER, FakeBackend, MemoryStore, OUR_NUMBER, inbound, simulator } from "./support";
 import { cityChauffeursTools } from "../src/tools/city-chauffeurs";
 
@@ -658,6 +658,15 @@ describe("a person", () => {
     expect(store.messages.filter((message) => message.direction === "inbound")).toHaveLength(2);
   });
 
+  test("is brought in for a complaint, without an \"Of course\" that sounds like agreeing to it", async () => {
+    const whatsapp = channel([says("this must never be said")]);
+    await say(whatsapp, "m1", "I want a refund, this was unacceptable");
+
+    expect(model.requests).toHaveLength(0);
+    expect(lastSent()).toBe(HANDED_TO_TEAM_REPLY);
+    expect(store.only().handoff?.reason).toBe("complaint");
+  });
+
   test("is also brought in when the model decides it cannot help", async () => {
     const whatsapp = channel([
       calls("handoff_to_human", { reason: "existing_booking", summary: "Wants to change tomorrow's pickup time." }),
@@ -665,7 +674,9 @@ describe("a person", () => {
     ]);
     await say(whatsapp, "m1", "Can I move my pickup tomorrow to 9?");
 
-    expect(lastSent()).toBe(HANDOFF_REPLY);
+    // Not "Of course": the customer asked for their pickup moved, not for a
+    // person, and "Of course" would read as agreement to the move.
+    expect(lastSent()).toBe(HANDED_TO_TEAM_REPLY);
     expect(store.only().handoff).toEqual({ reason: "existing_booking", summary: "Wants to change tomorrow's pickup time." });
   });
 

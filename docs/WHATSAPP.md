@@ -189,13 +189,12 @@ what the client says it covers, and nothing else.
 refuses a date that is not a date, one that has passed, and one beyond
 `booking.maxMonthsAhead` — twelve months by default.
 
-> **Twelve months is our proposal, not company policy.** The only booking
-> window City Chauffeurs publishes is "We ask for 48 hours' notice wherever
-> possible" — a minimum, with nothing at the far end. Twelve months is long
+> **Twelve months is the client's window, approved by Faheem.** What City
+> Chauffeurs publishes alongside it is only the near end — "We ask for 48
+> hours' notice wherever possible" — so twelve months is the far one: long
 > enough for a wedding booked a year out and short enough that a mistyped
-> year is caught, but it needs Faheem's approval before it governs real
-> customers. It is a setting precisely so that approval does not need a
-> deploy.
+> year is caught. It stays a setting in the admin, so the office can move it
+> without a deploy.
 
 Both rules are enforced at every door a customer's journey arrives through,
 in `assertJourneyIsOneWeTake` (`apps/server/src/repositories/operations.ts`):
@@ -519,9 +518,13 @@ and bookings made here appear in a locally running admin like any other.
 Every test above uses a scripted model: they prove what the application does
 with a decision, not what a real model decides. `scripts/whatsapp-eval.ts` is
 the other half — real OpenAI, real tools, real repositories, and forty-six
-conversations whose checks do not depend on wording. Every fix that came out
-of testing on the sandbox number has one here, and every check is made
-against the database and the activity trail rather than against wording:
+conversations. Every fix that came out of testing on the sandbox number has
+one here. Where a record can answer, the check is made against the database,
+the activity trail or the run's own tool calls. Where only the words can —
+whether the assistant told a customer we do not drive somewhere, whether it
+agreed to something it should not have — the check reads the reply, and a
+good many of them do. A reply that is right but phrased some other way can
+fail one of those, so read a failure before treating it as a bug:
 
 | | What is proved |
 |---|---|
@@ -566,7 +569,7 @@ against the database and the activity trail rather than against wording:
 | passenger-memory | Four passengers, asked back, answered four — and not asked again |
 | no-re-asking | Everything given in one message, and nothing asked for twice |
 | off-topic | The weather is redirected, not answered, and does not hand over |
-| unknown-person | A name it has no record of confirms nothing, and does not hand over |
+| unknown-person | A name it has no record of confirms nothing, and the number is looked up before any handover |
 | customer-claim | A customer's own account terms are not adopted as company facts |
 | expired-enquiry | A lapsed enquiry is not reported as going ahead; the team has to pick it up |
 | expired-not-amendable | The customer cannot reschedule it, nothing moves, and the trail carries exactly one expiry line |
@@ -657,10 +660,6 @@ The simulator records replies instead of sending them; read them with
   at and not an answer.
 - **No voice, and no proactive messaging.** Both are deliberately out of
   scope for this release, not merely unbuilt.
-- **The twelve-month booking window is a proposal.** It governs the website's
-  form and the assistant today because something had to, but the client has
-  never published a far limit. It needs Faheem's approval, and it is a
-  setting so that approval does not need a deploy.
 - **Where we go is a list, not a map.** About 150 UK places, the UK nations
   and Europe, in the settings. There is no geocoding, so anywhere unlisted is
   `unclear` and becomes an enquiry with a note for the office rather than a
@@ -668,7 +667,8 @@ The simulator records replies instead of sending them; read them with
   reads the odd journey the assistant could not place.
 - **The expiry timer is not installed.** The sweep, the script and the units
   are built and tested; nothing runs them on a schedule yet. Until the timer
-  is enabled, enquiries expire only when somebody runs the script.
+  is enabled — `sudo ./deploy/install-expire-timer.sh` on the VPS — enquiries
+  expire only when somebody runs the script.
 - **A quote the office records reaches nobody.** `get_enquiry_status` will
   show the customer a figure the office has put against their enquiry, but
   nothing sends it: somebody still has to tell them.

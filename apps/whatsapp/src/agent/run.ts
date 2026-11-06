@@ -13,7 +13,7 @@
  */
 
 import type { ConversationState, ToolCallRecord, TurnUsage } from "../ports";
-import { FALLBACK_REPLY, HANDOFF_REPLY } from "./guardrails";
+import { FALLBACK_REPLY, HANDED_TO_TEAM_REPLY } from "./guardrails";
 import { checkReply, figuresIn, recordedQuotesIn, type CheckedReply } from "./reply";
 import { ModelUnavailableError, type ChatModel, type ModelMessage, type ModelToolResult } from "./model";
 import { SYSTEM } from "./prompt";
@@ -197,7 +197,7 @@ export async function runAgentTurn(input: {
 
     // Handing over ends the turn in words the application chooses, not the
     // model's: the customer is told a person is coming, and nothing else.
-    if (context.handoff) return finish(HANDOFF_REPLY, { iterations: iteration });
+    if (context.handoff) return finish(HANDED_TO_TEAM_REPLY, { iterations: iteration });
   }
 
   return giveUp("iteration_limit", input.maxIterations);
