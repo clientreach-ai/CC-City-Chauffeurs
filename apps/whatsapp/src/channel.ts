@@ -23,7 +23,15 @@
 import { londonToday } from "@CC-City-Chauffeurs/core";
 
 import type { ChannelAnnouncements, ChannelDependencies, ChannelLogger, IngestResult, WhatsAppChannel } from "./channel-types";
-import { escalationFor, FALLBACK_REPLY, HANDOFF_REPLY, TOO_MANY_REPLY, UNSUPPORTED_REPLY, URGENT_REPLY } from "./agent/guardrails";
+import {
+  escalationFor,
+  FALLBACK_REPLY,
+  HANDED_TO_TEAM_REPLY,
+  HANDOFF_REPLY,
+  TOO_MANY_REPLY,
+  UNSUPPORTED_REPLY,
+  URGENT_REPLY,
+} from "./agent/guardrails";
 import type { ModelMessage } from "./agent/model";
 import { buildContext } from "./agent/prompt";
 import { runAgentTurn, type TurnOutcome } from "./agent/run";
@@ -310,7 +318,12 @@ export function createWhatsAppChannel(deps: ChannelDependencies): WhatsAppChanne
     const escalation = escalationFor(pending.filter((message) => message.kind === "text").map((message) => message.body).join("\n"));
     if (escalation) {
       return {
-        reply: escalation.reason === "urgent" ? URGENT_REPLY : HANDOFF_REPLY,
+        reply:
+          escalation.reason === "urgent"
+            ? URGENT_REPLY
+            : escalation.reason === "customer_asked"
+              ? HANDOFF_REPLY
+              : HANDED_TO_TEAM_REPLY,
         handoff: { reason: escalation.reason, summary: escalation.summary },
         decided: "escalation_rule",
       };
