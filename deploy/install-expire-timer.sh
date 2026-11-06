@@ -56,10 +56,13 @@ install -m 644 "$UNIT_DIR/cc-expire-enquiries.timer" /etc/systemd/system/cc-expi
 systemctl daemon-reload
 
 echo "==> Running it once, watching it"
-systemctl start cc-expire-enquiries.service
-journalctl -u cc-expire-enquiries -n 30 --no-pager
+# A failed oneshot makes `systemctl start` exit non-zero, and `set -e` would stop
+# here, before the log and before saying what state the timer was left in.
+run_ok=true
+systemctl start cc-expire-enquiries.service || run_ok=false
+journalctl -u cc-expire-enquiries -n 30 --no-pager || true
 
-if ! systemctl is-failed --quiet cc-expire-enquiries.service; then
+if [ "$run_ok" = true ]; then
   echo "==> Enabling the hourly timer"
   systemctl enable --now cc-expire-enquiries.timer
   systemctl list-timers cc-expire-enquiries --no-pager
