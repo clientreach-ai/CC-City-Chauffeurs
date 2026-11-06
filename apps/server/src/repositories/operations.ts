@@ -13,7 +13,7 @@ import {
   locationRefusal,
   londonToday,
   lostReasons,
-  PROPOSED_MAX_MONTHS_AHEAD,
+  MAX_MONTHS_AHEAD,
   todayISO,
   validator,
   type ActivityEntry,
@@ -320,7 +320,7 @@ export async function journeyRules(): Promise<{ coverage: Coverage; maxMonthsAhe
       servedPlaces: settings?.business.servedPlaces ?? [...DEFAULT_SERVED_PLACES],
       servedCountries: settings?.business.servedCountries ?? [...DEFAULT_SERVED_COUNTRIES],
     },
-    maxMonthsAhead: settings?.booking.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD,
+    maxMonthsAhead: settings?.booking.maxMonthsAhead ?? MAX_MONTHS_AHEAD,
   };
 }
 

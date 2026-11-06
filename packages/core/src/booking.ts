@@ -16,14 +16,14 @@
 /**
  * How far ahead a journey may be requested, when the settings do not say.
  *
- * **Proposed, not company policy.** The only booking window City Chauffeurs
- * publishes is "We ask for 48 hours' notice wherever possible" — a minimum,
- * with nothing at the far end. Twelve months is our proposal: long enough
- * for a wedding booked a year out, short enough that a mistyped year is
- * caught. It needs Faheem's approval before it governs real customers, and
- * it is a setting so that approval does not need a deploy.
+ * Twelve months is the client's window, approved by Faheem. What City
+ * Chauffeurs publishes alongside it is only the near end — "We ask for 48
+ * hours' notice wherever possible" — so this is the far one: long enough for
+ * a wedding booked a year out, short enough that a mistyped year is caught.
+ * It remains a setting as well as a default, so the office can move it
+ * without a deploy.
  */
-export const PROPOSED_MAX_MONTHS_AHEAD = 12;
+export const MAX_MONTHS_AHEAD = 12;
 
 /** Today in London, as "YYYY-MM-DD" — the date the business and its customers mean. */
 export function londonToday(now: Date = new Date()): string {
@@ -103,7 +103,7 @@ export function journeyDateRefusal(value: string, settings: HorizonSettings): st
   const earliest = daysBefore(settings.today, settings.graceDays ?? 0);
   if (value < earliest) return `That date has passed — today is ${settings.today}.`;
 
-  const months = settings.maxMonthsAhead ?? PROPOSED_MAX_MONTHS_AHEAD;
+  const months = settings.maxMonthsAhead ?? MAX_MONTHS_AHEAD;
   const last = horizonDate(settings.today, months);
   if (value > last) {
     // Read by a visitor on the website as well as by the assistant, so it
