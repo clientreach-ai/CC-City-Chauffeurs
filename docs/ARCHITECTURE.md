@@ -319,12 +319,8 @@ operations and publishing. `admin` adds site settings and the team.
 - **Enquiries expire only when somebody runs the script.** The sweep, the
   script and the systemd units are built and tested; the timer is installed
   on no machine, and nothing in `deploy/deploy.sh` touches it. Turning it on
-  is three commands as root, written out at the bottom of that file.
-- **The twelve-month booking window is our proposal, not the client's
-  policy.** It governs the website's form and the assistant today because
-  something had to, but City Chauffeurs publishes only a minimum ("48 hours'
-  notice wherever possible") and no far limit. It needs Faheem's approval, and
-  it is a setting in the admin so that approval does not need a deploy.
+  is `sudo ./deploy/install-expire-timer.sh` on the VPS, which dry-runs the
+  sweep and waits to be told to go on before it installs anything.
 - **No testimonials are published.** The client has not supplied attributable
   quotes, and one cannot be published without a first name, a role, a district
   and a record that the customer agreed — fake reviews are an offence under
