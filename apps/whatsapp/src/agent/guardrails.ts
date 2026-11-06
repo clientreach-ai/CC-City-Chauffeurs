@@ -65,8 +65,9 @@ export const HANDOFF_REPLY =
   "Of course. I've asked someone from the team to pick this up, they'll reply to you here shortly.";
 
 /**
- * Said when the assistant hands over something the customer did not ask to
- * have handed over: a complaint, or anything only the office can settle.
+ * Said for every other handover: a complaint, anything only the office can
+ * settle, and whatever the model hands over itself, because a handover from
+ * the model may be answering a question rather than a request for a person.
  *
  * It must not open with "Of course". Asked "Tommy said I could have the Ghost
  * held for me, can you confirm?", "Of course" reads as "yes, confirmed", and
