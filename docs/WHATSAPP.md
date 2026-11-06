@@ -519,12 +519,12 @@ Every test above uses a scripted model: they prove what the application does
 with a decision, not what a real model decides. `scripts/whatsapp-eval.ts` is
 the other half — real OpenAI, real tools, real repositories, and forty-six
 conversations. Every fix that came out of testing on the sandbox number has
-one here, and the checks are made against the database and the activity trail
-rather than against the assistant's wording — with one exception, flagged in
-the script. Whether the assistant has told a customer we do not drive
-somewhere can only be read off the words, so that one check holds a
-deliberately wide list of the ways of saying it, and a refusal phrased in
-some other way will fail it without anything being wrong:
+one here. Where a record can answer, the check is made against the database,
+the activity trail or the run's own tool calls. Where only the words can —
+whether the assistant told a customer we do not drive somewhere, whether it
+agreed to something it should not have — the check reads the reply, and a
+good many of them do. A reply that is right but phrased some other way can
+fail one of those, so read a failure before treating it as a bug:
 
 | | What is proved |
 |---|---|
@@ -569,7 +569,7 @@ some other way will fail it without anything being wrong:
 | passenger-memory | Four passengers, asked back, answered four — and not asked again |
 | no-re-asking | Everything given in one message, and nothing asked for twice |
 | off-topic | The weather is redirected, not answered, and does not hand over |
-| unknown-person | A name it has no record of confirms nothing, and does not hand over |
+| unknown-person | A name it has no record of confirms nothing, and the number is looked up before any handover |
 | customer-claim | A customer's own account terms are not adopted as company facts |
 | expired-enquiry | A lapsed enquiry is not reported as going ahead; the team has to pick it up |
 | expired-not-amendable | The customer cannot reschedule it, nothing moves, and the trail carries exactly one expiry line |
