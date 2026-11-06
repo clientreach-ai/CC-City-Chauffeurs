@@ -17,7 +17,7 @@ import {
   journeyHasPassed,
   londonClock,
   londonToday,
-  PROPOSED_MAX_MONTHS_AHEAD,
+  MAX_MONTHS_AHEAD,
 } from "@CC-City-Chauffeurs/core";
 
 const today = "2026-11-05";
@@ -100,8 +100,8 @@ describe("why a date is refused", () => {
     expect(journeyDateRefusal("2027-06-01", { today, maxMonthsAhead: 24 })).toBeNull();
   });
 
-  test("with no setting at all it falls back to the proposed default", () => {
-    expect(PROPOSED_MAX_MONTHS_AHEAD).toBe(12);
+  test("with no setting at all it falls back to the approved twelve months", () => {
+    expect(MAX_MONTHS_AHEAD).toBe(12);
     expect(journeyDateRefusal("2027-10-01", { today })).toBeNull();
     expect(journeyDateRefusal("2089-01-08", { today })).not.toBeNull();
   });
