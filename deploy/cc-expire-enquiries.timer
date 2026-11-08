@@ -1,7 +1,8 @@
 # Hourly. The sweep decides the London day and the London clock itself, so
 # this does not need a timezone and a clock change cannot move what it does.
 #
-# NOT INSTALLED. See the install notes at the bottom of deploy/deploy.sh.
+# Installed and enabled on the VPS. A change here reaches the machine only when
+# deploy/install-expire-timer.sh is run again, as root.
 [Unit]
 Description=Hourly — expire City Chauffeurs enquiries whose date has passed
 

@@ -75,14 +75,19 @@ parse, authorise and hand off; they contain no logic of their own.
 
 ### Scheduled work
 
-One job, and it is not switched on yet. `expireDueEnquiries` closes the
-enquiries whose journey date has gone by with nothing booked, so the office's
-list of live work and the conversion figure stop counting journeys that can
-no longer happen. It is a repository function like any other, with a script
-in front of it (`scripts/expire-enquiries.ts`, `--dry-run` to see what it
-would do) and a systemd timer in `deploy/` that nobody has installed. The
-script imports the repository alone: importing `src/index.ts` would start the
-API and open the WhatsApp channel from a cron job.
+One job, running hourly on the VPS. `expireDueEnquiries` closes the enquiries
+whose journey date has gone by with nothing booked, so the office's list of
+live work and the conversion figure stop counting journeys that can no longer
+happen. It is a repository function like any other, with a script in front of
+it (`scripts/expire-enquiries.ts`, `--dry-run` to see what it would do) and a
+systemd timer in `deploy/`. The script imports the repository alone: importing
+`src/index.ts` would start the API and open the WhatsApp channel from a cron
+job.
+
+The units were installed by hand, as root, by `deploy/install-expire-timer.sh`,
+and nothing in `deploy/deploy.sh` touches them. So a deploy cannot turn the
+sweep off or on — and cannot update it either: a change to either unit file
+here reaches the machine only when that installer is run again.
 
 It closes an enquiry once in its life and writes one line on its trail,
 however many times it runs, which is what lets an hourly timer be safe — see
@@ -316,11 +321,6 @@ operations and publishing. `admin` adds site settings and the team.
   `apps/server/src/lib/notifications.ts`). Everything else is still written
   to the book of record and no further: a recorded quote reaches nobody, and
   no chauffeur is dispatched. Every screen offering one of those says so.
-- **Enquiries expire only when somebody runs the script.** The sweep, the
-  script and the systemd units are built and tested; the timer is installed
-  on no machine, and nothing in `deploy/deploy.sh` touches it. Turning it on
-  is `sudo ./deploy/install-expire-timer.sh` on the VPS, which dry-runs the
-  sweep and waits to be told to go on before it installs anything.
 - **No testimonials are published.** The client has not supplied attributable
   quotes, and one cannot be published without a first name, a role, a district
   and a record that the customer agreed — fake reviews are an offence under
