@@ -251,6 +251,48 @@ decided anything about it.
 No migration was needed for either, because the status column is text with a
 TypeScript union behind it.
 
+#### The reminder, before the sweep
+
+An enquiry used to go quiet and then simply be closed. `remindDueEnquiries`
+is the message that gives it a chance not to be: the customer whose journey
+is two days off and who has not booked hears from us once, by email, and the
+sweep closes them the day after if nothing comes back.
+
+It is the only thing in the system that writes to a customer nobody has just
+heard from, which is why every condition on it is narrow:
+
+- Two days, because the client's own published figure is "48 hours' notice
+  wherever possible". A reply still leaves enough time to put a car to it.
+- Open, nothing booked, the journey ahead of us and inside those two days,
+  and an email address to write to. The public form makes email optional, so
+  an enquiry without one is left alone — the office still sees it.
+- **Never twice.** The `reminded` line on the trail is the record, exactly as
+  `expired` is for the sweep. Nobody wants two reminders.
+- **Claimed before sent, not after.** The `reminded` line commits before a
+  single email leaves, so two runs at once cannot both write to the same
+  customer. The cost of that order is the rarer failure: a crash between the
+  commit and the send would leave a line saying we wrote to somebody we did
+  not. Two reminders are worse than none, so that is the way round to have
+  it. A send that fails is written on the trail as well — *"That reminder did
+  not leave"* — because the office reading the enquiry is who has to chase it
+  by hand.
+- **08:00 to 20:00, London.** The timer is hourly and unattended, so without
+  a window a reminder lands at four in the morning. Outside the hours the
+  reminder sweep does nothing at all and says so; the closing sweep still
+  runs, because it writes to nobody.
+- It promises nothing: no price, because only the office quotes, and no
+  availability, because nothing here knows what is free. It says we still
+  have the enquiry, says when the journey is, and asks.
+
+`send` is passed into the sweep rather than imported by it, because a
+repository that can send email is a repository that sends email from a test.
+
+> **Email only, for now.** A WhatsApp message to a customer who has not
+> written to us inside the last 24 hours needs a template Meta has approved,
+> and there is none; the number is still Twilio's sandbox besides. So a
+> WhatsApp enquiry that left no email address gets no reminder. Worth
+> revisiting when the client's own number is live.
+
 #### The sweep
 
 `expireDueEnquiries` closes them, and everything about it is shaped by its
@@ -292,11 +334,19 @@ changed to Expired" would read like somebody's decision.
 
 #### Running it
 
+Both sweeps are one script, reminder first, so that nobody is reminded and
+closed in the same round:
+
 ```bash
 cd apps/server
-bun run scripts/expire-enquiries.ts --dry-run   # what it would close
-bun run scripts/expire-enquiries.ts             # close it
+bun run scripts/expire-enquiries.ts --dry-run   # what it would send and close
+bun run scripts/expire-enquiries.ts             # send and close
 ```
+
+The file is still called `expire-enquiries.ts` after gaining the reminder,
+because the unit installed on the VPS names it: renaming it here would leave
+that machine running a script that no longer exists until somebody reinstalled
+the unit as root.
 
 The script imports the repository and nothing else. Importing `src/index.ts`
 would start the API, open the WhatsApp channel and leave a cron job
