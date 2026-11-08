@@ -1,26 +1,54 @@
 /**
- * Closes the enquiries whose journey date has gone by.
+ * The hourly round on the enquiries nobody has booked: reminds, then closes.
  *
  *   bun run scripts/expire-enquiries.ts [--dry-run]
  *
- * Run hourly by `cc-expire-enquiries.timer` (see `deploy/`), and by hand
- * whenever somebody wants to know what it would do. Both are safe: the sweep
- * closes an enquiry once in its life and writes one line on its trail,
- * however many times it runs. `--dry-run` reports and writes nothing.
+ * Two sweeps, in this order, because the order is the point. A customer
+ * whose journey is two days off and who has not booked hears from us; a
+ * customer whose journey has been and gone has their enquiry closed. The
+ * reminder comes first so that nobody is ever reminded and closed in the
+ * same run, and so an enquiry has had its chance before it is shut.
  *
- * It imports the repository and nothing else. Importing `src/index.ts` would
- * start the API, open the WhatsApp channel and have a cron job answering
- * customers, which is not what anybody asked this to do.
+ * Run hourly by `cc-expire-enquiries.timer` (see `deploy/`), and by hand
+ * whenever somebody wants to know what it would do. Both are safe: each
+ * sweep touches an enquiry once in its life and writes one line on its
+ * trail, however many times it runs. `--dry-run` reports and writes nothing
+ * and sends nothing.
+ *
+ * The file is still called `expire-enquiries.ts` because the unit installed
+ * on the VPS names it, and renaming it here would leave a machine running a
+ * script that no longer exists until somebody reinstalled the unit as root.
+ *
+ * It imports the repository and the mailer, and nothing else. Importing
+ * `src/index.ts` would start the API, open the WhatsApp channel and have a
+ * cron job answering customers, which is not what anybody asked this to do.
  */
 
-import { expireDueEnquiries } from "../src/repositories/operations";
+import { enquiryReminder } from "../src/lib/notifications";
+import { expireDueEnquiries, remindDueEnquiries } from "../src/repositories/operations";
 
 const dryRun = process.argv.includes("--dry-run");
 const started = performance.now();
 
+const reminders = await remindDueEnquiries({ dryRun, send: enquiryReminder });
 const { checked, expired } = await expireDueEnquiries({ dryRun });
 
 const took = Math.round(performance.now() - started);
+
+if (!reminders.inWindow) {
+  console.log("Outside the hours a reminder may be sent; none was. The closing sweep still ran.");
+} else {
+  console.log(
+    `${dryRun ? "Dry run: found" : "Found"} ${reminders.checked} enquir${reminders.checked === 1 ? "y" : "ies"} due a reminder, ` +
+      `${dryRun ? "would email" : "emailed"} ${reminders.reminded.length}.`,
+  );
+  for (const reminder of reminders.reminded) {
+    console.log(`  ${reminder.reference} — ${reminder.date} to ${reminder.email}`);
+  }
+  for (const reminder of reminders.unsent) {
+    console.error(`  ${reminder.reference} — the reminder did not leave; the office has to chase it`);
+  }
+}
 
 // One line when there is nothing to say, so an hourly job does not fill the
 // journal, and a line each when there is — the references are what somebody
