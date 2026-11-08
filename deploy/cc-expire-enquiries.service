@@ -1,9 +1,9 @@
 # Closes the enquiries whose journey date has gone by. Started by
 # cc-expire-enquiries.timer, not enabled itself.
 #
-# NOT INSTALLED. Neither this nor the timer is on the VPS. See the install
-# notes at the bottom of deploy/deploy.sh — like cc-server.service, they go in
-# by hand, as root, once.
+# Installed on the VPS, with the timer enabled. Like cc-server.service it went
+# in by hand, as root, so a change to this file does not reach the machine on
+# its own: run deploy/install-expire-timer.sh again, as root.
 [Unit]
 Description=City Chauffeurs — expire enquiries whose date has passed
 After=network-online.target
