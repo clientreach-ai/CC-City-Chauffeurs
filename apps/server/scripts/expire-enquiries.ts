@@ -30,12 +30,25 @@ import { expireDueEnquiries, remindDueEnquiries } from "../src/repositories/oper
 const dryRun = process.argv.includes("--dry-run");
 const started = performance.now();
 
-const reminders = await remindDueEnquiries({ dryRun, send: enquiryReminder });
+// The reminder is the newer job and the one that talks to a mail server. If
+// it throws, the closing sweep still runs: the office's list should not stop
+// being tidied because a reminder could not be worked out. The run is still
+// reported as failed, at the end, so the journal and systemd both show it.
+let reminders: Awaited<ReturnType<typeof remindDueEnquiries>> | null = null;
+let reminderError: unknown = null;
+try {
+  reminders = await remindDueEnquiries({ dryRun, send: enquiryReminder });
+} catch (error) {
+  reminderError = error;
+}
 const { checked, expired } = await expireDueEnquiries({ dryRun });
 
 const took = Math.round(performance.now() - started);
 
-if (!reminders.inWindow) {
+if (!reminders) {
+  console.error("The reminder sweep failed; nobody was reminded. The closing sweep still ran.");
+  console.error(reminderError);
+} else if (!reminders.inWindow) {
   console.log("Outside the hours a reminder may be sent; none was. The closing sweep still ran.");
 } else {
   console.log(
@@ -64,4 +77,4 @@ for (const enquiry of expired) {
 
 // Bun keeps the process alive for the database pool otherwise, and a
 // `Type=oneshot` unit would sit in `activating` until systemd timed it out.
-process.exit(0);
+process.exit(reminders ? 0 : 1);

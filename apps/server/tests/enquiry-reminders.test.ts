@@ -62,12 +62,13 @@ function recorder(outcome = true) {
  * An enquiry whose journey is on `date` at `time`.
  *
  * Made for a date well ahead — the server refuses anything else — and then
- * moved, the way the passing of time would leave it.
+ * moved, the way the passing of time would leave it. `madeAt` is when the
+ * customer wrote in: a week before NOW unless a test is about a new one.
  */
 async function enquiryFor(
   date: string,
   time: string,
-  over: { status?: string; bookingId?: string; email?: string } = {},
+  over: { status?: string; bookingId?: string; email?: string; madeAt?: string } = {},
 ) {
   const made = await operations.createPublicEnquiry(
     {
@@ -95,9 +96,17 @@ async function enquiryFor(
     `update enquiry
         set journey = jsonb_set(jsonb_set(journey, '{date}', $1::jsonb), '{time}', $2::jsonb),
             status = coalesce($3, status),
-            booking_id = coalesce($4, booking_id)
+            booking_id = coalesce($4, booking_id),
+            created_at = $6::timestamptz
       where id = $5`,
-    [JSON.stringify(date), JSON.stringify(time), over.status ?? null, over.bookingId ?? null, made.id],
+    [
+      JSON.stringify(date),
+      JSON.stringify(time),
+      over.status ?? null,
+      over.bookingId ?? null,
+      made.id,
+      over.madeAt ?? "2026-11-01T10:00:00Z",
+    ],
   );
 
   return made;
@@ -184,6 +193,26 @@ describe("who is left alone", () => {
     expect((await operations.remindDueEnquiries({ now: NOW, send: mail.send })).reminded).toEqual([]);
     expect(mail.sent).toEqual([]);
     expect(await trailOf(made.id, "reminded")).toEqual([]);
+  });
+
+  test("an enquiry made an hour ago, for tomorrow: the office has not had its day", async () => {
+    const made = await enquiryFor("2026-11-09", "09:00", { madeAt: "2026-11-08T13:00:00Z" });
+    const mail = recorder();
+
+    expect((await operations.remindDueEnquiries({ now: NOW, send: mail.send })).reminded).toEqual([]);
+    expect(mail.sent).toEqual([]);
+    expect(await trailOf(made.id, "reminded")).toEqual([]);
+  });
+
+  test("the same enquiry a day later, still unanswered, is written to", async () => {
+    const made = await enquiryFor("2026-11-10", "09:00", { madeAt: "2026-11-08T13:00:00Z" });
+    const mail = recorder();
+
+    const early = await operations.remindDueEnquiries({ now: new Date("2026-11-09T12:00:00Z"), send: mail.send });
+    const later = await operations.remindDueEnquiries({ now: new Date("2026-11-09T13:00:00Z"), send: mail.send });
+
+    expect(early.reminded).toEqual([]);
+    expect(later.reminded.map((one) => one.reference)).toEqual([made.reference]);
   });
 
   test("an enquiry that already has a booking", async () => {
