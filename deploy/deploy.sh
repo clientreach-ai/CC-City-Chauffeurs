@@ -32,12 +32,14 @@ pnpm --filter server... run build
 #   install -m 644 deploy/cc-server.service /etc/systemd/system/cc-server.service
 #   systemctl daemon-reload && systemctl restart cc-server
 #
-# The hourly enquiry sweep is a second pair of units, and is NOT INSTALLED on
-# the VPS yet. Turning it on is one command, as root:
+# The hourly enquiry sweep is a second pair of units, installed on the VPS with
+# its timer enabled. Nothing in this script touches them, so a deploy neither
+# turns the sweep on nor updates it: when either unit file changes here, the
+# machine keeps the copy it already has until somebody reinstalls, as root:
 #
 #   sudo ./deploy/install-expire-timer.sh
 #
-# That dry-runs the sweep, shows what the first real run would close and waits
+# Safe to re-run. It dry-runs the sweep, shows what a run would close and waits
 # to be told to go on, because it closes enquiries the office can still see.
 # Then it installs both units, runs the service once while you watch, and only
 # enables the timer if that run succeeded.

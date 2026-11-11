@@ -302,14 +302,14 @@ The script imports the repository and nothing else. Importing `src/index.ts`
 would start the API, open the WhatsApp channel and leave a cron job
 answering customers.
 
-> **The timer is not installed.** `deploy/cc-expire-enquiries.service` and
-> `.timer` are in the repository and on no machine. Nothing in `deploy.sh`
-> touches them, so deploying this does not turn the sweep on. The install is
-> written out at the bottom of `deploy/deploy.sh`: dry-run it first, start the
-> service once by hand and read the journal, then `systemctl enable --now` the
-> timer. It is hourly, `Persistent=true` so a VPS that was off overnight runs
-> the sweep it missed, and safe either way because the sweep closes nothing
-> twice.
+> **The timer is installed and running hourly.**
+> `deploy/cc-expire-enquiries.service` and `.timer` are on the VPS, put there
+> by `deploy/install-expire-timer.sh` as root. `Persistent=true`, so a VPS that
+> was off overnight runs the sweep it missed, and safe either way because the
+> sweep closes nothing twice. Nothing in `deploy.sh` touches the units, which
+> means a deploy can neither turn the sweep off nor update it: change either
+> file here and the machine keeps the copy it has until the installer is run
+> again. `systemctl list-timers cc-expire-enquiries` says when it next runs.
 
 The office reaches the same two capabilities the assistant does, through
 `PATCH /enquiries/:id/journey` and the status route, and the admin's enquiry
@@ -665,10 +665,6 @@ The simulator records replies instead of sending them; read them with
   `unclear` and becomes an enquiry with a note for the office rather than a
   refusal. That is the right way round, but it does mean the office still
   reads the odd journey the assistant could not place.
-- **The expiry timer is not installed.** The sweep, the script and the units
-  are built and tested; nothing runs them on a schedule yet. Until the timer
-  is enabled — `sudo ./deploy/install-expire-timer.sh` on the VPS — enquiries
-  expire only when somebody runs the script.
 - **A quote the office records reaches nobody.** `get_enquiry_status` will
   show the customer a figure the office has put against their enquiry, but
   nothing sends it: somebody still has to tell them.
