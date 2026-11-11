@@ -75,14 +75,20 @@ parse, authorise and hand off; they contain no logic of their own.
 
 ### Scheduled work
 
-One job, running hourly on the VPS. `expireDueEnquiries` closes the enquiries
-whose journey date has gone by with nothing booked, so the office's list of
-live work and the conversion figure stop counting journeys that can no longer
-happen. It is a repository function like any other, with a script in front of
-it (`scripts/expire-enquiries.ts`, `--dry-run` to see what it would do) and a
-systemd timer in `deploy/`. The script imports the repository alone: importing
-`src/index.ts` would start the API and open the WhatsApp channel from a cron
-job.
+One job, running hourly on the VPS, doing two things in order.
+`remindDueEnquiries` emails the customer whose journey is within two days and
+who has not booked — once ever, never inside the enquiry's first day with us,
+and only between 08:00 and 20:00 London, since nothing unattended should write
+to somebody at four in the morning. Then `expireDueEnquiries` closes the
+enquiries whose journey date has gone by with nothing booked, so the office's
+list of live work and the conversion figure stop counting journeys that can no
+longer happen. The reminder comes first so that no enquiry is reminded and
+closed in the same round, and a reminder sweep that fails does not stop the
+closing one. Both are repository functions like any other, with one script in
+front of them (`scripts/expire-enquiries.ts`, `--dry-run` to see what it would
+do) and a systemd timer in `deploy/`. The script imports the repository and
+the mailer and nothing else: importing `src/index.ts` would start the API and
+open the WhatsApp channel from a cron job.
 
 The units were installed by hand, as root, by `deploy/install-expire-timer.sh`,
 and nothing in `deploy/deploy.sh` touches them. So a deploy cannot turn the

@@ -434,8 +434,12 @@ export type ActivityEntry = {
    * `expired` is its own kind rather than a `status` line because nobody
    * made it happen. It is also the sweep's own record that it has already
    * closed this enquiry once, which is how reopening one sticks.
+   *
+   * `reminded` works the same way and for the same reason: it is the record
+   * that the customer has already been written to about this enquiry, and a
+   * row carrying one is never written to again. Nobody wants two reminders.
    */
-  kind: "created" | "status" | "note" | "quote" | "booking" | "edit" | "expired";
+  kind: "created" | "status" | "note" | "quote" | "booking" | "edit" | "expired" | "reminded";
   text: string;
 };
 

@@ -25,6 +25,19 @@
  */
 export const DEFAULT_MAX_MONTHS_AHEAD = 12;
 
+/**
+ * A London date a number of days from today, as "YYYY-MM-DD".
+ *
+ * Date-only arithmetic through UTC, so the hour never enters into it and a
+ * clock change cannot move the answer: the day after the spring forward is
+ * still the day after.
+ */
+export function londonDateIn(days: number, now: Date = new Date()): string {
+  const [year, month, day] = londonToday(now).split("-").map(Number);
+  const moved = new Date(Date.UTC(year!, month! - 1, day! + days));
+  return moved.toISOString().slice(0, 10);
+}
+
 /** Today in London, as "YYYY-MM-DD" — the date the business and its customers mean. */
 export function londonToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(now);

@@ -334,6 +334,54 @@ export function bookingConfirmed(booking: Booking, contact: { name: string; emai
 }
 
 /**
+ * A reminder to a customer whose journey is nearly here and who has not
+ * booked, sent by the hourly sweep rather than by anything a person did.
+ *
+ * Awaited, and answers whether it left, because the sweep records the
+ * outcome on the enquiry's trail: an office chasing a quiet customer needs
+ * to know whether we have already written to them.
+ *
+ * It promises nothing. No price, because only the office quotes; no
+ * availability, because nothing here knows what is free. It says we still
+ * have the enquiry, says when the journey is, and asks. That is the whole of
+ * what the system can honestly tell somebody unattended.
+ */
+export async function enquiryReminder(reminder: {
+  reference: string;
+  name: string;
+  email: string;
+  date: string;
+  time: string;
+}): Promise<boolean> {
+  if (!reminder.email) return false;
+  const text = [
+    `Dear ${reminder.name || "Sir or Madam"},`,
+    "",
+    "We still have your enquiry with us, and the date is nearly here.",
+    "",
+    `Reference   ${reminder.reference}`,
+    `Date        ${or(reminder.date)}`,
+    `Time        ${or(reminder.time)}`,
+    "",
+    "Nothing is booked yet. If you would still like the car, reply to this email or telephone the office and we will arrange it.",
+    "",
+    "If your plans have changed, no reply is needed and we will close the enquiry.",
+    "",
+    "City Chauffeurs",
+  ].join("\n");
+
+  return post(
+    {
+      to: reminder.email,
+      subject: `Your enquiry — ${reminder.reference}`,
+      text,
+      ...(env.OFFICE_EMAIL ? { replyTo: env.OFFICE_EMAIL } : {}),
+    },
+    { about: "enquiry_reminder", reference: reminder.reference },
+  );
+}
+
+/**
  * An invitation to the admin, sent to the person being invited.
  *
  * Unlike everything above, this one is awaited and answers whether it was

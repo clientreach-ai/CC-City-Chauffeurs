@@ -12,6 +12,8 @@ import {
   journeyHasPassed,
   labelFor,
   locationRefusal,
+  londonClock,
+  londonDateIn,
   londonToday,
   lostReasons,
   todayISO,
@@ -32,7 +34,7 @@ import {
 } from "@CC-City-Chauffeurs/core";
 import { db, schema } from "@CC-City-Chauffeurs/db";
 import { tryNormalisePhone } from "@CC-City-Chauffeurs/whatsapp/phone";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 
 import { ConflictError } from "../lib/errors";
 import { iso, newId } from "../lib/ids";
@@ -485,7 +487,188 @@ const EXPIRABLE = ["new", "contacted", "quoted"] as const satisfies readonly Enq
  */
 const EXPIRY_LOCK = 48_201_911;
 
+/**
+ * How many days ahead of a journey the customer hears from us.
+ *
+ * Two, because the client's own published figure is "48 hours' notice
+ * wherever possible": a reply still leaves enough time to put a car to it.
+ * Earlier and the customer may not have decided; later and a yes is no use.
+ */
+const REMIND_DAYS_AHEAD = 2;
+
+/**
+ * The hours a reminder may leave, in London.
+ *
+ * The timer is hourly and unattended, so without this a reminder lands at
+ * four in the morning, which is not how a chauffeur company writes to
+ * anybody. Outside these hours the sweep does nothing at all and the next
+ * run inside them picks the same enquiries up.
+ */
+const REMIND_FROM = "08:00";
+const REMIND_UNTIL = "20:00";
+
+/**
+ * How long an enquiry has to have been with us before it can be reminded.
+ *
+ * The form takes a journey for today or tomorrow, and without this the next
+ * hourly run tells somebody who wrote in forty minutes ago that we "still
+ * have" their enquiry, before the office has had the chance to answer it. A
+ * day is long enough that silence means something.
+ */
+const REMIND_MIN_AGE_HOURS = 24;
+
+/**
+ * The lock a reminder is claimed under. A different number from the closing
+ * sweep's, so neither waits on the other; the same idea otherwise.
+ */
+const REMINDER_LOCK = 48_201_912;
+
+/** An enquiry whose customer is due to hear from us, and what to say it about. */
+export type DueReminder = {
+  id: string;
+  reference: string;
+  name: string;
+  email: string;
+  date: string;
+  time: string;
+};
+
 export type ExpiredEnquiry = { id: string; reference: string; date: string; time: string };
+
+/**
+ * Writes to the customers whose journey is nearly here and who have not
+ * booked, once each.
+ *
+ * The sweep below closes these enquiries once the day has gone; this is the
+ * message that gives them a chance not to be closed. It is the only thing in
+ * the system that writes to a customer nobody has just heard from, so the
+ * conditions are narrow on purpose: still being worked, nothing booked, the
+ * journey ahead of us but inside `REMIND_DAYS_AHEAD`, an enquiry at least
+ * `REMIND_MIN_AGE_HOURS` old, an email address to write to, inside the hours
+ * a company writes to people, and never twice.
+ *
+ * Claimed before sent, not after. The `reminded` line goes on the trail in a
+ * transaction that commits before a single email leaves, and that
+ * transaction holds `REMINDER_LOCK` while it looks and writes, so two sweeps
+ * at once cannot both write to the same customer. The lock is what makes
+ * that true: without it both would look, both would find no line, and both
+ * would write one. The cost of that order is the
+ * rarer failure: a crash between the commit and the send would leave a line
+ * saying we wrote to somebody we did not. Two reminders are worse than none,
+ * so that is the way round to have it.
+ *
+ * `send` is given by the caller rather than imported, because a repository
+ * that can send email is a repository that sends email from a test.
+ */
+export async function remindDueEnquiries(
+  options: {
+    now?: Date;
+    dryRun?: boolean;
+    send?: (reminder: DueReminder) => Promise<boolean>;
+  } = {},
+): Promise<{ inWindow: boolean; checked: number; reminded: DueReminder[]; unsent: DueReminder[] }> {
+  const now = options.now ?? new Date();
+  const clock = londonClock(now);
+  if (clock < REMIND_FROM || clock >= REMIND_UNTIL) {
+    return { inWindow: false, checked: 0, reminded: [], unsent: [] };
+  }
+
+  const today = londonToday(now);
+  const until = londonDateIn(REMIND_DAYS_AHEAD, now);
+  const madeBefore = new Date(now.getTime() - REMIND_MIN_AGE_HOURS * 60 * 60 * 1000);
+
+  const candidates = await db
+    .select({
+      id: schema.enquiry.id,
+      reference: schema.enquiry.reference,
+      contact: schema.enquiry.contact,
+      journey: schema.enquiry.journey,
+    })
+    .from(schema.enquiry)
+    .where(
+      and(
+        inArray(schema.enquiry.status, [...EXPIRABLE]),
+        isNull(schema.enquiry.bookingId),
+        sql`${schema.enquiry.journey} ->> 'date' >= ${today}`,
+        sql`${schema.enquiry.journey} ->> 'date' <= ${until}`,
+        lte(schema.enquiry.createdAt, madeBefore),
+        sql`coalesce(${schema.enquiry.contact} ->> 'email', '') <> ''`,
+        sql`not exists (
+          select 1 from ${schema.activityEntry}
+           where ${schema.activityEntry.enquiryId} = ${schema.enquiry.id}
+             and ${schema.activityEntry.kind} = 'reminded'
+        )`,
+      ),
+    )
+    .orderBy(asc(sql`${schema.enquiry.journey} ->> 'date'`));
+
+  const reminded: DueReminder[] = [];
+  const unsent: DueReminder[] = [];
+
+  for (const row of candidates) {
+    // A journey timed for earlier today has been and gone: the sweep below is
+    // about to close it, and telling somebody their car is nearly here would
+    // be the last thing we ever said to them about it.
+    if (journeyHasPassed(row.journey, now)) continue;
+
+    const due: DueReminder = {
+      id: row.id,
+      reference: row.reference,
+      name: row.contact.name,
+      email: row.contact.email,
+      date: row.journey.date,
+      time: row.journey.time,
+    };
+    if (options.dryRun) {
+      reminded.push(due);
+      continue;
+    }
+
+    const claimed = await db.transaction(async (tx) => {
+      // Its own statement, first: the select below then starts after any
+      // other sweep's line has committed, and sees it.
+      await tx.execute(sql`select pg_advisory_xact_lock(${REMINDER_LOCK})`);
+      const [still] = await tx
+        .select({ id: schema.enquiry.id })
+        .from(schema.enquiry)
+        .where(
+          and(
+            eq(schema.enquiry.id, row.id),
+            inArray(schema.enquiry.status, [...EXPIRABLE]),
+            isNull(schema.enquiry.bookingId),
+            sql`not exists (
+              select 1 from ${schema.activityEntry}
+               where ${schema.activityEntry.enquiryId} = ${schema.enquiry.id}
+                 and ${schema.activityEntry.kind} = 'reminded'
+            )`,
+          ),
+        );
+      if (!still) return false;
+      await log(
+        tx,
+        { enquiryId: row.id },
+        "reminded",
+        `Reminder emailed to ${due.email} — the journey is on ${formatDate(due.date)} and nothing is booked`,
+      );
+      return true;
+    });
+    if (!claimed) continue;
+
+    const sent = options.send ? await options.send(due) : false;
+    if (sent) {
+      reminded.push(due);
+      continue;
+    }
+    // On the trail rather than only in the journal, because the office
+    // reading this enquiry is the one who now has to chase it by hand.
+    await db.transaction((tx) =>
+      log(tx, { enquiryId: row.id }, "note", "That reminder did not leave: the email was not sent."),
+    );
+    unsent.push(due);
+  }
+
+  return { inWindow: true, checked: candidates.length, reminded, unsent };
+}
 
 /**
  * Closes the enquiries whose journey has been and gone.
