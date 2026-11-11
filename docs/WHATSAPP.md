@@ -266,12 +266,16 @@ heard from, which is why every condition on it is narrow:
 - Open, nothing booked, the journey ahead of us and inside those two days,
   and an email address to write to. The public form makes email optional, so
   an enquiry without one is left alone — the office still sees it.
+- **Not in its first day.** The form takes a journey for today or tomorrow,
+  and the next hourly run would otherwise tell somebody who wrote in forty
+  minutes ago that we "still have" their enquiry. An enquiry has to be 24
+  hours old before it is reminded.
 - **Never twice.** The `reminded` line on the trail is the record, exactly as
   `expired` is for the sweep. Nobody wants two reminders.
 - **Claimed before sent, not after.** The `reminded` line commits before a
-  single email leaves, so two runs at once cannot both write to the same
-  customer. The cost of that order is the rarer failure: a crash between the
-  commit and the send would leave a line saying we wrote to somebody we did
+  single email leaves, under an advisory lock, so two runs at once cannot
+  both write to the same customer. The cost of that order is the rarer
+  failure: a crash between the commit and the send would leave a line saying we wrote to somebody we did
   not. Two reminders are worse than none, so that is the way round to have
   it. A send that fails is written on the trail as well — *"That reminder did
   not leave"* — because the office reading the enquiry is who has to chase it
@@ -348,8 +352,8 @@ because the unit installed on the VPS names it: renaming it here would leave
 that machine running a script that no longer exists until somebody reinstalled
 the unit as root.
 
-The script imports the repository and nothing else. Importing `src/index.ts`
-would start the API, open the WhatsApp channel and leave a cron job
+The script imports the repository and the mailer and nothing else. Importing
+`src/index.ts` would start the API, open the WhatsApp channel and leave a cron job
 answering customers.
 
 > **The timer is installed and running hourly.**
